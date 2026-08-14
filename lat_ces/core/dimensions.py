@@ -66,7 +66,7 @@ class UnitSKOError(Exception):
 
 
 class Unit:
-    """Reference-style unit implementation with SKO metadata and conversion support."""
+    """Reference-style canonical unit implementation with SKO metadata and conversion support."""
 
     VALID_STATUSES = {"DRAFT", "REVIEWED", "VERIFIED", "VALIDATED", "RELEASED"}
 
@@ -118,6 +118,20 @@ class Unit:
     @property
     def status(self) -> str:
         return self._status
+
+    def is_compatible(self, other: "Unit") -> bool:
+        """Compatibility API retained for legacy scientific unit consumers."""
+        return isinstance(other, Unit) and self.dimension == other.dimension
+
+    def get_conversion_factor_to(self, target_unit: "Unit") -> float:
+        """Return the linear scale factor between compatible units."""
+        if not self.is_compatible(target_unit):
+            raise UnitSKOError(
+                f"Inkompatibilna konverzija jedinica: {self.symbol} -> {target_unit.symbol}"
+            )
+        if self.offset != 0.0 or target_unit.offset != 0.0:
+            raise UnitSKOError("Affine units require explicit offset-aware conversion.")
+        return self.scale_factor / target_unit.scale_factor
 
     def set_status(self, new_status: str) -> None:
         if self._status == "RELEASED":
