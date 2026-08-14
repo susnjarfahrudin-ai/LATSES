@@ -3,12 +3,12 @@ LAT-CES System Integration & Simulation Engine v2
 Spaja Module 010-015 u jedinstvenu sveobuhvatnu simulaciju plenum sistema.
 """
 from typing import Dict, Any
-from lat_ces.core.dimensions import Dimension
-from lat_ces.modules.quantity import PhysicalQuantity
+from lat_ces.scientific.quantities.quantity import PhysicalQuantity
 from lat_ces.modules.plenum import PlenumEngine
 from lat_ces.modules.acoustics import AcousticsEngine
 from lat_ces.modules.thermal import ThermalEngine
 from lat_ces.modules.pressure import FanEngine
+
 
 class FullPlenumSimulation:
     def __init__(self, max_allowed_noise_db: float = 45.0, fan_efficiency: float = 0.8):
