@@ -6,11 +6,10 @@ from typing import Callable
 from lat_ces.core.dimensions import Dimension
 from lat_ces.modules.quantity import PhysicalQuantity
 
+
 class PhysicalEquation:
-    """
-    Predstavlja fizikalnu jednačinu koja prihvata ulazne fizikalne veličine,
-    izvršava proračun i verifikuje da dobijena dimenzija odgovara očekivanoj.
-    """
+    """Legacy equation facade compatible with canonical PhysicalQuantity values."""
+
     def __init__(self, name: str, expected_dimension: Dimension, formula: Callable[..., PhysicalQuantity]):
         self.name = name
         self.expected_dimension = expected_dimension
@@ -18,10 +17,11 @@ class PhysicalEquation:
 
     def compute(self, **kwargs: PhysicalQuantity) -> PhysicalQuantity:
         result = self.formula(**kwargs)
+        result_dimension = getattr(result, "dimension", result.unit.dimension)
 
-        if result.dimension != self.expected_dimension:
+        if result_dimension != self.expected_dimension:
             raise ValueError(
                 f"Greška u jednačini '{self.name}': Očekivana dimenzija {self.expected_dimension}, "
-                f"ali je dobijena {result.dimension}!"
+                f"ali je dobijena {result_dimension}!"
             )
         return result
