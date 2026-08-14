@@ -1,4 +1,4 @@
-from lat_ces.core.dimensions import Dimension, LENGTH, MASS, TIME, TEMPERATURE, Unit
+from lat_ces.core.dimensions import Dimension, LENGTH, TIME, TEMPERATURE, Unit
 from lat_ces.modules.pipeline import FullPlenumSimulation
 from lat_ces.scientific.quantities.quantity import PhysicalQuantity
 
@@ -11,7 +11,6 @@ PRESSURE = Dimension(M=1, L=-1, T=-2)
 
 
 def test_full_plenum_pipeline_accepts_canonical_physical_quantities():
-    meter = Unit("meter", "m", LENGTH)
     area_unit = Unit("square meter", "m2", AREA)
     velocity_unit = Unit("meter per second", "m/s", LENGTH / TIME)
     density_unit = Unit("kilogram per cubic meter", "kg/m3", DENSITY)
@@ -30,7 +29,6 @@ def test_full_plenum_pipeline_accepts_canonical_physical_quantities():
     )
 
     assert result["status"] == "PASS"
-    assert result["airflow"].dimension == FLOW_RATE
-    assert result["mass_flow"].dimension == Dimension(M=1, T=-1)
+    assert result["airflow"].unit.dimension == FLOW_RATE
+    assert result["mass_flow"].unit.dimension == Dimension(M=1, T=-1)
     assert result["fan_power"].value > 0
-    assert meter.dimension == LENGTH
