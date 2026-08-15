@@ -9,7 +9,15 @@ from lat_ces.modules.pressure import PRESSURE
 
 class FittingLossEngine:
     @staticmethod
+    def _require_dimension(quantity: PhysicalQuantity, expected, name: str) -> None:
+        if quantity.dimension != expected:
+            raise ValueError(
+                f"{name} must have dimension {expected}, got {quantity.dimension}"
+            )
+
+    @classmethod
     def calculate_fitting_loss(
+        cls,
         zeta: float,
         density: PhysicalQuantity,
         velocity: PhysicalQuantity
@@ -19,6 +27,9 @@ class FittingLossEngine:
         """
         if zeta < 0:
             raise ValueError("Koeficijent otpora (zeta) ne može biti negativan!")
+
+        cls._require_dimension(density, DENSITY, "density")
+        cls._require_dimension(velocity, VELOCITY, "velocity")
 
         dp_val = zeta * (density.value * (velocity.value ** 2) / 2.0)
 
