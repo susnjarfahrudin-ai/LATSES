@@ -237,6 +237,7 @@ PRESSURE = MASS / (LENGTH * (TIME**2))
 POWER = (MASS * (LENGTH**2)) / (TIME**3)
 SPECIFIC_HEAT = (LENGTH**2) / (TIME**2) / TEMPERATURE
 HEAT_RATE = POWER
+DYNAMIC_VISCOSITY = MASS / (LENGTH * TIME)
 
 meter = Unit(name="meter", symbol="m", dimension=LENGTH, scale_factor=1.0, offset=0.0)
 centimeter = Unit(name="centimeter", symbol="cm", dimension=LENGTH, scale_factor=0.01, offset=0.0)

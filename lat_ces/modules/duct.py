@@ -3,16 +3,23 @@ LAT-CES Module 016: Duct Friction & Friction Loss Engine
 Dokument: LAT-SCI-MOD-0016
 """
 import math
-from lat_ces.core.dimensions import Dimension, DENSITY, VELOCITY, LENGTH
+from lat_ces.core.dimensions import DENSITY, VELOCITY, LENGTH, DYNAMIC_VISCOSITY
 from lat_ces.modules.quantity import PhysicalQuantity
 from lat_ces.modules.pressure import PRESSURE
 
-# Dinamička viskoznost zraka na sobnoj temperaturi (Pa·s -> kg/(m·s))
-VISCOSITY_AIR = Dimension(M=1, L=-1, T=-1)
+VISCOSITY_AIR = DYNAMIC_VISCOSITY
 
 class DuctFrictionEngine:
     @staticmethod
+    def _require_dimension(quantity: PhysicalQuantity, expected, name: str) -> None:
+        if quantity.dimension != expected:
+            raise ValueError(
+                f"{name} must have dimension {expected}, got {quantity.dimension}"
+            )
+
+    @classmethod
     def calculate_reynolds_number(
+        cls,
         density: PhysicalQuantity,
         velocity: PhysicalQuantity,
         hydraulic_diameter: PhysicalQuantity,
@@ -21,6 +28,10 @@ class DuctFrictionEngine:
         """
         Računa bezdimenzionalni Reynoldsov broj (Re).
         """
+        cls._require_dimension(density, DENSITY, "density")
+        cls._require_dimension(velocity, VELOCITY, "velocity")
+        cls._require_dimension(hydraulic_diameter, LENGTH, "hydraulic_diameter")
+        cls._require_dimension(dynamic_viscosity, DYNAMIC_VISCOSITY, "dynamic_viscosity")
         re = (density.value * velocity.value * hydraulic_diameter.value) / dynamic_viscosity.value
         return re
 
@@ -50,6 +61,11 @@ class DuctFrictionEngine:
         Računa pad pritiska uslijed trenja u kanalu:
         delta_P = f * (L / D_h) * (rho * v^2 / 2)
         """
+        self._require_dimension(length, LENGTH, "length")
+        self._require_dimension(hydraulic_diameter, LENGTH, "hydraulic_diameter")
+        self._require_dimension(density, DENSITY, "density")
+        self._require_dimension(velocity, VELOCITY, "velocity")
+
         dp_value = friction_factor * (length.value / hydraulic_diameter.value) * (density.value * (velocity.value ** 2) / 2.0)
 
         u_rel = math.sqrt(
