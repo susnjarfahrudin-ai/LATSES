@@ -1,7 +1,7 @@
 import pytest
 import math
 from lat_ces.core.dimensions import LENGTH, TIME, VELOCITY
-from lat_ces.modules.quantity import PhysicalQuantity
+from lat_ces.scientific.quantity import PhysicalQuantity
 
 def test_quantity_creation():
     d = PhysicalQuantity(value=10.0, dimension=LENGTH, uncertainty=0.1)

@@ -1,8 +1,7 @@
 import math
 import pytest
-from lat_ces.core.dimensions import DENSITY, VELOCITY, LENGTH
-from lat_ces.modules.quantity import PhysicalQuantity
-from lat_ces.modules.pressure import PRESSURE
+from lat_ces.core.dimensions import DENSITY, VELOCITY, LENGTH, PRESSURE
+from lat_ces.scientific.quantity import PhysicalQuantity
 from lat_ces.modules.fittings import FittingLossEngine
 
 

@@ -1,6 +1,6 @@
 import pytest
 from lat_ces.core.dimensions import Dimension, MASS
-from lat_ces.modules.quantity import PhysicalQuantity
+from lat_ces.scientific.quantity import PhysicalQuantity
 from lat_ces.modules.plenum import FLOW_RATE
 from lat_ces.modules.pressure import FanEngine, PRESSURE, POWER
 

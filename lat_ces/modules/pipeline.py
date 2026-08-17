@@ -4,7 +4,7 @@ Spaja Module 010-015 u jedinstvenu sveobuhvatnu simulaciju plenum sistema.
 """
 from typing import Dict, Any
 from lat_ces.core.dimensions import Dimension
-from lat_ces.modules.quantity import PhysicalQuantity
+from lat_ces.scientific.quantity import PhysicalQuantity
 from lat_ces.modules.plenum import PlenumEngine
 from lat_ces.modules.acoustics import AcousticsEngine
 from lat_ces.modules.thermal import ThermalEngine

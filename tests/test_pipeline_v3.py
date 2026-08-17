@@ -1,6 +1,6 @@
 import math
 from lat_ces.core.dimensions import VELOCITY, LENGTH, DENSITY
-from lat_ces.modules.quantity import PhysicalQuantity
+from lat_ces.scientific.quantity import PhysicalQuantity
 from lat_ces.modules.plenum import AREA
 from lat_ces.modules.pipeline_v3 import DuctNetworkSimulation
 

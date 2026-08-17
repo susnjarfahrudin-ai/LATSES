@@ -4,7 +4,7 @@ Spaja Module 010 do 019 u celovitu mrežnu simulaciju kanala.
 """
 from typing import Dict, Any
 from lat_ces.core.dimensions import VELOCITY, LENGTH, DENSITY
-from lat_ces.modules.quantity import PhysicalQuantity
+from lat_ces.scientific.quantity import PhysicalQuantity
 from lat_ces.modules.plenum import PlenumEngine, AREA
 from lat_ces.modules.duct import DuctFrictionEngine, VISCOSITY_AIR
 from lat_ces.modules.fittings import FittingLossEngine

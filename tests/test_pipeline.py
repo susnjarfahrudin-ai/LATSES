@@ -1,6 +1,6 @@
 import math
 from lat_ces.core.dimensions import Dimension
-from lat_ces.modules.quantity import PhysicalQuantity
+from lat_ces.scientific.quantity import PhysicalQuantity
 from lat_ces.modules.plenum import AREA, DENSITY, FLOW_RATE, MASS_FLOW
 from lat_ces.modules.pipeline import PlenumSystemSimulation
 

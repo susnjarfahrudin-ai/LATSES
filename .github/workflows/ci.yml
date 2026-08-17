@@ -51,4 +51,18 @@ jobs:
 
     - name: Pokretanje LAT-CES Verifikacijskih Testova (0001 - 0009)
       run: |
-        pytest
+        set -o pipefail
+        pytest -x -vv --tb=long 2>&1 | tee pytest-output.log
+
+    - name: Objavi detalje prvog failing testa
+      if: failure()
+      run: |
+        {
+          echo '## CI failure — prvi failing test'
+          echo
+          echo '```text'
+          tail -n 120 pytest-output.log || true
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+
+# CI trigger comment: SMC-004 acceptance verification.

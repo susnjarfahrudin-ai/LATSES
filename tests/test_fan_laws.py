@@ -1,7 +1,5 @@
-import math
-from lat_ces.modules.quantity import PhysicalQuantity
-from lat_ces.modules.plenum import FLOW_RATE
-from lat_ces.modules.pressure import PRESSURE, POWER
+from lat_ces.core.dimensions import FLOW_RATE, PRESSURE, POWER
+from lat_ces.scientific.quantity import PhysicalQuantity
 from lat_ces.modules.fan_laws import FanAffinityEngine
 
 

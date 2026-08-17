@@ -20,6 +20,7 @@ from lat_ces.core.dimensions import (
     mole,
     second,
 )
+from lat_ces.scientific.dimensions.dimension import Dimension as CanonicalDimension
 
 
 def test_dimension_algebra():
@@ -32,6 +33,10 @@ def test_dimension_algebra():
     assert calculated_force == FORCE
 
     assert MASS == Dimension(M=1)
+
+
+def test_dimension_facade_is_canonical():
+    assert Dimension is CanonicalDimension
 
 
 def test_si_base_units_registered():

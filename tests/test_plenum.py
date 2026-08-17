@@ -7,7 +7,7 @@ from lat_ces.core.dimensions import (
     DENSITY as CORE_DENSITY,
     MASS_FLOW as CORE_MASS_FLOW,
 )
-from lat_ces.modules.quantity import PhysicalQuantity
+from lat_ces.scientific.quantity import PhysicalQuantity
 from lat_ces.modules.plenum import PlenumEngine, AREA, FLOW_RATE, DENSITY, MASS_FLOW
 
 

@@ -1,8 +1,8 @@
 import pytest
 
-from lat_ces.core.dimensions import LENGTH, TIME, VELOCITY, MASS, FORCE
-from lat_ces.modules.quantity import PhysicalQuantity
-from lat_ces.modules.equation import PhysicalEquation
+from lat_ces.core.dimensions import LENGTH, TIME, VELOCITY, FORCE
+from lat_ces.scientific.quantity.quantity import PhysicalQuantity
+from lat_ces.scientific.equations.legacy import PhysicalEquation
 from lat_ces.scientific.quantity.equation import Equation
 
 

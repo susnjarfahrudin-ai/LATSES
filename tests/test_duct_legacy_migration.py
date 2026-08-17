@@ -2,7 +2,7 @@ import math
 
 from lat_ces.core.dimensions import DENSITY, VELOCITY, LENGTH, PRESSURE
 from lat_ces.modules.duct import DuctFrictionEngine, DuctFrictionModel
-from lat_ces.modules.quantity import PhysicalQuantity
+from lat_ces.scientific.quantity.quantity import PhysicalQuantity
 
 
 def test_legacy_duct_facade_uses_canonical_model():

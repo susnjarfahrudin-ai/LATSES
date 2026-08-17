@@ -1,4 +1,5 @@
 import ast
+import importlib.util
 from pathlib import Path
 
 
@@ -35,8 +36,11 @@ def test_production_code_does_not_introduce_legacy_module_imports():
     assert not violations, "Production code must not introduce legacy imports:\n" + "\n".join(violations)
 
 
-def test_legacy_quantity_is_the_canonical_physical_quantity_facade():
-    from lat_ces.modules.quantity import PhysicalQuantity as LegacyPhysicalQuantity
-    from lat_ces.scientific.quantity import PhysicalQuantity as CanonicalPhysicalQuantity
+def test_legacy_quantity_module_is_retired():
+    assert importlib.util.find_spec("lat_ces.modules.quantity") is None
 
-    assert LegacyPhysicalQuantity is CanonicalPhysicalQuantity
+
+def test_canonical_physical_quantity_is_available():
+    from lat_ces.scientific.quantity import PhysicalQuantity
+
+    assert PhysicalQuantity is not None

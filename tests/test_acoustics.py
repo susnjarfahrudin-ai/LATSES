@@ -1,7 +1,7 @@
 import math
 import pytest
 from lat_ces.core.dimensions import Dimension, PRESSURE
-from lat_ces.modules.quantity import PhysicalQuantity
+from lat_ces.scientific.quantity.quantity import PhysicalQuantity
 from lat_ces.modules.acoustics import AcousticsEngine, P_REF
 
 

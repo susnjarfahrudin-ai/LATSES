@@ -1,7 +1,7 @@
 import math
 import pytest
 from lat_ces.core.dimensions import DENSITY, VELOCITY, LENGTH, DYNAMIC_VISCOSITY, Dimension
-from lat_ces.modules.quantity import PhysicalQuantity
+from lat_ces.scientific.quantity.quantity import PhysicalQuantity
 from lat_ces.modules.pressure import PRESSURE
 from lat_ces.modules.duct import DuctFrictionEngine, VISCOSITY_AIR
 
