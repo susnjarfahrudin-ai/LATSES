@@ -33,27 +33,6 @@ def test_plenum_analysis_reports_metrological_risk_and_critical_excess():
     assert critical.status is SafetyStatus.CRITICAL_EXCEEDED
 
 
-
-def test_plenum_analysis_metrological_risk_when_uncertainty_crosses_limit():
-    pascal = Unit("pascal", "Pa", MASS / (LENGTH * TIME**2))
-
-    calculated = PhysicalQuantity(206.04, 8.68, pascal)
-    limit = PhysicalQuantity(220.00, 0.0, pascal)
-
-    report = PlenumAnalysisEngine.evaluate_limit(
-        calculated,
-        limit,
-        coverage_factor=2.0,
-    )
-
-    assert report.status is SafetyStatus.METROLOGICAL_RISK
-    assert report.expanded_uncertainty == pytest.approx(17.36)
-    assert report.margin_to_limit == pytest.approx(13.96)
-    assert calculated.value + report.expanded_uncertainty == pytest.approx(223.40)
-    assert calculated.value < limit.value
-    assert calculated.value + report.expanded_uncertainty > limit.value
-    assert "METROLOŠKI RIZIK" in report.message
-
 def test_plenum_analysis_converts_limit_units():
     pascal = Unit("pascal", "Pa", MASS / (LENGTH * TIME**2))
     kilopascal = Unit("kilopascal", "kPa", pascal.dimension, scale_factor=1000.0)

@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: lat-ses-agent
+Version: 0.1.0
+Summary: A minimal agent scaffold for the LATSES repository
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+
+git tag -a v0.1.0-baseline -m "Inicijalna ustavna i naučna baza LAT-CES"
+git push origin --tags
+git checkout -b feature/scientific-math-engine
