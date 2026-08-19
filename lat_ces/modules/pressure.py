@@ -1,33 +1,47 @@
-"""
-LAT-CES Module 015: Pressure Drop & Fan Power Engine
-Dokument: LAT-SCI-MOD-0015
+"""LAT-CES Module 015 compatibility facade.
 
-Compatibility facade. Canonical pressure-drop physics lives in
-``lat_ces.scientific.pressure_drop``; this module preserves the legacy API.
+Canonical physics lives in ``lat_ces.scientific.pressure_drop`` and
+``lat_ces.scientific.fan_power``. This namespace preserves legacy APIs.
 """
-from lat_ces.core.dimensions import FLOW_RATE, PRESSURE, POWER
+from lat_ces.core.dimensions import FLOW_RATE, POWER, PRESSURE
+from lat_ces.scientific.fan_power import FanPowerError, FanPowerModel
 from lat_ces.scientific.pressure_drop import PressureDropModel, PressureError
-from lat_ces.scientific.quantity import PhysicalQuantity
+
 
 class PressureDropEngine:
-    """Legacy adapter for the canonical scientific pressure-drop model."""
+    """Legacy adapter for the canonical pressure-drop model."""
+
     def __init__(self, loss_coefficient: float, air_density: float = 1.2):
-        self._model = PressureDropModel(loss_coefficient=loss_coefficient, air_density=air_density)
+        self._model = PressureDropModel(
+            loss_coefficient=loss_coefficient,
+            air_density=air_density,
+        )
+
     def compute_pressure_drop(self, velocity: float) -> float:
         return self._model.compute_pressure_drop(velocity)
 
-class FanEngine:
-    """Compatibility facade for the legacy fan-power API."""
-    @staticmethod
-    def _require_dimension(quantity: PhysicalQuantity, expected, name: str) -> None:
-        if quantity.dimension != expected:
-            raise ValueError(f"{name} must have dimension {expected}, got {quantity.dimension}")
-    def calculate_fan_power(self, flow_rate: PhysicalQuantity, pressure_drop: PhysicalQuantity, efficiency: float = 1.0) -> PhysicalQuantity:
-        if efficiency <= 0 or efficiency > 1.0:
-            raise ValueError("Stepen iskorištenja (efficiency) mora biti u opsegu (0, 1.0]!")
-        self._require_dimension(flow_rate, FLOW_RATE, "flow_rate")
-        self._require_dimension(pressure_drop, PRESSURE, "pressure_drop")
-        raw_power = flow_rate * pressure_drop
-        return PhysicalQuantity(value=raw_power.value / efficiency, dimension=POWER, uncertainty=raw_power.uncertainty / efficiency)
+    def compute_quantity_pressure_drop(self, velocity, density=None):
+        return self._model.compute_quantity_pressure_drop(velocity, density)
 
-__all__ = ["FanEngine", "PressureDropEngine", "PressureDropModel", "PressureError"]
+
+class FanEngine:
+    """Compatibility facade for the canonical fan-power model."""
+
+    def calculate_fan_power(self, flow_rate, pressure_drop, efficiency: float = 1.0):
+        try:
+            return FanPowerModel.calculate(flow_rate, pressure_drop, efficiency)
+        except FanPowerError as exc:
+            raise ValueError(str(exc)) from exc
+
+
+__all__ = [
+    "FLOW_RATE",
+    "POWER",
+    "PRESSURE",
+    "FanEngine",
+    "PressureDropEngine",
+    "PressureDropModel",
+    "PressureError",
+    "FanPowerError",
+    "FanPowerModel",
+]

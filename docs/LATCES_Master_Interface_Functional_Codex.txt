@@ -1,0 +1,310 @@
+LATCES — MASTER INTERFACE / FUNCTIONAL CODEX
+
+Unified Building Engineering Interface
+
+Radna specifikacija sadržaja i ponašanja sistema
+
+VERZIJA: Master Draft
+STATUS: Konceptualna specifikacija za buduću implementaciju
+
+============================================================
+0. TEMELJNI PRINCIP
+============================================================
+LATCES nije skup nepovezanih kalkulatora.
+JEDAN OBJEKAT → JEDAN FIZIČKI MODEL → VIŠE POGLEDA I ANALIZA.
+
+Korisnik objekat crta i opisuje jednom. Iz iste geometrije LATCES izvodi:
+tlocrt, etaže, presjeke, 3D, konstrukciju, materijale, količine, masu,
+zrak, vodu, grijanje, hlađenje, elektriku, svjetlo, solar, energetiku,
+akustiku, statiku, servisabilnost, optimizaciju i AI preporuke.
+
+Grafika je prikaz modela, a ne model sam.
+
+============================================================
+1. GLAVNI EKRAN
+============================================================
+LATCES / Projekt
+Glavna navigacija: OBJEKT | MODEL | ANALIZA | SISTEMI | ENERGIJA | SERVIS | AI
+Glavni radni prostor: TLOCRT | 3D | PRESJEK
+Donji status: STATUS MODELA | STATUS ANALIZE | UPOZORENJA
+
+============================================================
+2. GLAVNA NAVIGACIJA
+============================================================
+OBJEKT: Projekat, Lokacija, Orijentacija, Etaže, Krov, Teren, Okolina, Klima/lokacija, Geometrija
+MODEL: Tlocrt, Prostorije, Zidovi, Vrata, Prozori, Konstrukcija, Materijali, Instalacije, 3D
+ANALIZA: Zrak, Voda, Toplota, Svjetlo, Energija, Statika, Akustika, Materijali, IAQ, Water Quality
+SISTEMI: Ventilacija, Rekuperacija, Grijanje, Hlađenje, Voda, Odvodi, Elektrika, Solar, Ostali sistemi
+OPTIMIZACIJA: Komfor, Energija, Trošak, Otpori, Buka, Servis, Materijali, Životni vijek
+SERVIS: Oprema, Garancije, Servisni intervali, Servisni kontakti, Rezervni dijelovi, Servisni pristup, Historija
+AI: Assistant, Research, Engineering Advisor, Real-World Evidence, Dokumentacija, Organizacija, Servisni Assistant, Preporuke
+
+============================================================
+3. OBJEKT
+============================================================
+Osnovni podaci: naziv, adresa, lokacija, nadmorska visina, klimatska zona, orijentacija, sjever, parcela, okolni objekti, vegetacija.
+
+============================================================
+4. ETAŽE
+============================================================
+Svaka etaža je zaseban geometrijski nivo. LATCES ne pretpostavlja da su sve etaže iste.
+Svaka etaža ima dimenzije, visinu, pod, strop, zidove, otvore, prostorije i instalacije.
+
+============================================================
+5. DRAFTING INTERFACE
+============================================================
+Jedinstveni princip crtanja:
+PARAMETAR → KREIRAJ → PREVIEW → LIVE DIMENSION → SNAP → KLIK → OBJEKT
+
+PROSTORIJA: dužina, širina, visina, kreiraj, praćenje miša, dimenzije/udaljenosti, klik.
+ZID: dužina, debljina, visina, materijal, plava isprekidana preview linija, live dužina, debljina, udaljenosti, snap, klik.
+VRATA: širina, visina, tip, smjer otvaranja, najbliži zid, udaljenost od krajeva, klik.
+PROZOR: širina, visina, parapet, tip, zid, udaljenost od krajeva, orijentacija, klik.
+
+============================================================
+6. WALL / OPENING MODEL
+============================================================
+Vrata i prozori nisu grafičke oznake. Oni stvaraju stvarni otvor u geometrijskom modelu zida.
+Isti geometrijski model mora biti korišten u tlocrtu, presjeku, 3D, količinama i fizičkim analizama.
+
+============================================================
+7. 2D / 3D / PRESJEK
+============================================================
+TLOCRT: konstrukcijske linije, zidovi, vrata, prozori, instalacije, orijentacija prema stranama svijeta.
+PRESJEK: konstruktivne linije, instalacijske linije, stvarni otvori, etaže.
+3D: zidovi, fasada, cigla, beton, drvo, staklo, lim, izolacija, krov, pod, vrata, prozori, instalacije.
+Nema odvojenih geometrija.
+
+============================================================
+8. GRAFIČKI STANDARD
+============================================================
+3D prikaz mora imati materijalni izgled vezan za stvarni materijal modela: fasada, cigla, beton, drvo, staklo, lim, izolacija, krov, pod, instalacije.
+
+============================================================
+9. AIRFLOW THROUGH SPACE
+============================================================
+VANJSKI ZRAK → FILTER → REKUPERATOR → DOGRIJAČ / HLADNJAK → PLENUM → PROSTORIJA → ODSIS → REKUPERATOR → VANI
+Analiza: protok, brzina, tlak, ΔP, temperatura, vlaga, uzgon, turbulencija, smjer, raspodjela, zona čovjeka.
+ZONA ČOVJEKA: približno 0.70–1.70 m; cilj minimalan propuh, minimalna buka, dovoljna izmjena i dobra distribucija; projektni cilj reda 0.02–0.05 m/s gdje je fizički ostvarivo i potvrđeno proračunom.
+
+============================================================
+10. PRIRODNA VENTILACIJA
+============================================================
+Podržati pasivni dovod + pasivni odsis. Ulazi: površina otvora, visina, temperature, vjetar, geometrija, otpori. Račun: uzgon, otpor, stvarni protok, očekivana brzina.
+
+============================================================
+11. REKUPERACIJA
+============================================================
+Zima: VANJSKI ZRAK → FILTER → VODENI DOGRIJAČ → LIMENI REKUPERATOR → PLENUM → PROSTOR.
+POVRATNI ZRAK → ODSIS → LIMENI REKUPERATOR → VANI.
+Pratiti povrat toplote, temperaturu, vlagu, kondenzat, smrzavanje, ΔP i protok.
+
+============================================================
+12. LJETNO HLAĐENJE SVJEŽEG ZRAKA
+============================================================
+VANJSKI ZRAK → VODENI IZMJENJIVAČ → KONDENZAT → PLENUM → PROSTOR.
+Rashladni koncept: voda, spremnik, pumpa, izmjenjivač, rashladni izvor. Razlikovati električnu snagu od stvarne rashladne snage. COP/EER računati prema stvarnim uslovima.
+
+============================================================
+13. KVALITETA ZRAKA
+============================================================
+CO₂, VOC, HCHO, PM, temperatura, relativna vlaga. Status: GOOD / WARNING / CRITICAL / UNKNOWN.
+
+============================================================
+14. VODA
+============================================================
+Hidraulika: protok, tlak, promjer, brzina, ΔP, pumpa, cirkulacija.
+Water Quality: temperatura, pH, provodljivost, mutnoća, dezinfekcija, mikrobiološki parametri, stagnacija, vrijeme zadržavanja. Posebno pratiti mikrobiološki rizik. LATCES ne daje lažnu garanciju zdravstvene sigurnosti.
+
+============================================================
+15. ODVODI
+============================================================
+Promjer, nagib, protok, brzina, koljena, gubici, ventilacija odvoda, sifoni, revizije, servis. Poređenje 2 × 45° naspram 1 × 90° prihvatiti samo ako proračun pokaže stvarnu korist.
+
+============================================================
+16. GRIJANJE
+============================================================
+Podno, radijatorsko, zidno, stropno, konvektorsko, zračno, kombinovano i druge tehnologije. Račun: gubici → potrebna snaga → distribucija → temperatura → komfor.
+
+============================================================
+17. HLAĐENJE
+============================================================
+Solarni dobici, transmisija, prozori, ventilacija, ljudi, uređaji, sjenčenje, termička masa.
+
+============================================================
+18. ELEKTRIKA
+============================================================
+Rasvjeta, utičnice, uređaji, veliki potrošači, razvod, zaštita, opterećenje, vršna snaga.
+
+============================================================
+19. SVJETLO
+============================================================
+Za svaki otvor: orijentacija, površina, visina, položaj, sjenčenje. Procjena prirodne osvijetljenosti i upozorenja za nedovoljnu/preveliku izloženost.
+
+============================================================
+20. SOLAR
+============================================================
+Krov, orijentacija, nagib, sjenčenje, površina, paneli, proizvodnja, baterija, vlastita potrošnja.
+
+============================================================
+21. STATIKA
+============================================================
+Iz iste geometrije: zidovi, ploče, grede, stupovi, krov. Ulazi: materijali, mase, stalna i korisna opterećenja, snijeg, vjetar i druga relevantna djelovanja.
+
+============================================================
+22. MATERIJALI
+============================================================
+Gustoća, λ, toplinski kapacitet, čvrstoća, akustička svojstva, emisije, trajnost, požarna svojstva, cijena.
+
+============================================================
+23. ZDRAVLJE MATERIJALA
+============================================================
+Formaldehid, VOC, emisijska klasa, ljepila, premazi, izolacija. Razlikovati deklarisano, nezavisno provjereno i izmjereno.
+
+============================================================
+24. MASA I KOLIČINE
+============================================================
+Iz geometrije automatski: m, m², m³, kg, kom. Ukupne količine materijala, masa objekta i procjena otpada gdje je moguće.
+
+============================================================
+25. ENERGETIKA
+============================================================
+GRIJANJE + HLAĐENJE + VENTILACIJA + VODA + ELEKTRIKA - SOLAR = ENERGETSKI BILANS.
+
+============================================================
+26. AKUSTIKA
+============================================================
+Izvori buke, ventilatori, brzina zraka, kanali, rešetke, konstrukcija, prijenos između prostorija.
+
+============================================================
+27. SERVISABILNOST
+============================================================
+Svaki uređaj: lokacija, pristup, servisni prostor, interval, garancija, servis, rezervni dijelovi, datum ugradnje, očekivani životni vijek. Provjeriti može li čovjek stvarno servisirati uređaj.
+
+============================================================
+28. GARANCIJA I SERVIS
+============================================================
+AI prati istek garancije, servisne intervale, pregled, rezervne dijelove i kontakte. Može pripremiti servisni zahtjev/e-mail/obavijest/nalog. Slanje zahtjeva zahtijeva korisničko odobrenje.
+
+============================================================
+29. INSTRUMENTI MJERENJA
+============================================================
+Instrument, proizvođač, model, serijski broj, tip senzora, mjerni opseg, deklarisana tačnost, rezolucija, kalibracija, datum kalibracije, lokacija, način ugradnje, vrijeme i uslovi mjerenja.
+
+============================================================
+30. KLASIFIKACIJA SENZORA
+============================================================
+INDUSTRIAL / PROFESSIONAL; ENGINEERING / COMMERCIAL; CONSUMER; EXPERIMENTAL. Porijeklo nije kriterij kvaliteta. Ocjenjivati tačnost, ponovljivost, stabilnost, dugotrajnost, efikasnost, kalibraciju i dokazivost.
+
+============================================================
+31. DECLARED VS VERIFIED
+============================================================
+DECLARED = proizvođač/prodavac; VERIFIED = provjereno/testirano; MEASURED = stvarno izmjereno; UNKNOWN = nedovoljno dokaza. AI ne smije deklarisanu vrijednost predstaviti kao mjerenje.
+
+============================================================
+32. AI ISTRAŽIVANJE
+============================================================
+Tehnički listovi, proizvođački podaci, standardi, naučni radovi, certifikati, proizvodi, cijene, servisi, rezervni dijelovi i iskustva korisnika. Za svaki nalaz: izvor, datum, predmet, status provjere, relevantnost.
+
+============================================================
+33. REAL-WORLD EXPERIENCE
+============================================================
+AI analizira iskustva za ventilatore, senzore, pumpe, rekuperatore, filtre, izmjenjivače, termostate, radijatore, ventile, materijale i drugu opremu. Razlikovati statistički signal iskustva od fizičkog mjerenja.
+
+============================================================
+34. AI ENGINEERING ASSISTANT
+============================================================
+AI je savjetnik, ne vlasnik projekta. Može istraživati, organizovati, analizirati, uspoređivati, pripremati dokumente, pratiti servis/garancije, tražiti dijelove, predlagati optimizacije i pripremati komunikaciju. Svaki prijedlog mora biti moguće PRIHVATI / ODBACI / IZMIJENI.
+
+============================================================
+35. AI PREPORUKA
+============================================================
+Svaka ozbiljna preporuka sadrži: PREPORUKA, ZAŠTO, ULAZNI PODACI, NAUČNA OSNOVA, MATEMATIČKI REZULTAT, RIZIK, DOBIT, TROŠAK, SERVIS, POUZDANOST PODATAKA, ALTERNATIVA, ODLUKA ČOVJEKA.
+
+============================================================
+36. OPTIMIZACIJA
+============================================================
+LATCES ne provjerava samo da li nešto radi. Traži može li bolje: komfor, energija, buka, otpor, materijal, cijena, servis, trajnost, sigurnost, kvalitet zraka i kvalitet vode.
+
+============================================================
+37. STATUS SVAKOG SEGMENTA
+============================================================
+PASS = stvarno potvrđeno; PARTIAL = djelimično implementirano/potvrđeno; FAIL = test nije prošao; NOT IMPLEMENTED = nije implementirano; UNKNOWN = nema dovoljno podataka. Nema ocjenjivanja prema tome "izgleda li da radi".
+
+============================================================
+38. HIJERARHIJA LATCES-a
+============================================================
+PRIRODA → NAUKA + MATEMATIKA → MJERENJA → PRAVILA → AI ISTRAŽIVANJE → LATCES MODEL → INŽENJERSKA ANALIZA → OPTIMIZACIJA → AI PREPORUKA → ČOVJEK ODLUČUJE.
+AI ne preskače hijerarhiju.
+
+============================================================
+39. ZAŠTITA LATCES-A
+============================================================
+AI ne mijenja samovoljno fizičke modele, formule, konstante, jedinice, pravila, validacijske testove ili naučne zaključke. Promjena: prijedlog → provjera → test → odobrenje → nova verzija.
+
+============================================================
+40. MJERENJE VS MODEL
+============================================================
+Uvijek razlikovati MJERENO, IZRAČUNATO, SIMULIRANO, DEKLARISANO, AI PRONAĐENO, KORISNIČKO ISKUSTVO, PRETPOSTAVLJENO i NEPOZNATO.
+
+============================================================
+41. ANALOGNO + DIGITALNO
+============================================================
+ANALOGNO = stvarnost i fizička kontrola. DIGITALNO = mjerenje, analiza, modeliranje i pomoć. Cilj: jedan sistem umjesto deset nepovezanih aplikacija. Sistem mora biti upotrebljiv i kada digitalni sloj nije nužan za osnovno fizičko funkcionisanje.
+
+============================================================
+42. KONAČNI DASHBOARD
+============================================================
+Primjer LATCES — KUĆA 01 sa statusima GEOMETRIJA, 3D MODEL, STATIKA, AIRFLOW, IAQ, WATER, WATER QUALITY, GRIJANJE, HLAĐENJE, ELEKTRIKA, SOLAR, DAYLIGHT, AKUSTIKA, ENERGY, MATERIALS, SERVICEABILITY. AI: nove preporuke, upozorenja, informacije za provjeru. MODEL CONFIDENCE: kvalitet podataka. OPEN ISSUES: broj otvorenih problema.
+
+============================================================
+43. KONAČNA DEFINICIJA
+============================================================
+LATCES je JEDINSTVENI INŽENJERSKI MODEL OBJEKTA koji povezuje PRIRODU, GEOMETRIJU, NAUKU, MATEMATIKU, MJERENJA, MATERIJALE, ZRAK, VODU, TOPLOTU, SVJETLO, ENERGIJU, KONSTRUKCIJU, INSTALACIJE, SERVIS, STVARNA ISKUSTVA, AI ISTRAŽIVANJE i ČOVJEKA KOJI DONOSI ODLUKU.
+
+"Nacrtaj jednom. Modeliraj jednom. Mjeri stvarnost. Izračunaj posljedice. Predloži poboljšanje. Čovjek odlučuje."
+
+============================================================
+44. PREPORUČENI BUDUĆI MODULI
+============================================================
+1. BuildingModelCore
+2. FloorPlan / Drafting Engine
+3. Geometry Kernel
+4. Wall / Opening Engine
+5. Section Engine
+6. 3D Presentation Engine
+7. Material & Quantity Engine
+8. Airflow / Indoor Air Engine
+9. Passive Ventilation Engine
+10. Heat Recovery Engine
+11. Cooling / Water Heat-Exchanger Engine
+12. Water Hydraulic Engine
+13. Water Quality / Microbiology Risk Engine
+14. Drainage Engine
+15. Heating Engine
+16. Cooling Load Engine
+17. Electrical Engine
+18. Daylight Engine
+19. Solar Engine
+20. Structural / Static Analysis Layer
+21. Thermal / Energy Engine
+22. Acoustic Engine
+23. Measurement & Instrument Registry
+24. Evidence / Source Registry
+25. Real-World Experience Engine
+26. Serviceability Engine
+27. Warranty / Maintenance Engine
+28. Optimization Engine
+29. AI Research Layer
+30. AI Engineering Advisor
+31. AI Recommendation Engine
+32. Validation / PASS-FAIL Engine
+33. Project Data / Provenance Layer
+34. Reporting / Documentation Layer
+
+============================================================
+45. PRINCIP ZA DALJNJU IMPLEMENTACIJU
+============================================================
+Ovaj dokument je SPECIFIKACIJA, a ne tvrdnja da je svaki navedeni modul već implementiran.
+Svaki segment prije proglašenja završenim mora dobiti implementaciju, test, validaciju i status PASS/PARTIAL/FAIL/NOT IMPLEMENTED/UNKNOWN.
+Krajnji cilj je da GUI, BuildingModel, Scientific Model, proračuni, 2D, 3D, presjeci, količine, sistemi i AI koriste isti konzistentni model objekta.

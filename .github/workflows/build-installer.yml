@@ -32,16 +32,16 @@ jobs:
           python -m pip install -e .
           python -m pip install pytest pyinstaller
 
-      - name: Verify desktop application imports
+      - name: Verify complete desktop application imports
         shell: pwsh
         run: |
-          python -c "import lat_ces.gui_v2; print('LAT-CES Building GUI import OK')"
+          python -c "from lat_ces.gui_complete import CompleteBuildingWorkspaceApp; print('LAT-CES complete Building workspace import OK')"
           pytest -q
 
       - name: Build GUI executable
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name LATSES lat_ces/gui_v2.py
+          pyinstaller --noconfirm --clean --onefile --windowed --name LATSES lat_ces/gui_complete.py
           if (!(Test-Path '.\dist\LATSES.exe')) { throw 'LATSES.exe was not created' }
           if ((Get-Item '.\dist\LATSES.exe').Length -lt 1000000) { throw 'LATSES.exe is unexpectedly small' }
 

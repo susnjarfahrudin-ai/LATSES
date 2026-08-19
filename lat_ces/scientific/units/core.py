@@ -24,6 +24,7 @@ from lat_ces.scientific.dimensions.dimension import (
     TIME,
     VELOCITY,
     Dimension,
+    canonical_dimension,
 )
 
 
@@ -37,7 +38,17 @@ class Unit:
     def __init__(self, name, symbol, dimension, scale_factor=1.0, offset=0.0, unit_uuid=None, status="DRAFT"):
         if status not in self.VALID_STATUSES:
             raise UnitSKOError(f"Nevažeći status: {status}. Dozvoljeni statusi: {self.VALID_STATUSES}")
-        self._name, self._symbol, self._dimension = name, symbol, dimension
+        if not isinstance(dimension, Dimension):
+            raise UnitSKOError("Unit mora biti vezan za validan Dimension.")
+        self._name, self._symbol, self._dimension = name, symbol, canonical_dimension(
+            L=dimension.L,
+            M=dimension.M,
+            T=dimension.T,
+            I=dimension.I,
+            Theta=dimension.Theta,
+            N=dimension.N,
+            J=dimension.J,
+        )
         self._scale_factor, self._offset = float(scale_factor), float(offset)
         self._uuid, self._status = unit_uuid or str(uuid4()), status
 

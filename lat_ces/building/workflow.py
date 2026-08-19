@@ -5,7 +5,8 @@ from dataclasses import dataclass
 
 from .floor_plan import FloorPlan, Point2D, Segment2D, Wall
 from .geometry3d import LevelGeometry3D, build_geometry
-from .model import BuildingModel, Level
+from .model import BuildingModel, Level, Roof
+from .orientation import BuildingOrientation
 from .project_spec import BuildingProjectSpec, LevelProjectSpec
 
 
@@ -34,13 +35,13 @@ def make_envelope_floor_plan(name: str, length_m: float, width_m: float, thickne
     return plan
 
 
-def add_room_layout(plan: FloorPlan, spec: LevelProjectSpec) -> None:
-    """Place room partitions from the first-step room dimensions.
+def make_square_floor_plan(name: str, size_m: float, thickness_m: float = 0.20) -> FloorPlan:
+    """Backward-compatible square envelope helper for existing GUI callers."""
+    return make_envelope_floor_plan(name, size_m, size_m, thickness_m)
 
-    Until interactive room positioning exists, rooms are packed deterministically
-    left-to-right in rows inside the external envelope. Computed x/y coordinates
-    are stored back in RoomSpec so later editing can use the same geometry.
-    """
+
+def add_room_layout(plan: FloorPlan, spec: LevelProjectSpec) -> None:
+    """Place room partitions from the first-step room dimensions."""
     if not spec.rooms:
         return
     wall_t = spec.construction.wall_thickness_m
@@ -62,9 +63,7 @@ def add_room_layout(plan: FloorPlan, spec: LevelProjectSpec) -> None:
             cursor_y += row_height
             row_height = 0.0
         if cursor_y + room.width_m > spec.width_m - wall_t + 1e-9:
-            raise ValueError(
-                f"Raspored prostorija prelazi površinu etaže za '{room.name}'"
-            )
+            raise ValueError(f"Raspored prostorija prelazi površinu etaže za '{room.name}'")
 
         room.x_m = cursor_x
         room.y_m = cursor_y
@@ -72,29 +71,13 @@ def add_room_layout(plan: FloorPlan, spec: LevelProjectSpec) -> None:
         x1, y1 = cursor_x + room.length_m, cursor_y + room.width_m
 
         if x0 > wall_t + 1e-9:
-            plan.add_wall(Wall(
-                name=f"Pregrada — {room.name} lijevo",
-                segment=Segment2D(Point2D(x0, y0), Point2D(x0, y1)),
-                thickness=wall_t,
-            ))
+            plan.add_wall(Wall(name=f"Pregrada — {room.name} lijevo", segment=Segment2D(Point2D(x0, y0), Point2D(x0, y1)), thickness=wall_t))
         if x1 < spec.length_m - wall_t - 1e-9:
-            plan.add_wall(Wall(
-                name=f"Pregrada — {room.name} desno",
-                segment=Segment2D(Point2D(x1, y0), Point2D(x1, y1)),
-                thickness=wall_t,
-            ))
+            plan.add_wall(Wall(name=f"Pregrada — {room.name} desno", segment=Segment2D(Point2D(x1, y0), Point2D(x1, y1)), thickness=wall_t))
         if y0 > wall_t + 1e-9:
-            plan.add_wall(Wall(
-                name=f"Pregrada — {room.name} gore",
-                segment=Segment2D(Point2D(x0, y0), Point2D(x1, y0)),
-                thickness=wall_t,
-            ))
+            plan.add_wall(Wall(name=f"Pregrada — {room.name} gore", segment=Segment2D(Point2D(x0, y0), Point2D(x1, y0)), thickness=wall_t))
         if y1 < spec.width_m - wall_t - 1e-9:
-            plan.add_wall(Wall(
-                name=f"Pregrada — {room.name} dole",
-                segment=Segment2D(Point2D(x0, y1), Point2D(x1, y1)),
-                thickness=wall_t,
-            ))
+            plan.add_wall(Wall(name=f"Pregrada — {room.name} dole", segment=Segment2D(Point2D(x0, y1), Point2D(x1, y1)), thickness=wall_t))
 
         cursor_x += room.length_m
         row_height = max(row_height, room.width_m)
@@ -111,8 +94,15 @@ class BuildingWorkflow:
 
     def ensure_project_spec(self) -> BuildingProjectSpec:
         if self.project_spec is None:
-            self.project_spec = BuildingProjectSpec(name=self.model.name)
+            self.project_spec = BuildingProjectSpec(name=self.model.name, orientation=self.model.orientation)
         return self.project_spec
+
+    def set_orientation(self, north_azimuth_deg: float) -> BuildingOrientation:
+        orientation = BuildingOrientation(north_azimuth_deg=north_azimuth_deg)
+        self.model.set_orientation(orientation)
+        project = self.ensure_project_spec()
+        project.orientation = orientation
+        return orientation
 
     def set_floor_plan(self, plan: FloorPlan) -> Level:
         if self.model.levels:
@@ -131,25 +121,21 @@ class BuildingWorkflow:
         project.levels[index] = spec
         levels = list(self.model.levels.values())
         while len(levels) <= index:
-            self.model.add_level(Level(
-                name=f"Etaža {len(levels) + 1}",
-                elevation=0.0,
-                height=2.80,
-                floor_plan=make_blank_floor_plan(f"Etaža {len(levels) + 1}"),
-            ))
+            self.model.add_level(Level(name=f"Etaža {len(levels) + 1}", elevation=0.0, height=2.80, floor_plan=make_blank_floor_plan(f"Etaža {len(levels) + 1}")))
             levels = list(self.model.levels.values())
         level = levels[index]
         level.name = spec.name
         level.height = spec.height_m
+        level.length_m = spec.length_m
+        level.width_m = spec.width_m
+        level.wall_construction = spec.construction.block_brand
+        level.insulation = spec.construction.insulation_type
+        level.cladding = spec.cladding or spec.construction.exterior_cladding
+        level.joinery = spec.joinery.material
         previous = levels[index - 1] if index else None
         level.elevation = previous.top_elevation if previous else 0.0
         plan = (
-            make_envelope_floor_plan(
-                spec.name,
-                spec.length_m,
-                spec.width_m,
-                spec.construction.wall_thickness_m,
-            )
+            make_envelope_floor_plan(spec.name, spec.length_m, spec.width_m, spec.construction.wall_thickness_m)
             if spec.length_m > 0 and spec.width_m > 0 and spec.construction.wall_thickness_m > 0
             else make_blank_floor_plan(spec.name)
         )
@@ -169,15 +155,37 @@ class BuildingWorkflow:
         project.floor_count_finalized = True
         self.current_step = 3
 
-    def set_roof(self, shape: str, height_m: float = 0.0) -> None:
+    def set_roof(self, shape: str, height_m: float = 0.0, *, construction: str = "", covering: str = "", substructure: str = "", support: str = "", length_m: float = 0.0, width_m: float = 0.0, slope_deg: float = 0.0) -> Roof:
         if not shape.strip():
             raise ValueError("Oblik krova je obavezan")
         if height_m < 0:
             raise ValueError("Visina krova ne može biti negativna")
+        roof = Roof(
+            roof_type=shape,
+            construction=construction,
+            covering=covering,
+            substructure=substructure,
+            support=support,
+            length_m=length_m,
+            width_m=width_m,
+            slope_deg=slope_deg,
+            height_m=height_m,
+        )
+        self.model.set_roof(roof)
         self.roof_shape, self.roof_height_m = shape, height_m
         project = self.ensure_project_spec()
         project.roof_shape, project.roof_height_m = shape, height_m
+        project.roof.roof_type = shape
+        project.roof.construction = construction
+        project.roof.covering = covering
+        project.roof.substructure = substructure
+        project.roof.support = support
+        project.roof.length_m = length_m
+        project.roof.width_m = width_m
+        project.roof.slope_deg = slope_deg
+        project.roof.height_m = height_m
         self.current_step = 3
+        return roof
 
     def advance_to_3d(self) -> tuple[LevelGeometry3D, ...]:
         self.advance_to_roof()
@@ -222,4 +230,7 @@ class BuildingWorkflow:
             "elements": self.model.element_count,
             "step": self.current_step,
             "roof": self.roof_shape,
+            "roof_type": self.model.roof.roof_type if self.model.roof else None,
+            "roof_slope_deg": self.model.roof.slope_deg if self.model.roof else None,
+            "north_azimuth_deg": self.model.orientation.north_azimuth_deg,
         }

@@ -16,7 +16,7 @@ class Dimension:
     J: int = 0
 
     def __mul__(self, other: "Dimension") -> "Dimension":
-        return Dimension(
+        return canonical_dimension(
             L=self.L + other.L,
             M=self.M + other.M,
             T=self.T + other.T,
@@ -27,7 +27,7 @@ class Dimension:
         )
 
     def __truediv__(self, other: "Dimension") -> "Dimension":
-        return Dimension(
+        return canonical_dimension(
             L=self.L - other.L,
             M=self.M - other.M,
             T=self.T - other.T,
@@ -38,7 +38,7 @@ class Dimension:
         )
 
     def __pow__(self, power: int | float) -> "Dimension":
-        return Dimension(
+        return canonical_dimension(
             L=self.L * int(power),
             M=self.M * int(power),
             T=self.T * int(power),
@@ -55,25 +55,47 @@ class Dimension:
         )
 
 
-DIMENSIONLESS = Dimension()
-LENGTH = Dimension(L=1)
-MASS = Dimension(M=1)
-TIME = Dimension(T=1)
-CURRENT = Dimension(I=1)
-TEMPERATURE = Dimension(Theta=1)
-AMOUNT = Dimension(N=1)
-LUMINOUS_INTENSITY = Dimension(J=1)
-VELOCITY = Dimension(L=1, T=-1)
-DENSITY = Dimension(M=1, L=-3)
-ACCELERATION = Dimension(L=1, T=-2)
-FORCE = Dimension(M=1, L=1, T=-2)
-AREA = LENGTH**2
-FLOW_RATE = (LENGTH**3) / TIME
-MASS_FLOW = MASS / TIME
-PRESSURE = MASS / (LENGTH * (TIME**2))
-POWER = (MASS * (LENGTH**2)) / (TIME**3)
-SPECIFIC_HEAT = (LENGTH**2) / (TIME**2) / TEMPERATURE
+_DIMENSION_CACHE: dict[tuple[int, int, int, int, int, int, int], Dimension] = {}
+
+
+def canonical_dimension(
+    *,
+    L: int = 0,
+    M: int = 0,
+    T: int = 0,
+    I: int = 0,
+    Theta: int = 0,
+    N: int = 0,
+    J: int = 0,
+) -> Dimension:
+    """Return the unique Dimension instance for an exponent vector."""
+    key = (int(L), int(M), int(T), int(I), int(Theta), int(N), int(J))
+    dimension = _DIMENSION_CACHE.get(key)
+    if dimension is None:
+        dimension = Dimension(*key)
+        _DIMENSION_CACHE[key] = dimension
+    return dimension
+
+
+DIMENSIONLESS = canonical_dimension()
+LENGTH = canonical_dimension(L=1)
+MASS = canonical_dimension(M=1)
+TIME = canonical_dimension(T=1)
+CURRENT = canonical_dimension(I=1)
+TEMPERATURE = canonical_dimension(Theta=1)
+AMOUNT = canonical_dimension(N=1)
+LUMINOUS_INTENSITY = canonical_dimension(J=1)
+VELOCITY = canonical_dimension(L=1, T=-1)
+DENSITY = canonical_dimension(M=1, L=-3)
+ACCELERATION = canonical_dimension(L=1, T=-2)
+FORCE = canonical_dimension(M=1, L=1, T=-2)
+AREA = canonical_dimension(L=2)
+FLOW_RATE = canonical_dimension(L=3, T=-1)
+MASS_FLOW = canonical_dimension(M=1, T=-1)
+PRESSURE = canonical_dimension(M=1, L=-1, T=-2)
+POWER = canonical_dimension(M=1, L=2, T=-3)
+SPECIFIC_HEAT = canonical_dimension(L=2, T=-2, Theta=-1)
 HEAT_RATE = POWER
-DYNAMIC_VISCOSITY = MASS / (LENGTH * TIME)
+DYNAMIC_VISCOSITY = canonical_dimension(M=1, L=-1, T=-1)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
