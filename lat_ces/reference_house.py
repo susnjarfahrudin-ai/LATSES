@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import json
 from importlib.resources import files
 from math import cos, radians
+from pathlib import Path
 from typing import Any
 
 @dataclass(frozen=True)
@@ -41,7 +42,15 @@ class ReferenceHouse:
 
     @classmethod
     def default(cls) -> "ReferenceHouse":
-        raw = files("lat_ces").joinpath("reference_house_model.json").read_text(encoding="utf-8")
+        resource_name = "reference_house_model.json"
+        try:
+            raw = files("lat_ces").joinpath(resource_name).read_text(encoding="utf-8")
+        except (FileNotFoundError, NotADirectoryError, ModuleNotFoundError):
+            # `lat_ces` is intentionally a namespace package.  Editable installs can
+            # expose a non-directory path hook to importlib.resources, so fall back
+            # to the source/package directory used by both CI and PyInstaller.
+            resource_path = Path(__file__).resolve().with_name(resource_name)
+            raw = resource_path.read_text(encoding="utf-8")
         return cls(json.loads(raw))
 
     @property
