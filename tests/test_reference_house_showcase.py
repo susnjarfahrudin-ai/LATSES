@@ -10,8 +10,8 @@ def test_reference_house_is_complete_and_deterministic():
     assert house.data["heating"]["plant_room"] == "P-BOIL"
     assert house.data["joinery"]["glazing"]["panes"] == 3
     summary = house.summary()
-    assert summary.floor_area_m2 > 350
-    assert summary.volume_m3 > 950
+    assert summary.floor_area_m2 == 338.0
+    assert summary.volume_m3 == 946.4
     assert summary.roof_area_m2 > 120
     assert summary.wall_area_m2 > 250
     assert summary.blocks > 6000

@@ -34,7 +34,10 @@ jobs:
       - name: Build LATSES.exe
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onefile --name LATSES lat_ces/cli.py
+          pyinstaller --noconfirm --clean --onefile --name LATSES `
+            --add-data "lat_ces/materials/building_materials.catalog.json;lat_ces/materials" `
+            --add-data "lat_ces/reference_house_model.json;lat_ces" `
+            lat_ces/cli.py
 
       - name: Smoke test executable
         shell: pwsh
