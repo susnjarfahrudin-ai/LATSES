@@ -74,6 +74,27 @@ Module rules:
 
 This is the required long-term expansion pattern for LAT-CES.
 
+## Scientific Assessment / Provenance Example — FPSF / GTSF
+
+A prior engineering assessment for a narrow residential building using a hybrid FPSF concept is retained as a **reference architectural example**, not as a source of hard-coded engineering parameters or conclusions.
+
+The example established the required distinction between:
+
+- `VERIFIED` — supported by calculation and/or measurement;
+- `ESTIMATED` — obtained from a model or engineering estimate;
+- `HYPOTHESIS` — physically plausible but not yet confirmed;
+- `ASSUMPTION` — introduced for an initial or bounding calculation.
+
+The architectural pattern is:
+
+`BuildingModel -> assumptions -> engineering model -> result -> provenance status -> validation -> verified result`
+
+A numerical example such as an equivalent soil resistance must remain explicitly tagged as an assumption/estimate until numerical simulation or measurement validates it. Likewise, predicted soil temperatures, thermal response time and condensation margins must not be promoted to verified facts without evidence.
+
+This example defines a platform principle: **LAT-CES must never silently convert model outputs or assumptions into facts.** Engineering reports should expose the claim status, assumptions, calculation basis and provenance so a later FEM simulation or physical measurement can upgrade an `ESTIMATED` or `HYPOTHESIS` result to `VERIFIED`, or invalidate it.
+
+The FPSF/GTSF example is therefore a reference pattern for scientific consistency, traceability and evidence handling across future engineering modules.
+
 ## Anti-loop rule
 
 Before opening a new bug-fix branch, compare the failure with the historical decisions and closed PRs recorded in the checkpoint. Reuse the active workstream when the problem was already analysed and has a reproducible existing solution.
