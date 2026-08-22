@@ -3,8 +3,11 @@ import tkinter as tk
 from lat_ces.gui_master import MasterBuildingWorkspaceApp
 
 
-def test_master_gui_loads_reference_house_and_runs_engineering_report():
-    """Exercise the real desktop callback chain against the canonical BuildingModel."""
+def test_master_gui_loads_reference_house_and_runs_engineering_report(monkeypatch):
+    """Exercise the real desktop callback chain without blocking CI on modal dialogs."""
+    monkeypatch.setattr("lat_ces.gui.messagebox.showwarning", lambda *args, **kwargs: "ok")
+    monkeypatch.setattr("lat_ces.gui.messagebox.showinfo", lambda *args, **kwargs: "ok")
+
     app = MasterBuildingWorkspaceApp()
     try:
         app._load_reference_house()
@@ -23,6 +26,7 @@ def test_master_gui_loads_reference_house_and_runs_engineering_report():
         app._run_master_validation()
         app._show_engineering_report()
 
+        assert "Building Model" in app.status_var.get() or "Model" in app.status_var.get()
         report = model.building_engineering_report
         assert report.result_count > 0
         assert report.calculated_count > 0
