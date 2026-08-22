@@ -32,16 +32,19 @@ jobs:
           python -m pip install -e .
           python -m pip install pytest pyinstaller
 
-      - name: Verify complete desktop application imports
+      - name: Verify canonical master desktop application
         shell: pwsh
         run: |
-          python -c "from lat_ces.gui_complete import CompleteBuildingWorkspaceApp; print('LAT-CES complete Building workspace import OK')"
-          pytest -q
+          python -c "from lat_ces.gui_master import MasterBuildingWorkspaceApp; print('LAT-CES master Building workspace import OK')"
+          pytest -q tests/test_building_engineering_checkpoint.py tests/test_building_engineering_completion.py tests/test_building_engineering_ui.py tests/gui_fullscreen_viewport_smoke_test.py
 
-      - name: Build GUI executable
+      - name: Build canonical master GUI executable
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name LATSES lat_ces/gui_complete.py
+          pyinstaller --noconfirm --clean --onefile --windowed --name LATSES `
+            --add-data "lat_ces/materials/building_materials.catalog.json;lat_ces/materials" `
+            --add-data "lat_ces/reference_house_model.json;lat_ces" `
+            lat_ces/gui_master.py
           if (!(Test-Path '.\dist\LATSES.exe')) { throw 'LATSES.exe was not created' }
           if ((Get-Item '.\dist\LATSES.exe').Length -lt 1000000) { throw 'LATSES.exe is unexpectedly small' }
 
@@ -49,7 +52,7 @@ jobs:
         shell: pwsh
         run: |
           $p = Start-Process -FilePath '.\dist\LATSES.exe' -PassThru -WindowStyle Hidden
-          Start-Sleep -Seconds 3
+          Start-Sleep -Seconds 5
           if ($p.HasExited -and $p.ExitCode -ne 0) { throw "LATSES.exe exited with code $($p.ExitCode)" }
           if (!$p.HasExited) { Stop-Process -Id $p.Id -Force }
 
