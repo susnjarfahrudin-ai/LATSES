@@ -4,7 +4,7 @@
   "integration_branch": "main",
   "active_branch": "agent/building-engineering-completion",
   "active_pr": 125,
-  "current_head": "553a46ca9dd183e0de175bc997c7d4dfd53f3e6a",
+  "current_head": "72f0d58ca2fce87135b72409ef8ab77bb4ca9d9d",
   "release_status": "candidate_not_released",
   "active_workstream": "reference_house_master_gui_release_validation",
   "release_gate": [
@@ -17,6 +17,26 @@
     "artifact",
     "actual Windows installation and GUI command exercise"
   ],
+  "release_gate_status": {
+    "verification_run": "#722 SUCCESS",
+    "windows_executable_run": "#329 SUCCESS",
+    "windows_installer_run": "#575 SUCCESS",
+    "artifact_produced": true,
+    "actual_windows_installation": "pending",
+    "packaged_gui_command_exercise": "pending"
+  },
+  "latest_release_gate_failure": {
+    "failure_area": "Windows EXE/Installer source verification",
+    "test": "tests/gui_fullscreen_viewport_smoke_test.py::test_reference_house_workflow_is_available_for_gui_smoke_test",
+    "root_cause": "stale smoke-test contract asserted obsolete workflow.model.envelope attribute",
+    "repair_commit": "72f0d58ca2fce87135b72409ef8ab77bb4ca9d9d",
+    "repair": "smoke test now checks the actual canonical reference-house BuildingModel surface",
+    "verification_after_repair": [
+      "Verification #722 SUCCESS",
+      "Windows Executable #329 SUCCESS",
+      "Windows Installer #575 SUCCESS"
+    ]
+  },
   "failure_workflow": [
     "freeze failing source SHA",
     "identify exact workflow/job/step/log",
@@ -48,9 +68,12 @@
     "master GUI callback regression fix",
     "catalog-tab parent regression fix",
     "persistent GitHub session recovery protocol",
-    "CI timeout diagnostics"
+    "CI timeout diagnostics",
+    "Windows EXE release proof",
+    "Windows Installer release proof"
   ],
   "remaining_implementation": [
+    "actual Windows installation and packaged GUI command exercise",
     "fuller structural engineering: load path, structural model, RC design and detailing",
     "layered envelope/thermal assemblies",
     "windows/glazing model: wood/PVC/aluminium, 1-4 panes, gas fill, Low-E, spacer",
@@ -68,7 +91,6 @@
     "Green import/startup smoke tests are insufficient for master GUI release validation."
   ],
   "next_actions": [
-    "complete current GUI EXE/Installer release gate",
     "exercise packaged Reference House, Tlocrt, Presjek, 3D, Provjera, Izvještaj and Materijali",
     "after release proof, implement remaining engineering layers",
     "build complete SCI 1-145 traceability matrix",
