@@ -14,5 +14,7 @@ def test_reference_house_workflow_is_available_for_gui_smoke_test():
     from lat_ces.building.reference_house_project import build_reference_house_workflow
 
     workflow = build_reference_house_workflow()
+    assert workflow.model.name
     assert workflow.model.levels
-    assert workflow.model.envelope
+    assert workflow.model.roof is not None
+    assert workflow.model.materials
