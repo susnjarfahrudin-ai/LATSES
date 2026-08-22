@@ -8,6 +8,7 @@
 - **Default integration branch:** `main`
 - **Active engineering branch:** `agent/building-engineering-completion`
 - **Active PR:** `#125 — feat: complete Building Engineering integration over canonical BuildingModel`
+- **Latest source SHA:** `72f0d58ca2fce87135b72409ef8ab77bb4ca9d9d`
 
 ## Architectural rule
 
@@ -15,11 +16,19 @@
 
 ## Current release gate
 
-The current target is:
+For source SHA `72f0d58ca2fce87135b72409ef8ab77bb4ca9d9d`:
 
-`source SHA → Verification GREEN → master GUI EXE → EXE smoke GREEN → Windows Installer GREEN → installer smoke GREEN → artifact → actual Windows installation and GUI command exercise`
+`source SHA → Verification GREEN → master GUI EXE → EXE smoke GREEN → Windows Installer GREEN → installer smoke GREEN → artifact`
 
-The release is **not** accepted merely because an import test passes or because an EXE file exists.
+All steps above are now **GREEN** in the fresh release cycle:
+
+- Verification Pipeline **#722 — SUCCESS**
+- Windows Executable **#329 — SUCCESS**
+- Windows Installer **#575 — SUCCESS**
+- Windows executable was built from `lat_ces/gui_master.py`, smoke-tested, packaged and uploaded.
+- Windows installer was compiled, smoke-tested for artifact integrity and uploaded.
+
+The software release is **not yet accepted as a user release** until the downloaded installer is actually installed on Windows and the packaged GUI commands are exercised end-to-end.
 
 ## Failure-workflow — mandatory from this point forward
 
@@ -35,6 +44,15 @@ When any Verification, EXE, smoke test, Installer, or artifact step fails:
 8. **Compare the new result against the frozen failing SHA** so the repair is attributable.
 9. **Do not declare success until the same source SHA passes the entire required proof chain and the packaged GUI is exercised.**
 10. **Record the failure, root cause, repair commit, verification result and next action in this checkpoint.**
+
+### Latest resolved release-gate failure
+
+- **Failing ref:** PR #125 merge ref tested by the failed Windows release run.
+- **Failure:** Windows EXE / Installer verification failed in `tests/gui_fullscreen_viewport_smoke_test.py` because the smoke test asserted obsolete `workflow.model.envelope`.
+- **Root cause:** stale test contract; the canonical `BuildingModel` no longer exposes `envelope` as a public attribute.
+- **Repair commit:** `72f0d58ca2fce87135b72409ef8ab77bb4ca9d9d`
+- **Repair:** smoke test now checks the actual canonical reference-house model surface instead of the retired `model.envelope` attribute.
+- **Verification after repair:** Verification #722 GREEN; Windows EXE #329 GREEN; Windows Installer #575 GREEN.
 
 ### What we must not do on failure
 
@@ -54,11 +72,12 @@ PR #125 contains the current integration layer for:
 - unified Building Engineering Report aggregating MEP, QTO, structural, thermal and electrical domains;
 - reference-house workflow materialized into canonical BuildingModel;
 - master GUI with Tlocrt / Presjek / 3D / Provjera / Izvještaj / Reference House / Materijali paths;
-- master GUI callback and catalog-tab regression repairs.
+- master GUI callback and catalog-tab regression repairs;
+- Windows EXE and Windows Installer release workflow proven GREEN on the current source SHA.
 
 ## Remaining implementation after release proof
 
-Once the current GUI release gate is proven, continue with:
+Once the downloaded installer is exercised successfully, continue with:
 
 1. fuller structural engineering: load path, structural model, RC design and detailing;
 2. layered envelope/thermal assemblies;
@@ -68,8 +87,6 @@ Once the current GUI release gate is proven, continue with:
 6. manufacturer-material catalog adapter/migration between manufacturer schema and parameterized Building Material catalog;
 7. complete `SCI 1–145` traceability matrix: SCI requirement → implementation → test → status (`KEEP/ADAPT/MERGE/NEW`);
 8. remaining scientific-layer implementation identified by that SCI matrix.
-
-The Master Audit specifically identifies the manufacturer catalog adapter as a concrete migration issue and lists the above engineering sequence. 
 
 ## Historical decisions — do not reopen without a new reproducible contradiction
 
