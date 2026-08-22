@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from importlib.resources import files
+from pathlib import Path
 from math import cos, radians
 from typing import Any
 
@@ -41,7 +41,9 @@ class ReferenceHouse:
 
     @classmethod
     def default(cls) -> "ReferenceHouse":
-        raw = files("lat_ces").joinpath("reference_house_model.json").read_text(encoding="utf-8")
+        """Load the packaged reference model reliably in source/editable/Windows builds."""
+        resource_path = Path(__file__).with_name("reference_house_model.json")
+        raw = resource_path.read_text(encoding="utf-8")
         return cls(json.loads(raw))
 
     @property
