@@ -27,6 +27,53 @@ After every meaningful change, update the checkpoint with:
 
 A LAT-CES Windows build is not release-ready merely because CI imports the GUI or the executable starts. For the master GUI, the validation path must exercise the user-facing command callbacks, including Reference House, Tlocrt, Presjek, 3D, Provjera and Izvještaj.
 
+## Failure workflow
+
+When any Verification, EXE, Installer, smoke test or packaged-GUI step fails:
+
+1. Freeze the exact failing source SHA.
+2. Record the exact workflow run, job, step and failure/log evidence.
+3. Classify the failure as source, dependency, integration, runtime, packaging or infrastructure.
+4. Locate the smallest concrete source/function/dependency cause.
+5. Apply the smallest targeted repair; do not restart the project or reopen settled architectural decisions.
+6. Add or update a regression test that reproduces the failure where practical.
+7. Run the narrow verification that proves the repair.
+8. Re-run the full Verification + EXE + Installer evidence chain on the repaired SHA.
+9. Compare the repaired result with the frozen failing SHA and record the outcome in the project state.
+10. Do not accept a release candidate until the actual packaged GUI and installer have been exercised.
+
+## Module Extension / Long-Term Stability Workflow
+
+All new capabilities must extend the platform around the canonical `BuildingModel`, which remains the single source of truth.
+
+For every new module or feature, use this contract:
+
+`INPUT -> canonical BuildingModel`
+
+`ENGINE -> module-owned domain logic/formulas`
+
+`OUTPUT -> structured engineering result`
+
+`VALIDATION -> module tests + integration test`
+
+`GUI -> input/presentation only; no ownership of engineering formulas`
+
+`REPORT -> result + provenance`
+
+`PACKAGING -> module survives EXE/Installer build and packaged smoke validation`
+
+Module rules:
+
+- Do not create a second authoritative model of the same building data.
+- Do not create hidden engineering assumptions inside GUI or catalog presentation code.
+- Prefer stable interfaces between modules over direct chains of module-to-module dependencies.
+- Missing engineering inputs must remain explicit `INPUT_REQUIRED` / `CHECK` states rather than invented values.
+- New modules must preserve existing canonical behavior and regression coverage.
+- New domain capability is accepted only after its source tests, integration path and packaged runtime path are validated.
+- The extension workflow is additive: new modules should attach to the canonical model without destabilizing unrelated domains.
+
+This is the required long-term expansion pattern for LAT-CES.
+
 ## Anti-loop rule
 
 Before opening a new bug-fix branch, compare the failure with the historical decisions and closed PRs recorded in the checkpoint. Reuse the active workstream when the problem was already analysed and has a reproducible existing solution.
