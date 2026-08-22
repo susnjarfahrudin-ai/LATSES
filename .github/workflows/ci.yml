@@ -10,6 +10,7 @@ on:
 jobs:
   verify-core:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
     - name: Preuzimanje koda (Checkout)
@@ -24,7 +25,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e .
-        pip install pytest build
+        pip install pytest pytest-timeout build
         sudo apt-get update
         sudo apt-get install -y xvfb
 
@@ -54,7 +55,7 @@ jobs:
     - name: Pokretanje LAT-CES Verifikacijskih Testova (0001 - 0009)
       run: |
         set -o pipefail
-        xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24' pytest -x -vv --tb=long 2>&1 | tee pytest-output.log
+        timeout --signal=TERM --kill-after=30s 40m xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24' pytest -x -vv --tb=long --timeout=300 --timeout-method=thread 2>&1 | tee pytest-output.log
 
     - name: Objavi detalje prvog failing testa
       if: failure()
@@ -63,7 +64,7 @@ jobs:
           echo '## CI failure — prvi failing test'
           echo
           echo '```text'
-          tail -n 120 pytest-output.log || true
+          tail -n 160 pytest-output.log || true
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
 
