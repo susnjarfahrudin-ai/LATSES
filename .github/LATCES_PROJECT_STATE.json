@@ -1,27 +1,42 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "repository": "susnjarfahrudin-ai/LATSES",
   "integration_branch": "main",
   "active_branch": "agent/building-engineering-completion",
   "active_pr": 125,
-  "current_head": "a32c2df12308ca0bdf1df876d91434f6acc01c22",
-  "last_functional_gui_repair": "7c64b75ad4f53611169eda27e7d0fe124e4b6581",
+  "current_head": "553a46ca9dd183e0de175bc997c7d4dfd53f3e6a",
   "release_status": "candidate_not_released",
-  "current_ci": {
-    "verification_run": 688,
-    "verification_status": "rerun_due_to_checkpoint_commits",
-    "windows_installer_run": 542,
-    "windows_installer_status": "rerun_due_to_checkpoint_commits"
-  },
-  "canonical_decisions": [
-    "BuildingModel is the single source of truth.",
-    "338 m2 is conditioned floor area; 360 m2 is gross floor area.",
-    "Do not restore the obsolete >350 m2 showcase assertion.",
-    "Reference-house JSON loads adjacent to reference_house.py.",
-    "Do not create parallel reference-house hotfix branches without a new reproducible failure.",
-    "Green import/startup smoke tests are insufficient for master GUI release validation."
-  ],
   "active_workstream": "reference_house_master_gui_release_validation",
+  "release_gate": [
+    "source SHA",
+    "Verification GREEN",
+    "master GUI EXE",
+    "EXE smoke GREEN",
+    "Windows Installer GREEN",
+    "installer smoke GREEN",
+    "artifact",
+    "actual Windows installation and GUI command exercise"
+  ],
+  "failure_workflow": [
+    "freeze failing source SHA",
+    "identify exact workflow/job/step/log",
+    "classify failure as source, GUI/runtime, packaging, installer, environment, or CI",
+    "trace to owning file/function/dependency",
+    "make smallest targeted repair on active branch",
+    "add regression test where feasible",
+    "run narrow verification first",
+    "rerun full release chain",
+    "compare against frozen failing SHA",
+    "accept only after full proof chain and packaged GUI exercise",
+    "record root cause, repair commit, result, blocker and next action"
+  ],
+  "do_not_on_failure": [
+    "do not guess when logs are unavailable",
+    "do not modify BuildingModel unless evidence points there",
+    "do not reopen 338/360 m2 semantics",
+    "do not create duplicate reference-house branches without new reproducible failure",
+    "do not treat a long-running workflow as the diagnosis"
+  ],
   "completed_workstreams": [
     "reference-house canonical BuildingModel workflow",
     "geometry-driven QTO",
@@ -31,15 +46,33 @@
     "electrical design-intent registry/reporting",
     "master GUI shell with plan/section/3D/validation/report commands",
     "master GUI callback regression fix",
-    "persistent GitHub session recovery protocol"
+    "catalog-tab parent regression fix",
+    "persistent GitHub session recovery protocol",
+    "CI timeout diagnostics"
   ],
-  "current_blocker": "Need fresh CI results for the latest checkpoint commit, then exercise the packaged Reference House command and other master callbacks.",
+  "remaining_implementation": [
+    "fuller structural engineering: load path, structural model, RC design and detailing",
+    "layered envelope/thermal assemblies",
+    "windows/glazing model: wood/PVC/aluminium, 1-4 panes, gas fill, Low-E, spacer",
+    "roof timber, coverings, sheet metal, gutters/downpipes and railings as integrated engineering objects",
+    "electrical and plumbing objects under BuildingModel ownership",
+    "manufacturer-material catalog adapter/migration",
+    "complete SCI 1-145 traceability matrix: requirement to implementation/test/status KEEP/ADAPT/MERGE/NEW",
+    "remaining scientific-layer implementation identified by SCI traceability"
+  ],
+  "canonical_decisions": [
+    "BuildingModel is the single source of truth.",
+    "338 m2 is conditioned floor area; 360 m2 is gross floor area.",
+    "Do not restore the obsolete >350 m2 showcase assertion.",
+    "Reference-house JSON loads adjacent to reference_house.py.",
+    "Green import/startup smoke tests are insufficient for master GUI release validation."
+  ],
   "next_actions": [
-    "Confirm latest Verification and Windows Installer runs for the current head.",
-    "Download newest installer artifact from the corrected commit.",
-    "Run packaged executable and click Reference House.",
-    "Exercise Tlocrt, Presjek, 3D, Provjera and Izvještaj callbacks.",
-    "Record result here before approval/merge."
+    "complete current GUI EXE/Installer release gate",
+    "exercise packaged Reference House, Tlocrt, Presjek, 3D, Provjera, Izvještaj and Materijali",
+    "after release proof, implement remaining engineering layers",
+    "build complete SCI 1-145 traceability matrix",
+    "record every failure/root-cause/repair in this checkpoint"
   ],
   "history_rules": {
     "read_first": [
