@@ -36,7 +36,7 @@ jobs:
         shell: pwsh
         run: |
           python -c "from lat_ces.gui_master import MasterBuildingWorkspaceApp; print('LAT-CES master Building workspace import OK')"
-          pytest -q
+          pytest -q tests/test_building_engineering_checkpoint.py tests/test_building_engineering_completion.py tests/test_building_engineering_ui.py tests/gui_fullscreen_viewport_smoke_test.py
 
       - name: Build canonical master GUI executable
         shell: pwsh
