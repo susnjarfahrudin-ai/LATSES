@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from importlib.resources import files
+from pathlib import Path
 from math import cos, radians
 from typing import Any
 
@@ -41,8 +41,11 @@ class ReferenceHouse:
 
     @classmethod
     def default(cls) -> "ReferenceHouse":
-        raw = files("lat_ces").joinpath("reference_house_model.json").read_text(encoding="utf-8")
-        return cls(json.loads(raw))
+        # lat_ces is intentionally a namespace package; resolve the bundled
+        # resource relative to this module so editable installs and wheels
+        # use the same deterministic path.
+        path = Path(__file__).with_name("reference_house_model.json")
+        return cls(json.loads(path.read_text(encoding="utf-8")))
 
     @property
     def levels(self):
@@ -113,7 +116,6 @@ class ReferenceHouse:
         return total
 
     def envelope_scenarios(self):
-        # Comparative only: explicit assumed layer conductivities; not a code check.
         scenarios = (("Vuna 12 cm",0.12,0.036),("Vuna 16 cm",0.16,0.036),("Vuna 20 cm",0.20,0.036),("EPS 16 cm",0.16,0.036))
         results = []
         for name, thickness, lam in scenarios:
@@ -123,7 +125,6 @@ class ReferenceHouse:
         return tuple(results)
 
     def glazing_scenarios(self):
-        # Placeholder comparative values are configuration inputs, not manufacturer data.
         return (('2 stakla',2,2.7),('3 stakla Low-E',3,0.9),('3 stakla Low-E + warm edge',3,0.7))
 
     def summary(self):

@@ -1,5 +1,9 @@
 name: LAT-CES Windows Installer
 
+# Persistent operational memory: docs/WORKFLOW-RUNBOOK.md
+# Release rule: exact commit -> verification GREEN -> EXE smoke -> installer smoke -> artifact evidence.
+# Never report an EXE/installer as ready from an older commit.
+
 on:
   workflow_dispatch:
   push:
