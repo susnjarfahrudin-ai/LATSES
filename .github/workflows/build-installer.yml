@@ -66,22 +66,38 @@ jobs:
           try {
             $deadline = (Get-Date).AddSeconds(30)
             $window = $null
+            $condition = New-Object System.Windows.Automation.AndCondition(
+              (New-Object System.Windows.Automation.PropertyCondition(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Window
+              )),
+              (New-Object System.Windows.Automation.PropertyCondition(
+                [System.Windows.Automation.AutomationElement]::ProcessIdProperty,
+                $p.Id
+              ))
+            )
             while ((Get-Date) -lt $deadline) {
               Start-Sleep -Milliseconds 500
               $p.Refresh()
               if ($p.HasExited) { throw "LATSES.exe exited early with code $($p.ExitCode)" }
-              if ($p.MainWindowHandle -ne 0) {
-                $window = [System.Windows.Automation.AutomationElement]::FromHandle($p.MainWindowHandle)
-                if ($window) { break }
+              $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+                [System.Windows.Automation.TreeScope]::Children,
+                $condition
+              )
+              if ($windows.Count -gt 0) {
+                $window = $windows | Select-Object -First 1
+                break
               }
             }
-            if (-not $window) { throw 'GUI identity smoke test timed out waiting for the LATSES main window' }
+            if (-not $window) {
+              throw "GUI identity smoke test timed out waiting for a Window AutomationElement for LATSES.exe (PID $($p.Id))"
+            }
 
-            $condition = New-Object System.Windows.Automation.PropertyCondition(
+            $tabCondition = New-Object System.Windows.Automation.PropertyCondition(
               [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
               [System.Windows.Automation.ControlType]::TabItem
             )
-            $tabs = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
+            $tabs = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $tabCondition)
             $actual = @($tabs | ForEach-Object { $_.Current.Name } | Where-Object { $_ })
             $expected = @('Model / Pogledi', 'Konstrukcija / Statika', 'MEP', 'Fasade')
             $missing = @($expected | Where-Object { $_ -notin $actual })
