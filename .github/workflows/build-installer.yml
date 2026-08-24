@@ -60,10 +60,40 @@ jobs:
       - name: GUI identity smoke test
         shell: pwsh
         run: |
-          $env:LATCES_GUI_SMOKE = '1'
-          $p = Start-Process -FilePath '.\dist\LATSES.exe' -PassThru -WindowStyle Hidden -Wait
-          Remove-Item Env:LATCES_GUI_SMOKE
-          if ($p.ExitCode -ne 0) { throw "GUI identity smoke test failed with exit code $($p.ExitCode)" }
+          Add-Type -AssemblyName UIAutomationClient
+          Add-Type -AssemblyName UIAutomationTypes
+          $p = Start-Process -FilePath '.\dist\LATSES.exe' -PassThru
+          try {
+            $deadline = (Get-Date).AddSeconds(30)
+            $window = $null
+            while ((Get-Date) -lt $deadline) {
+              Start-Sleep -Milliseconds 500
+              $p.Refresh()
+              if ($p.HasExited) { throw "LATSES.exe exited early with code $($p.ExitCode)" }
+              if ($p.MainWindowHandle -ne 0) {
+                $window = [System.Windows.Automation.AutomationElement]::FromHandle($p.MainWindowHandle)
+                if ($window) { break }
+              }
+            }
+            if (-not $window) { throw 'GUI identity smoke test timed out waiting for the LATSES main window' }
+
+            $condition = New-Object System.Windows.Automation.PropertyCondition(
+              [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+              [System.Windows.Automation.ControlType]::TabItem
+            )
+            $tabs = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
+            $actual = @($tabs | ForEach-Object { $_.Current.Name } | Where-Object { $_ })
+            $expected = @('Model / Pogledi', 'Konstrukcija / Statika', 'MEP', 'Fasade')
+            $missing = @($expected | Where-Object { $_ -notin $actual })
+            Write-Host "GUI identity tabs: $($actual -join ' | ')"
+            if ($missing.Count -gt 0) {
+              throw "GUI identity check failed; missing tabs: $($missing -join ', '); actual tabs: $($actual -join ', ')"
+            }
+            Write-Host 'GUI identity OK: CompleteBuildingWorkspaceApp surface confirmed in packaged EXE'
+          }
+          finally {
+            if ($p -and -not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+          }
 
       - name: Install Inno Setup
         shell: pwsh
