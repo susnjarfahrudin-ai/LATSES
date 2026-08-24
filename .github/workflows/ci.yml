@@ -72,3 +72,4 @@ jobs:
         } >> "$GITHUB_STEP_SUMMARY"
 
 # CI trigger comment: SMC-004 acceptance verification.
+# Integration checkpoint: PR #140 must execute Verification on its merge result.
