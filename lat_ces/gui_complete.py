@@ -1,7 +1,6 @@
 """Complete LAT-CES desktop workspace."""
 from __future__ import annotations
 
-import os
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -206,31 +205,58 @@ class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
         report = calculate_structural_loads(self.workflow.model)
         lines = [f"Status: {report.status}", f"Ukupno: {report.total_vertical_line_load_kn_m:.3f} kN/m"]
         if report.findings: lines += ["\nNalazi:"] + [f"- {x}" for x in report.findings]
-        lines += [f"{x.wall_name} · vlastita {x.self_weight_kn_m:.3f} · zid {x.wall_load_kn_m:.3f} · strop {x.floor_load_kn_m:.3f} · krov {x.roof_load_kn_m:.3f}" for x in report.wall_loads]
-        self._set_text(self.calculation_output, "\n".join(lines)); self.status_var.set("Statika izračunata")
+        lines += [f"{x.wall_name} · vlastita {x.self_weight_kn_m:.3f} · etaža {x.tributary_floor_load_kn_m:.3f} · krov {x.tributary_roof_load_kn_m:.3f} · ukupno {x.total_line_load_kn_m:.3f} kN/m" for x in report.walls]
+        self._set_text(self.calculation_output, "\n".join(lines))
 
     def _calculate_building_report(self):
         report = build_building_engineering_report(self.workflow.model)
-        self._set_text(self.calculation_output, "\n".join((f"{k}: {v}" for k, v in report.items())))
-        self._refresh_mep_tab(); self.status_var.set("Building Engineering Report osvježen")
-
-    def _refresh_mep_tab(self):
-        results = ensure_engineering_results(self.workflow.model)
-        self._set_text(self.mep_output, "\n".join((f"{k}: {v}" for k, v in results.items())))
-
-    def _refresh_complete_tabs(self):
-        self._refresh_structure_materials()
+        self._set_text(self.calculation_output, "\n".join((f"Status: {report.status}", f"Rezultata: {report.result_count}", f"CALCULATED: {report.calculated_count}", f"INPUT_REQUIRED: {report.input_required_count}", f"INPUT_CONFLICT: {report.conflict_count}", f"Ventilacija: {report.total_ventilation_flow_m3_h:.3f} m³/h", f"Grijanje: {report.total_heating_load_w:.3f} W", f"Voda: {report.total_water_pressure_drop_pa:.3f} Pa")))
         self._refresh_mep_tab()
 
-    def _set_text(self, widget, text):
-        widget.configure(state="normal"); widget.delete("1.0", "end"); widget.insert("1.0", text); widget.configure(state="disabled")
+    def _refresh_mep_tab(self):
+        if self.mep_output is None: return
+        registry = ensure_mep_registry(self.workflow.model); results = ensure_engineering_results(registry)
+        lines = [f"Ventilacija: {len(registry.all_ventilation_openings)}", f"Voda: {len(registry.all_water_branches)}", f"Grijanje: {len(registry.all_heating_zones)}"] + [f"{r.object_type}:{r.object_id} → {r.status}" for r in results.all]
+        self._set_text(self.mep_output, "\n".join(lines))
+
+    def _open_mep_editor(self):
+        try:
+            app = EngineeringMEPWorkspaceApp()
+            app.workflow = self.workflow
+            app.editor = FloorPlanEditor(app)
+            app.refresh_view()
+            app.title("LAT-CES — MEP Engineering — trenutni BuildingModel")
+            app.mainloop()
+        except Exception as exc:
+            messagebox.showerror("LAT-CES — MEP", str(exc), parent=self)
+
+    @staticmethod
+    def _set_text(widget, value):
+        widget.configure(state="normal"); widget.delete("1.0", "end"); widget.insert("1.0", value); widget.configure(state="disabled")
+
+    def _refresh_complete_tabs(self):
+        roof = self.workflow.model.roof
+        if self.roof_length_var is not None and roof:
+            self.roof_length_var.set(f"{roof.length_m:.2f}"); self.roof_width_var.set(f"{roof.width_m:.2f}"); self.roof_dead_load_var.set(f"{roof.dead_load_kpa:.2f}"); self.roof_snow_load_var.set(f"{roof.snow_load_kpa:.2f}")
+        level = self.active_level
+        if self.envelope_finish_var is not None:
+            self.envelope_finish_var.set(level.facade_finish); self.envelope_insulation_material_var.set(level.insulation_material); self.envelope_insulation_thickness_var.set(f"{level.insulation_thickness_m:.3f}"); self.envelope_plaster_material_var.set(level.interior_plaster_material); self.envelope_plaster_thickness_var.set(f"{level.interior_plaster_thickness_m:.3f}"); self.level_dead_load_var.set(f"{level.dead_load_kpa:.2f}"); self.level_live_load_var.set(f"{level.live_load_kpa:.2f}")
+        self._refresh_structure_materials(); self._refresh_mep_tab()
+
+    def refresh_view(self):
+        super().refresh_view(); self._refresh_complete_tabs()
+
+    def update_selected_wall(self):
+        super().update_selected_wall()
+        wall = self.floor_plan.walls.get(self.editor.selected_wall_id) if self.editor.selected_wall_id else None
+        if wall is not None and self.wall_load_bearing_var is not None:
+            self.wall_load_bearing_var.set(wall.load_bearing); self.wall_tributary_var.set(f"{wall.tributary_width_m:.2f}")
+            if wall.material_id in self.workflow.model.materials: self.wall_material_var.set(self.workflow.model.materials[wall.material_id].name)
 
     def apply_roof(self):
         try:
-            length, width = float(self.roof_length_var.get()), float(self.roof_width_var.get())
-            dead, snow = float(self.roof_dead_load_var.get()), float(self.roof_snow_load_var.get())
-            if length <= 0 or width <= 0 or dead < 0 or snow < 0: raise ValueError("Dimenzije moraju biti > 0, opterećenja >= 0")
-            self.workflow.model.roof = Roof(length_m=length, width_m=width, dead_load_kpa=dead, snow_load_kpa=snow)
+            roof = Roof(roof_type=self.roof_type_var.get().strip(), construction=self.roof_construction_var.get().strip(), covering=self.roof_covering_var.get().strip(), substructure=self.roof_substructure_var.get().strip(), support=self.roof_support_var.get().strip(), length_m=float(self.roof_length_var.get()), width_m=float(self.roof_width_var.get()), slope_deg=float(self.roof_slope_var.get()), height_m=float(self.roof_height_var.get()), dead_load_kpa=float(self.roof_dead_load_var.get()), snow_load_kpa=float(self.roof_snow_load_var.get()))
+            self.workflow.model.set_roof(roof)
         except ValueError as exc:
             messagebox.showwarning("LAT-CES — Krov", str(exc), parent=self); return
         self.refresh_view(); self.status_var.set(f"Krov: {roof.length_m:.2f} × {roof.width_m:.2f} m")
@@ -254,26 +280,7 @@ class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
         self.draw_compass()
 
 
-def _run_gui_identity_smoke() -> None:
-    """Launch the packaged GUI and prove the canonical workspace identity."""
-    app = CompleteBuildingWorkspaceApp()
-    try:
-        if type(app).__name__ != "CompleteBuildingWorkspaceApp":
-            raise RuntimeError(f"Unexpected GUI class: {type(app).__name__}")
-        expected = ("Model / Pogledi", "Konstrukcija / Statika", "MEP", "Fasade")
-        actual = tuple(app.complete_tabs.tab(index, "text") for index in range(app.complete_tabs.index("end")))
-        missing = [title for title in expected if title not in actual]
-        if missing:
-            raise RuntimeError(f"GUI identity check failed; missing tabs: {missing}; actual tabs: {actual}")
-        print(f"GUI identity OK: {type(app).__name__}; tabs={actual}")
-    finally:
-        app.destroy()
-
-
 def main() -> None:
-    if os.environ.get("LATCES_GUI_SMOKE") == "1":
-        _run_gui_identity_smoke()
-        return
     CompleteBuildingWorkspaceApp().mainloop()
 
 

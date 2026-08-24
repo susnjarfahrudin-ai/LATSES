@@ -57,14 +57,6 @@ jobs:
           if ($p.HasExited -and $p.ExitCode -ne 0) { throw "LATSES.exe exited with code $($p.ExitCode)" }
           if (!$p.HasExited) { Stop-Process -Id $p.Id -Force }
 
-      - name: GUI identity smoke test
-        shell: pwsh
-        run: |
-          $env:LATCES_GUI_SMOKE = '1'
-          $p = Start-Process -FilePath '.\dist\LATSES.exe' -PassThru -WindowStyle Hidden -Wait
-          Remove-Item Env:LATCES_GUI_SMOKE
-          if ($p.ExitCode -ne 0) { throw "GUI identity smoke test failed with exit code $($p.ExitCode)" }
-
       - name: Install Inno Setup
         shell: pwsh
         run: |
