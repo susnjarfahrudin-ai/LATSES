@@ -47,9 +47,9 @@ class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
         self.facade_direction_var = None
         self.calculation_output = None
         self.mep_output = None
-        self.current_nav = tk.StringVar(value="MODEL")
-        self.current_context = tk.StringVar(value="BuildingModel")
         super().__init__()
+        self.current_nav = tk.StringVar(master=self, value="MODEL")
+        self.current_context = tk.StringVar(master=self, value="BuildingModel")
         self._configure_engineering_style()
         self._install_canonical_shell()
         self._install_complete_tabs()
