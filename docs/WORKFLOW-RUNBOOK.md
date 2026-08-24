@@ -8,6 +8,13 @@ This document is the persistent operational memory for CI, EXE and Windows Insta
 - Use this repository for the release workflow.
 - Never substitute evidence from another repository, branch or older commit.
 
+## Canonical Verification workflow
+
+- **Verification:** `.github/workflows/ci.yml`
+- **Core job:** `verify-core`
+- An empty/non-functional workflow file must not be treated as Verification evidence.
+- A workflow run with zero executable jobs is infrastructure/configuration noise, not an application test result.
+
 ## SCI development order
 
 `SCI 1–145 → gap map → canonical scientific contract → consolidate duplicates → Unit/Dimension/Quantity/Measurement/Uncertainty/Provenance → Validation Gate → BuildingModel integration → SCI verification tests → CI Gate → EXE → Installer → GUI final evaluation`
@@ -17,7 +24,7 @@ GUI remains downstream of the scientific contract.
 ## Safe repair loop
 
 1. Identify the exact `main` SHA under test.
-2. Run the relevant Verification workflow for that exact SHA.
+2. Run the canonical Verification workflow for that exact SHA.
 3. Require Verification to be GREEN before packaging evidence is accepted.
 4. If a downstream EXE/Installer workflow fails, inspect the first real failing step.
 5. Fix only the demonstrated root cause and keep the change minimal.
@@ -40,169 +47,141 @@ Evidence rules:
 4. Use the first real failing step, not secondary skipped steps or warnings.
 5. Node.js deprecation warnings are warnings, not the root cause of a failing build unless the workflow proves they caused the failure.
 6. No artifact means no release evidence.
+7. A `total_count: 0` workflow failure is not application verification evidence.
 
-## Current ReferenceHouse / main verification checkpoint
+## ReferenceHouse historical checkpoint
 
-The historical ReferenceHouse repair chain established a case-insensitive bedroom classification fix. The old Verification evidence associated with that chain is not reusable as release evidence for later documentation or packaging commits.
+The ReferenceHouse repair established a case-insensitive bedroom classification fix. Historical Verification evidence is not reusable for later commits.
 
-Important rule: record the exact tested SHA together with the workflow run number every time.
+Original repair commit:
+
+`f03cf71df148261da159e0635d683635aa920530`
+
+Observed original failure:
+
+- Obtained lighting: `801.6 W`
+- Expected lighting: `792.0 W`
+- Difference: `9.6 W`
+
+The fix used `casefold()` in `ReferenceHouse.lighting_w()` and was limited to `lat_ces/reference_house.py`.
 
 ## Installer repair cycle — 2026-08-25
 
-### Checkpoint A — documentation commit
+### First real Installer failure — #658
 
-Target commit:
+The first downstream Installer failure occurred in `GUI identity smoke test` after these stages succeeded:
 
-`2694a3d876b34f600b9f9b6b030793b6aa9c1635`
+- desktop import
+- pytest
+- PyInstaller GUI build
+- packaged EXE smoke
 
-Message:
+Root cause: runner-side Windows UI Automation could not reliably obtain the packaged Tk window.
 
-`docs: record ReferenceHouse verification and release evidence chain`
-
-Verification Pipeline #818:
-
-- `verify-core`: SUCCESS
-- wheel/package discovery: SUCCESS
-- LAT-CES verification tests: SUCCESS
-
-Windows packaging runs for the same SHA:
-
-- Windows Executable #361: SUCCESS
-- Windows Installer #658: FAILURE
-
-### Checkpoint B — first real Installer failure at #658
-
-Installer #658 failed in:
-
-`GUI identity smoke test`
-
-What was proven before the failure:
-
-- complete desktop application import: SUCCESS
-- pytest: SUCCESS
-- PyInstaller GUI executable build: SUCCESS
-- packaged EXE smoke test: SUCCESS
-
-What failed:
-
-The workflow attempted to obtain the application's main window through the Windows UI Automation / process window path and timed out. In other words, the packaged EXE was built and remained alive, but the runner-side automation test did not obtain the expected window handle/AutomationElement.
-
-The Inno Setup and artifact stages were skipped because the GUI identity stage failed.
-
-### Repair commit 1
-
-Commit:
+### Repair — #683993ac
 
 `683993ac761ce1c670829f8b271d4dc36fca4238`
 
-Message:
-
 `fix: make packaged GUI identity smoke test robust`
 
-This changed only `.github/workflows/build-installer.yml` and broadened the UIAutomation window lookup from `MainWindowHandle` to a root-window/process-id search.
+This changed only `.github/workflows/build-installer.yml` and replaced the `MainWindowHandle` lookup with a process/window AutomationElement search.
 
-Verification Pipeline #819 for this repair SHA:
+Verification #819 for this SHA: `SUCCESS`.
 
-- `verify-core`: SUCCESS / GREEN
+Installer #659 for this SHA: `FAILURE`, again at GUI identity smoke.
 
-Installer #659 for the same repair SHA:
+### Second downstream failure — #659
 
-- build-installer: FAILURE
-
-### Checkpoint C — second real Installer failure at #659
-
-Installer #659 again proved:
-
-- package/dependencies: SUCCESS
-- complete desktop import: SUCCESS
-- pytest: SUCCESS
-- GUI EXE build: SUCCESS
-- packaged EXE smoke: SUCCESS
-
-The new failure was again the `GUI identity smoke test`.
-
-Exact error:
+Exact reported failure:
 
 `GUI identity smoke test timed out waiting for a Window AutomationElement for LATSES.exe (PID 1304)`
 
-Conclusion:
+Conclusion: UIAutomation was unreliable for this packaged Tk application on the runner.
 
-The issue is not PyInstaller, not the GUI application's class construction, and not an application crash. The runner-side UIAutomation requirement is itself unreliable for this packaged Tk application.
+### Canonical application-level GUI identity hook
 
-### Canonical test already present in the application
+`lat_ces/gui_complete.py` already exposes `LATCES_GUI_SMOKE=1`. The hook instantiates the real `CompleteBuildingWorkspaceApp`, checks the concrete class and required notebook tabs, then destroys the app and exits non-zero on mismatch.
 
-`lat_ces/gui_complete.py` already provides the environment-controlled smoke path:
+Expected GUI surface:
 
-`LATCES_GUI_SMOKE=1`
+- `Model / Pogledi`
+- `Konstrukcija / Statika`
+- `MEP`
+- `Fasade`
 
-When enabled, the packaged application's `main()` calls `_run_gui_identity_smoke()`, which:
-
-1. Instantiates the real `CompleteBuildingWorkspaceApp`.
-2. Confirms the concrete class identity.
-3. Reads the actual Notebook tabs from the live Tk object.
-4. Requires the expected surface identities:
-   - `Model / Pogledi`
-   - `Konstrukcija / Statika`
-   - `MEP`
-   - `Fasade`
-5. Raises a non-zero exit code on mismatch.
-6. Destroys the application after the check.
-
-This is the canonical application-level GUI identity check and does not depend on runner desktop/window-handle behavior.
-
-### Repair commit 2 — current
-
-Commit:
+### Repair — #25e6a6ec
 
 `25e6a6ece9895012353b915a6a06cdc6aa246463`
 
-Message:
-
 `fix: use packaged GUI identity smoke hook on Windows runner`
 
-Change:
+The Installer workflow switched to `LATCES_GUI_SMOKE=1` and `Start-Process -Wait`.
 
-The Installer workflow `GUI identity smoke test` no longer uses UIAutomation. It now executes the packaged EXE with:
+Problem discovered later: `Start-Process -Wait` had no explicit timeout, so a non-exiting packaged Tk process could leave the GitHub job stuck indefinitely.
 
-`LATCES_GUI_SMOKE=1`
+### Repair — #126e8266
 
-and waits for the process to exit successfully. A non-zero exit code fails the workflow.
+`126e82660517f970d957cac8ff5e0abc6d95fe12`
 
-The workflow still separately retains the generic packaged EXE smoke test, so there are two distinct gates:
+`fix: bound packaged GUI identity smoke test`
 
-- EXE runtime/survival smoke
-- canonical GUI identity smoke
+The Installer GUI identity step now:
 
-No application source file was changed by this repair.
+- starts the packaged EXE without `-Wait`
+- polls for process exit
+- allows a maximum of 45 seconds
+- fails with an explicit timeout message if the EXE does not exit
+- forcibly terminates the process in timeout/finalization cleanup
 
-## Required sequence from `25e6a6ec…`
+This prevents an indefinitely hung Installer run.
 
-The mandatory sequence is now:
+### Verification/configuration incident on #126e8266
 
-1. Verify exact `main` SHA.
-2. Verification Pipeline for `25e6a6ece9895012353b915a6a06cdc6aa246463` must be GREEN.
-3. Windows Installer for the same SHA.
-4. Confirm package/dependency installation.
-5. Confirm complete desktop application imports.
-6. Confirm full pytest suite.
-7. Build `LATSES.exe` with PyInstaller.
-8. Confirm packaged EXE creation and size.
-9. Run packaged EXE smoke test.
-10. Run canonical `LATCES_GUI_SMOKE=1` identity test.
-11. Install Inno Setup.
-12. Compile `installer/LATSES.iss`.
-13. Confirm `installer-output/LAT-CES-Setup.exe` exists and is above the minimum size.
-14. Compute SHA-256.
-15. Upload `LAT-CES-Windows-Installer`.
-16. Accept release evidence only after the upload succeeds.
-17. Record final workflow run number, exact source SHA, artifact name, artifact size and SHA-256.
+After `126e8266`, `.github/workflows/main.yml` produced run **#272** with `failure` and **zero jobs**. Investigation showed `.github/workflows/main.yml` was an empty file. It was not the real Verification workflow.
 
-## Current release gate
+The actual Verification workflow is `.github/workflows/ci.yml`, whose `verify-core` job is valid.
+
+### Cleanup — #702d0996
+
+`702d09964a47bb49fc6fbf73c3a14e3215822ef6`
+
+`chore: remove empty non-functional main workflow`
+
+The empty `.github/workflows/main.yml` was deleted so that the invalid 0-job workflow cannot be mistaken for release evidence.
+
+A fresh Windows Installer run **#663** was automatically queued for this exact SHA.
+
+## Current required checkpoint
+
+The current `main` SHA is:
+
+`702d09964a47bb49fc6fbf73c3a14e3215822ef6`
+
+Current downstream packaging evidence:
+
+- Windows Installer #663: **QUEUED**
+- No current artifact accepted
+- No current release-ready status
+
+Required next evidence chain:
+
+1. Canonical `ci.yml` / `verify-core` GREEN for the exact current SHA.
+2. Windows Installer for that same SHA.
+3. Desktop import + pytest GREEN.
+4. PyInstaller EXE build GREEN.
+5. Packaged EXE smoke GREEN.
+6. Canonical `LATCES_GUI_SMOKE=1` identity smoke GREEN within the 45-second bound.
+7. Inno Setup compile GREEN.
+8. Installer smoke GREEN.
+9. Artifact upload GREEN.
+10. Record artifact name, size, SHA-256 and exact source SHA.
+
+## Release gate
 
 All of the following must be GREEN for release readiness:
 
 - exact `main` SHA identified
-- LAT-CES Verification Pipeline: SUCCESS
+- canonical LAT-CES Verification Pipeline / `verify-core`: SUCCESS
 - CodeQL: SUCCESS
 - wheel/package discovery: SUCCESS
 - full pytest suite: SUCCESS
