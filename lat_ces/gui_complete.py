@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -273,7 +274,7 @@ def _run_gui_identity_smoke() -> None:
 def main() -> None:
     if os.environ.get("LATCES_GUI_SMOKE") == "1":
         _run_gui_identity_smoke()
-        return
+        sys.exit(0)
     CompleteBuildingWorkspaceApp().mainloop()
 
 
