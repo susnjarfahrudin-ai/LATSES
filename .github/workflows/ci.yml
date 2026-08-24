@@ -7,9 +7,9 @@ name: LAT-CES Verification Pipeline
 on:
   workflow_dispatch:
   push:
-    branches: [ main, develop, 'consolidation/**' ]
+    branches: [ main, develop, 'consolidation/**', 'integration/**' ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, 'integration/**' ]
 
 jobs:
   verify-core:
@@ -72,3 +72,4 @@ jobs:
         } >> "$GITHUB_STEP_SUMMARY"
 
 # CI trigger comment: SMC-004 acceptance verification.
+# Integration checkpoint: PR #140 must execute Verification on its merge result.

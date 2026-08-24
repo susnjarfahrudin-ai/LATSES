@@ -1,0 +1,30 @@
+{
+  "schema_version": "2.0",
+  "fixture": "LAT-CES Reference House",
+  "purpose": "canonical end-to-end demonstration and regression fixture",
+  "storeys": [
+    {"id": "ground", "name": "Prizemlje", "type": "ground", "elevation_m": 0.0, "height_m": 2.8},
+    {"id": "floor_1", "name": "Sprat 1", "type": "storey", "elevation_m": 2.8, "height_m": 2.8},
+    {"id": "floor_2", "name": "Sprat 2", "type": "storey", "elevation_m": 5.6, "height_m": 2.8},
+    {"id": "floor_3", "name": "Sprat 3", "type": "storey", "elevation_m": 8.4, "height_m": 2.8}
+  ],
+  "roof": {
+    "id": "roof",
+    "type": "gable",
+    "support": "reinforced_concrete_slab",
+    "structure": "timber",
+    "covering": "clay_tile",
+    "pitch_deg": 35.0
+  },
+  "rooms_per_storey": ["living", "kitchen", "bedroom", "bathroom", "hall", "utility"],
+  "systems": ["water_supply", "drainage", "electrical", "heating", "cooling", "ventilation", "acoustics"],
+  "nodes": ["utility_room", "water_main", "electrical_main", "heat_source", "ventilation_unit"],
+  "acceptance": {
+    "minimum_storeys": 4,
+    "requires_ground_floor": true,
+    "requires_three_upper_storeys": true,
+    "requires_roof": true,
+    "requires_mep_systems": true,
+    "requires_statics_handoff": true
+  }
+}
