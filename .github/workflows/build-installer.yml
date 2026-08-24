@@ -39,13 +39,13 @@ jobs:
       - name: Verify complete desktop application imports
         shell: pwsh
         run: |
-          python -c "from lat_ces.gui_complete import CompleteBuildingWorkspaceApp; print('LAT-CES complete Building workspace import OK')"
+          python -c "from lat_ces.gui_complete import CompleteBuildingWorkspaceApp; from lat_ces.gui_functional import FunctionalLATCESApp; print('LAT-CES canonical + functional GUI imports OK')"
           pytest -q
 
       - name: Build GUI executable
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name LATSES lat_ces/gui_complete.py
+          pyinstaller --noconfirm --clean --onefile --windowed --name LATSES lat_ces/gui_functional.py
           if (!(Test-Path '.\\dist\\LATSES.exe')) { throw 'LATSES.exe was not created' }
           if ((Get-Item '.\\dist\\LATSES.exe').Length -lt 1000000) { throw 'LATSES.exe is unexpectedly small' }
 
@@ -57,13 +57,13 @@ jobs:
           if ($p.HasExited -and $p.ExitCode -ne 0) { throw "LATSES.exe exited with code $($p.ExitCode)" }
           if (!$p.HasExited) { Stop-Process -Id $p.Id -Force }
 
-      - name: GUI identity smoke test
+      - name: GUI functional identity smoke test
         shell: pwsh
         run: |
           $env:LATCES_GUI_SMOKE = '1'
-          python -X utf8 -c "from lat_ces.gui_complete import _run_gui_identity_smoke; _run_gui_identity_smoke()"
+          python -X utf8 -c "from lat_ces.gui_functional import _run_gui_identity_smoke; _run_gui_identity_smoke()"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Write-Host 'GUI identity OK: CompleteBuildingWorkspaceApp canonical smoke hook passed in Python test process'
+          Write-Host 'GUI functional identity OK: canonical navigation + ReferenceHouse + BuildingModel smoke passed'
 
       - name: Install Inno Setup
         shell: pwsh
