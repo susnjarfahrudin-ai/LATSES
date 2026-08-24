@@ -207,56 +207,39 @@ class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
         report = calculate_structural_loads(self.workflow.model)
         lines = [f"Status: {report.status}", f"Ukupno: {report.total_vertical_line_load_kn_m:.3f} kN/m"]
         if report.findings: lines += ["\nNalazi:"] + [f"- {x}" for x in report.findings]
-        lines += [f"{x.wall_name} · vlastita {x.self_weight_kn_m:.3f} · zid {x.wall_load_kn_m:.3f} · strop {x.floor_load_kn_m:.3f} · krov {x.roof_load_kn_m:.3f}" for x in report.wall_loads]
-        self._set_text(self.calculation_output, "\n".join(lines)); self.status_var.set("Statika izračunata")
+        lines += [f"{x.wall_name}: {x.line_load_kn_m:.3f} kN/m" for x in report.wall_results]
+        self._set_text(self.calculation_output, "\n".join(lines))
+        self.status_var.set("Statika izračunata")
 
     def _calculate_building_report(self):
+        result = ensure_engineering_results(self.workflow.model)
         report = build_building_engineering_report(self.workflow.model)
-        self._set_text(self.calculation_output, "\n".join((f"{k}: {v}" for k, v in report.items())))
-        self._refresh_mep_tab(); self.status_var.set("Building Engineering Report osvježen")
+        summary = [f"Building Engineering Report: {report.status}", f"Materijali: {report.material_count}", f"Etaže: {report.level_count}", f"MEP elementi: {report.mep_element_count}", f"Strukturno opterećenje: {result.structural_loads.total_vertical_line_load_kn_m:.3f} kN/m"]
+        self._set_text(self.calculation_output, "\n".join(summary))
+        self._set_text(self.mep_output, "\n".join(result.mep_findings or ["MEP engineering registry OK"]))
+        self.status_var.set("Building engineering rezultati osvježeni")
+
+    @staticmethod
+    def _set_text(widget, text: str) -> None:
+        widget.configure(state="normal"); widget.delete("1.0", "end"); widget.insert("1.0", text); widget.configure(state="disabled")
+
+    def _open_mep_editor(self):
+        EngineeringMEPWorkspaceApp(self, self.workflow.model)
+
+    def _draw_facade(self):
+        self.view_step.set(4); self.goto_step(); self.status_var.set(f"Fasada: {self.facade_direction_var.get()}")
 
     def _refresh_mep_tab(self):
-        results = ensure_engineering_results(self.workflow.model)
-        self._set_text(self.mep_output, "\n".join((f"{k}: {v}" for k, v in results.items())))
+        result = ensure_engineering_results(self.workflow.model)
+        self._set_text(self.mep_output, "\n".join(result.mep_findings or ["MEP engineering registry OK"]))
 
     def _refresh_complete_tabs(self):
         self._refresh_structure_materials()
         self._refresh_mep_tab()
 
-    def _set_text(self, widget, text):
-        widget.configure(state="normal"); widget.delete("1.0", "end"); widget.insert("1.0", text); widget.configure(state="disabled")
 
-    def apply_roof(self):
-        try:
-            length, width = float(self.roof_length_var.get()), float(self.roof_width_var.get())
-            dead, snow = float(self.roof_dead_load_var.get()), float(self.roof_snow_load_var.get())
-            if length <= 0 or width <= 0 or dead < 0 or snow < 0: raise ValueError("Dimenzije moraju biti > 0, opterećenja >= 0")
-            self.workflow.model.roof = Roof(length_m=length, width_m=width, dead_load_kpa=dead, snow_load_kpa=snow)
-        except ValueError as exc:
-            messagebox.showwarning("LAT-CES — Krov", str(exc), parent=self); return
-        self.refresh_view(); self.status_var.set(f"Krov: {roof.length_m:.2f} × {roof.width_m:.2f} m")
-
-    def _draw_facade(self):
-        self.canvas.delete("all"); direction = self.facade_direction_var.get(); levels = list(self.workflow.model.levels.values()); horizontal = direction in {"Sjever", "Jug"}; max_span = max(((l.length_m if horizontal else l.width_m) for l in levels), default=10.0); width = max(self.canvas.winfo_width(), 700); height = max(self.canvas.winfo_height(), 450); scale = min(55.0, (width - 180) / max(max_span, 1.0)); base_y = height - 60; z = 0.0
-        for level in levels:
-            span = level.length_m if horizontal else level.width_m; x0 = (width - span * scale) / 2.0; x1 = x0 + span * scale; y0 = base_y - z * scale * 0.6; y1 = y0 - level.height * scale * 0.6
-            self.canvas.create_rectangle(x0, y1, x1, y0, outline="#374151", width=3)
-            for wall in (level.floor_plan.walls.values() if level.floor_plan else ()):
-                aligned = abs(wall.segment.start.y - wall.segment.end.y) < 1e-6 if horizontal else abs(wall.segment.start.x - wall.segment.end.x) < 1e-6
-                if not aligned: continue
-                edge = level.width_m if direction == "Sjever" else 0.0 if direction == "Jug" else level.length_m if direction == "Istok" else 0.0; coord = wall.segment.start.y if horizontal else wall.segment.start.x
-                if abs(coord - edge) > max(wall.thickness, 0.25): continue
-                start = min(wall.segment.start.x, wall.segment.end.x) if horizontal else min(wall.segment.start.y, wall.segment.end.y); length = max(wall.segment.length, 1e-9)
-                for opening in wall.openings:
-                    ox0 = x0 + (start + opening.offset) * scale; ox1 = x0 + (start + opening.offset + opening.width) * scale; oy = y0 - opening.height_m * scale * 0.6; self.canvas.create_rectangle(ox0, oy, ox1, y0, fill="white", outline="#64748b")
-            z += level.height
-        self.canvas.create_text(20, 20, text=f"FASADA — {direction}", anchor="nw", font=("Segoe UI", 14, "bold"), fill="#1f2937")
-        if self.workflow.model.roof: self.canvas.create_text(20, 45, text=f"Krov: {self.workflow.model.roof.length_m:.2f} × {self.workflow.model.roof.width_m:.2f} m", anchor="nw", fill="#475569")
-        self.draw_compass()
-
-
+# Keep the canonical application identity explicit for packaging/smoke tests.
 def _run_gui_identity_smoke() -> None:
-    """Launch the packaged GUI and prove the canonical workspace identity."""
     app = CompleteBuildingWorkspaceApp()
     try:
         if type(app).__name__ != "CompleteBuildingWorkspaceApp":
@@ -274,7 +257,12 @@ def _run_gui_identity_smoke() -> None:
 def main() -> None:
     if os.environ.get("LATCES_GUI_SMOKE") == "1":
         _run_gui_identity_smoke()
-        sys.exit(0)
+        # Smoke mode must terminate the packaged process explicitly.  Tk and
+        # imported GUI components may leave interpreter-level/background work
+        # alive after root.destroy(), so sys.exit(0) can leave the PyInstaller
+        # process running and make CI report a false timeout.  This is strictly
+        # limited to the non-user-facing identity smoke path.
+        os._exit(0)
     CompleteBuildingWorkspaceApp().mainloop()
 
 
