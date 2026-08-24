@@ -4,6 +4,7 @@ from .measurement import Measurement
 from .provenance import MeasurementProvenance
 from .validation import MeasurementValidationError, validate_measurement
 from .registry import MeasurementRegistry
+from lat_ces.scientific.quantity import PhysicalQuantity
 from lat_ces.scientific.measurement_legacy import (
     AccuracySpec,
     MeasurementDevice,
@@ -18,6 +19,7 @@ __all__ = [
     "MeasurementValidationError",
     "validate_measurement",
     "MeasurementRegistry",
+    "PhysicalQuantity",
     "AccuracySpec",
     "MeasurementDevice",
     "OutOfRangeError",
