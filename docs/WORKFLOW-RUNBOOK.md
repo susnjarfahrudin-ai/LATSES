@@ -151,30 +151,66 @@ The empty `.github/workflows/main.yml` was deleted so that the invalid 0-job wor
 
 A fresh Windows Installer run **#663** was automatically queued for this exact SHA.
 
-## Current required checkpoint
+## Final verified release checkpoint — 2026-08-25
 
-The current `main` SHA is:
+The validated release checkpoint is:
 
-`702d09964a47bb49fc6fbf73c3a14e3215822ef6`
+`36ede3d8fcfa3e7d15ac10d338e592ea289f432d`
 
-Current downstream packaging evidence:
+Commit message:
 
-- Windows Installer #663: **QUEUED**
-- No current artifact accepted
-- No current release-ready status
+`fix: run GUI identity smoke in UTF-8 mode`
 
-Required next evidence chain:
+### Canonical Verification
 
-1. Canonical `ci.yml` / `verify-core` GREEN for the exact current SHA.
-2. Windows Installer for that same SHA.
-3. Desktop import + pytest GREEN.
-4. PyInstaller EXE build GREEN.
-5. Packaged EXE smoke GREEN.
-6. Canonical `LATCES_GUI_SMOKE=1` identity smoke GREEN within the 45-second bound.
-7. Inno Setup compile GREEN.
-8. Installer smoke GREEN.
-9. Artifact upload GREEN.
-10. Record artifact name, size, SHA-256 and exact source SHA.
+- Workflow: `LAT-CES Verification Pipeline`
+- Job: `verify-core`
+- Run: **#829**
+- Exact SHA: `36ede3d8fcfa3e7d15ac10d338e592ea289f432d`
+- Result: **SUCCESS**
+- Wheel/package discovery: **SUCCESS**
+- Full verification test suite: **SUCCESS**
+
+### Windows Installer
+
+- Workflow: `LAT-CES Windows Installer`
+- Run: **#673**
+- Exact SHA: `36ede3d8fcfa3e7d15ac10d338e592ea289f432d`
+- Result: **SUCCESS**
+- Desktop import + pytest: **SUCCESS**
+- PyInstaller GUI executable build: **SUCCESS**
+- Packaged EXE smoke: **SUCCESS**
+- Canonical GUI identity smoke: **SUCCESS**
+- Inno Setup installation: **SUCCESS**
+- Inno Setup compile: **SUCCESS**
+- Installer artifact smoke: **SUCCESS**
+- Artifact upload: **SUCCESS**
+
+The successful GUI identity log explicitly confirmed:
+
+`GUI identity OK: CompleteBuildingWorkspaceApp; tabs=('Model / Pogledi', 'Omotač / Fasada', 'Konstrukcija / Statika', 'Proračuni', 'MEP', 'Fasade')`
+
+The Installer artifact was produced as:
+
+- Artifact name: `LAT-CES-Windows-Installer`
+- Artifact ID: `9542719493`
+- Artifact size: `10,997,835 bytes`
+- Artifact ZIP SHA-256: `cc52ebe857c19fda2b98061f17dfe1778133c67a0148205fa90d824e766c59b6`
+- Retention: until `2026-09-23T23:32:39Z`
+
+The installer executable itself was verified during the smoke step:
+
+- File: `LAT-CES-Setup.exe`
+- SHA-256: `4C901777909F5F1D26D90C31125E0E9DEA6F4539220FA1CA115ED37AF320E3F2`
+
+This is the first complete evidence chain in this repair cycle where Verification, EXE build/smoke, GUI identity, Inno Setup, installer smoke and artifact upload are all successful for the same exact `main` SHA.
+
+### Evidence links
+
+- Verification #829: `https://github.com/susnjarfahrudin-ai/LATSES/actions/runs/32789740054`
+- Installer #673: `https://github.com/susnjarfahrudin-ai/LATSES/actions/runs/32789740148`
+- Artifact: `https://github.com/susnjarfahrudin-ai/LATSES/actions/runs/32789740148/artifacts/9542719493`
+- Source commit: `https://github.com/susnjarfahrudin-ai/LATSES/commit/36ede3d8fcfa3e7d15ac10d338e592ea289f432d`
 
 ## Release gate
 
