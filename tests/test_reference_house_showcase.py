@@ -25,7 +25,7 @@ def test_reference_house_is_complete_and_deterministic():
 def test_heating_circuits_energy_scenarios_and_comfort_guidance():
     house = ReferenceHouse.default()
     circuits = house.heating_circuits()
-    assert len(circuits) == 3
+    assert len(circuits) == 4
     assert circuits[0].type == "underfloor"
     assert circuits[1].type == "radiator"
     assert circuits[0].delta_t_k == 7.0
