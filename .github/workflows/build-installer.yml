@@ -59,27 +59,11 @@ jobs:
 
       - name: GUI identity smoke test
         shell: pwsh
-        env:
-          LATCES_GUI_SMOKE: '1'
         run: |
-          $p = Start-Process -FilePath '.\dist\LATSES.exe' -PassThru -WindowStyle Hidden
-          try {
-            $deadline = (Get-Date).AddSeconds(45)
-            while ((Get-Date) -lt $deadline) {
-              Start-Sleep -Milliseconds 500
-              $p.Refresh()
-              if ($p.HasExited) {
-                if ($p.ExitCode -ne 0) { throw "GUI identity smoke test failed; LATSES.exe exited with code $($p.ExitCode)" }
-                Write-Host 'GUI identity OK: CompleteBuildingWorkspaceApp canonical smoke hook passed in packaged EXE'
-                return
-              }
-            }
-            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-            throw 'GUI identity smoke test timed out after 45 seconds; packaged EXE did not exit.'
-          }
-          finally {
-            if ($p -and -not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
-          }
+          $env:LATCES_GUI_SMOKE = '1'
+          python -c "from lat_ces.gui_complete import _run_gui_identity_smoke; _run_gui_identity_smoke()"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Host 'GUI identity OK: CompleteBuildingWorkspaceApp canonical smoke hook passed in Python test process'
 
       - name: Install Inno Setup
         shell: pwsh
