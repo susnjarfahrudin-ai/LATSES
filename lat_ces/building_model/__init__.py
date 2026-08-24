@@ -9,6 +9,25 @@ from .systems import VentilationOpening, WaterBranch, HeatingZone
 from .integration import BuildingEngineeringReport, RoomEngineeringResult, analyze_building
 from .recommendation import Recommendation, Evidence
 from .validation import ValidationResult, Status, validate_model
+from .concept import (
+    BuildingConcept,
+    ConstructionKind,
+    InsulationKind,
+    LevelKind,
+    MaterialSelection,
+    MEPSystem,
+    OpeningSpec,
+    RoofCover,
+    RoofCoverSpec,
+    RoofModel,
+    RoofShape,
+    RoofStructure,
+    RoofSubstructure,
+    RoofSupport,
+    StructuralLoadInput,
+    SystemNode,
+    WindowMaterial,
+)
 
 __all__ = [
     "BuildingModel", "Level", "Room", "Wall", "Opening", "Material",
@@ -18,4 +37,8 @@ __all__ = [
     "VentilationOpening", "WaterBranch", "HeatingZone",
     "BuildingEngineeringReport", "RoomEngineeringResult", "analyze_building",
     "Recommendation", "Evidence", "ValidationResult", "Status", "validate_model",
+    "BuildingConcept", "ConstructionKind", "InsulationKind", "LevelKind",
+    "MaterialSelection", "MEPSystem", "OpeningSpec", "RoofCover", "RoofCoverSpec",
+    "RoofModel", "RoofShape", "RoofStructure", "RoofSubstructure", "RoofSupport",
+    "StructuralLoadInput", "SystemNode", "WindowMaterial",
 ]
