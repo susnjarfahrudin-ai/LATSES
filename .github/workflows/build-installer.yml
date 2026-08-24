@@ -46,13 +46,13 @@ jobs:
         shell: pwsh
         run: |
           pyinstaller --noconfirm --clean --onefile --windowed --name LATSES lat_ces/gui_complete.py
-          if (!(Test-Path '.\dist\LATSES.exe')) { throw 'LATSES.exe was not created' }
-          if ((Get-Item '.\dist\LATSES.exe').Length -lt 1000000) { throw 'LATSES.exe is unexpectedly small' }
+          if (!(Test-Path '.\\dist\\LATSES.exe')) { throw 'LATSES.exe was not created' }
+          if ((Get-Item '.\\dist\\LATSES.exe').Length -lt 1000000) { throw 'LATSES.exe is unexpectedly small' }
 
       - name: Smoke test packaged executable
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath '.\dist\LATSES.exe' -PassThru -WindowStyle Hidden
+          $p = Start-Process -FilePath '.\\dist\\LATSES.exe' -PassThru -WindowStyle Hidden
           Start-Sleep -Seconds 3
           if ($p.HasExited -and $p.ExitCode -ne 0) { throw "LATSES.exe exited with code $($p.ExitCode)" }
           if (!$p.HasExited) { Stop-Process -Id $p.Id -Force }
@@ -61,7 +61,7 @@ jobs:
         shell: pwsh
         run: |
           $env:LATCES_GUI_SMOKE = '1'
-          python -c "from lat_ces.gui_complete import _run_gui_identity_smoke; _run_gui_identity_smoke()"
+          python -X utf8 -c "from lat_ces.gui_complete import _run_gui_identity_smoke; _run_gui_identity_smoke()"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Write-Host 'GUI identity OK: CompleteBuildingWorkspaceApp canonical smoke hook passed in Python test process'
 
@@ -78,32 +78,32 @@ jobs:
           if ($iscc) { $isccPath = $iscc.Source }
           if (-not $isccPath) {
             $candidates = @(
-              "$env:ChocolateyToolsLocation\innosetup\tools\ISCC.exe",
-              "$env:ChocolateyInstall\bin\ISCC.exe",
-              "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
-              "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+              "$env:ChocolateyToolsLocation\\innosetup\\tools\\ISCC.exe",
+              "$env:ChocolateyInstall\\bin\\ISCC.exe",
+              "$env:ProgramFiles\\Inno Setup 6\\ISCC.exe",
+              "${env:ProgramFiles(x86)}\\Inno Setup 6\\ISCC.exe"
             )
             $isccPath = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
           }
           if (-not $isccPath) {
-            $isccPath = Get-ChildItem 'C:\ProgramData\chocolatey\lib\innosetup' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
+            $isccPath = Get-ChildItem 'C:\\ProgramData\\chocolatey\\lib\\innosetup' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
           }
           if (-not $isccPath) { throw 'Inno Setup compiler ISCC.exe not found' }
-          & $isccPath 'installer\LATSES.iss'
+          & $isccPath 'installer\\LATSES.iss'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (!(Test-Path '.\installer-output\LAT-CES-Setup.exe')) {
-            if (Test-Path '.\installer\installer-output\LAT-CES-Setup.exe') {
+          if (!(Test-Path '.\\installer-output\\LAT-CES-Setup.exe')) {
+            if (Test-Path '.\\installer\\installer-output\\LAT-CES-Setup.exe') {
               New-Item -ItemType Directory -Force -Path 'installer-output' | Out-Null
-              Copy-Item '.\installer\installer-output\LAT-CES-Setup.exe' '.\installer-output\LAT-CES-Setup.exe'
+              Copy-Item '.\\installer\\installer-output\\LAT-CES-Setup.exe' '.\\installer-output\\LAT-CES-Setup.exe'
             } else { throw 'LAT-CES-Setup.exe was not created' }
           }
 
       - name: Smoke test installer artifact
         shell: pwsh
         run: |
-          $size = (Get-Item '.\installer-output\LAT-CES-Setup.exe').Length
+          $size = (Get-Item '.\\installer-output\\LAT-CES-Setup.exe').Length
           if ($size -lt 1000000) { throw "Installer unexpectedly small: $size bytes" }
-          Get-FileHash '.\installer-output\LAT-CES-Setup.exe' -Algorithm SHA256 | Format-List
+          Get-FileHash '.\\installer-output\\LAT-CES-Setup.exe' -Algorithm SHA256 | Format-List
 
       - name: Upload standard installer
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
