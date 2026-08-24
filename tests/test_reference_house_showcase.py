@@ -13,19 +13,18 @@ def test_reference_house_is_complete_and_deterministic():
     assert house.data["joinery"]["glazing"]["panes"] == 3
     summary = house.summary()
 
-    # Acceptance values correspond to the canonical 12 m × 10 m P+2 reference
-    # house model and protect against accidental model drift without imposing
-    # the stale >350 m² threshold used by the original showcase test.
-    assert summary.floor_area_m2 == pytest.approx(338.0, rel=1e-6)
-    assert summary.volume_m3 == pytest.approx(946.4, rel=1e-6)
+    # Acceptance values correspond to the canonical 12 m × 10 m P+3
+    # reference-house model bundled in reference_house_model.json.
+    assert summary.floor_area_m2 == pytest.approx(454.0, rel=1e-6)
+    assert summary.volume_m3 == pytest.approx(1271.2, rel=1e-6)
     assert summary.roof_area_m2 == pytest.approx(185.43675226210846, rel=1e-6)
-    assert summary.wall_area_m2 == pytest.approx(310.46399999999994, rel=1e-6)
-    assert summary.blocks == pytest.approx(6519.743999999999, rel=1e-6)
-    assert summary.slab_concrete_m3 == pytest.approx(72.0, rel=1e-6)
-    assert summary.heating_load_w == pytest.approx(16920.0, rel=1e-6)
-    assert summary.heating_mass_flow_kg_s == pytest.approx(0.46230348598769655, rel=1e-6)
-    assert summary.ventilation_m3_h == pytest.approx(804.44, rel=1e-6)
-    assert summary.lighting_w == pytest.approx(630.4, rel=1e-6)
+    assert summary.wall_area_m2 == pytest.approx(413.952, rel=1e-6)
+    assert summary.blocks == pytest.approx(8692.992, rel=1e-6)
+    assert summary.slab_concrete_m3 == pytest.approx(96.0, rel=1e-6)
+    assert summary.heating_load_w == pytest.approx(23030.0, rel=1e-6)
+    assert summary.heating_mass_flow_kg_s == pytest.approx(0.6084757347915243, rel=1e-6)
+    assert summary.ventilation_m3_h == pytest.approx(1080.52, rel=1e-6)
+    assert summary.lighting_w == pytest.approx(792.0, rel=1e-6)
     assert summary.floor_area_m2 > 330
     assert summary.volume_m3 > 900
     assert summary.roof_area_m2 > 120

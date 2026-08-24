@@ -41,9 +41,6 @@ class ReferenceHouse:
 
     @classmethod
     def default(cls) -> "ReferenceHouse":
-        # lat_ces is intentionally a namespace package; resolve the bundled
-        # resource relative to this module so editable installs and wheels
-        # use the same deterministic path.
         path = Path(__file__).with_name("reference_house_model.json")
         return cls(json.loads(path.read_text(encoding="utf-8")))
 
@@ -107,10 +104,11 @@ class ReferenceHouse:
     def lighting_w(self):
         t = self.data["lighting"]; total = 0.0
         for r in self.conditioned_rooms:
-            if r["name"] in {"Radna soba", "Studio / biblioteka"}: lux = t["work_target_lux"]
-            elif "Kupatilo" in r["name"]: lux = t["bath_target_lux"]
-            elif "Kuhinja" in r["name"]: lux = t["kitchen_target_lux"]
-            elif any(x in r["name"] for x in ("Spavaća", "Roditeljska", "Gostinska")): lux = t["bedroom_target_lux"]
+            name = r["name"].casefold()
+            if name in {"radna soba", "studio / biblioteka"}: lux = t["work_target_lux"]
+            elif "kupatilo" in name: lux = t["bath_target_lux"]
+            elif "kuhinja" in name: lux = t["kitchen_target_lux"]
+            elif any(x in name for x in ("spavaća", "roditeljska", "gostinska")): lux = t["bedroom_target_lux"]
             else: lux = t["living_target_lux"]
             total += r["area_m2"] * lux * 0.008
         return total
