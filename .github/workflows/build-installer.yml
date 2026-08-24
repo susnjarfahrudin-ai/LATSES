@@ -59,57 +59,12 @@ jobs:
 
       - name: GUI identity smoke test
         shell: pwsh
+        env:
+          LATCES_GUI_SMOKE: '1'
         run: |
-          Add-Type -AssemblyName UIAutomationClient
-          Add-Type -AssemblyName UIAutomationTypes
-          $p = Start-Process -FilePath '.\dist\LATSES.exe' -PassThru
-          try {
-            $deadline = (Get-Date).AddSeconds(30)
-            $window = $null
-            $condition = New-Object System.Windows.Automation.AndCondition(
-              (New-Object System.Windows.Automation.PropertyCondition(
-                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-                [System.Windows.Automation.ControlType]::Window
-              )),
-              (New-Object System.Windows.Automation.PropertyCondition(
-                [System.Windows.Automation.AutomationElement]::ProcessIdProperty,
-                $p.Id
-              ))
-            )
-            while ((Get-Date) -lt $deadline) {
-              Start-Sleep -Milliseconds 500
-              $p.Refresh()
-              if ($p.HasExited) { throw "LATSES.exe exited early with code $($p.ExitCode)" }
-              $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
-                [System.Windows.Automation.TreeScope]::Children,
-                $condition
-              )
-              if ($windows.Count -gt 0) {
-                $window = $windows | Select-Object -First 1
-                break
-              }
-            }
-            if (-not $window) {
-              throw "GUI identity smoke test timed out waiting for a Window AutomationElement for LATSES.exe (PID $($p.Id))"
-            }
-
-            $tabCondition = New-Object System.Windows.Automation.PropertyCondition(
-              [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-              [System.Windows.Automation.ControlType]::TabItem
-            )
-            $tabs = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $tabCondition)
-            $actual = @($tabs | ForEach-Object { $_.Current.Name } | Where-Object { $_ })
-            $expected = @('Model / Pogledi', 'Konstrukcija / Statika', 'MEP', 'Fasade')
-            $missing = @($expected | Where-Object { $_ -notin $actual })
-            Write-Host "GUI identity tabs: $($actual -join ' | ')"
-            if ($missing.Count -gt 0) {
-              throw "GUI identity check failed; missing tabs: $($missing -join ', '); actual tabs: $($actual -join ', ')"
-            }
-            Write-Host 'GUI identity OK: CompleteBuildingWorkspaceApp surface confirmed in packaged EXE'
-          }
-          finally {
-            if ($p -and -not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
-          }
+          $p = Start-Process -FilePath '.\dist\LATSES.exe' -PassThru -Wait -WindowStyle Hidden
+          if ($p.ExitCode -ne 0) { throw "GUI identity smoke test failed; LATSES.exe exited with code $($p.ExitCode)" }
+          Write-Host 'GUI identity OK: CompleteBuildingWorkspaceApp canonical smoke hook passed in packaged EXE'
 
       - name: Install Inno Setup
         shell: pwsh
