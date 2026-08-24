@@ -43,6 +43,11 @@ class ReferenceHouse:
     def default(cls) -> "ReferenceHouse":
         resource = Path(__file__).with_name("reference_house_model.json")
         return cls(json.loads(resource.read_text(encoding="utf-8")))
+        # lat_ces is intentionally a namespace package; resolve the bundled
+        # resource relative to this module so editable installs and wheels
+        # use the same deterministic path.
+        path = Path(__file__).with_name("reference_house_model.json")
+        return cls(json.loads(path.read_text(encoding="utf-8")))
 
     @property
     def levels(self):

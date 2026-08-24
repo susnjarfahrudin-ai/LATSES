@@ -1,10 +1,13 @@
 """Canonical SCI-0046/0047 measurement contract and compatibility exports."""
+"""Canonical SCI-0046/0047 measurement contract and compatibility facade."""
 
 from .measurement import Measurement
 from .provenance import MeasurementProvenance
 from .validation import MeasurementValidationError, validate_measurement
 from .registry import MeasurementRegistry
 from .legacy_device import (
+from lat_ces.scientific.quantity import PhysicalQuantity
+from .compatibility import (
     AccuracySpec,
     MeasurementDevice,
     OutOfRangeError,
@@ -28,4 +31,10 @@ __all__ = [
     "create_diff_pressure_sensor",
     "create_pitot_tube",
     "PhysicalQuantity",
+    "PhysicalQuantity",
+    "AccuracySpec",
+    "MeasurementDevice",
+    "OutOfRangeError",
+    "create_pitot_tube",
+    "create_diff_pressure_sensor",
 ]

@@ -4,8 +4,8 @@ from lat_ces.reference_house import ReferenceHouse
 
 def test_reference_house_is_complete_and_deterministic():
     house = ReferenceHouse.default()
-    assert len(house.levels) == 3
-    assert {level["id"] for level in house.levels} == {"P", "S1", "S2"}
+    assert len(house.levels) == 4
+    assert {level["id"] for level in house.levels} == {"P", "S1", "S2", "S3"}
     assert house.data["roof"]["type"] == "dvovodni"
     assert house.data["heating"]["plant_room"] == "P-BOIL"
     assert house.data["joinery"]["glazing"]["panes"] == 3
@@ -13,6 +13,8 @@ def test_reference_house_is_complete_and_deterministic():
     # Exact deterministic values for the canonical reference-house model.
     assert summary.floor_area_m2 == 338.0
     assert summary.volume_m3 == 946.4
+    assert summary.floor_area_m2 > 330
+    assert summary.volume_m3 > 900
     assert summary.roof_area_m2 > 120
     assert summary.wall_area_m2 > 250
     assert summary.blocks > 6000
@@ -26,7 +28,7 @@ def test_reference_house_is_complete_and_deterministic():
 def test_heating_circuits_energy_scenarios_and_comfort_guidance():
     house = ReferenceHouse.default()
     circuits = house.heating_circuits()
-    assert len(circuits) == 3
+    assert len(circuits) == 4
     assert circuits[0].type == "underfloor"
     assert circuits[1].type == "radiator"
     assert circuits[0].delta_t_k == 7.0
