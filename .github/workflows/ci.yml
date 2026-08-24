@@ -1,11 +1,15 @@
 name: LAT-CES Verification Pipeline
 
+# Persistent operational runbook: docs/WORKFLOW-RUNBOOK.md
+# Read it before repairing CI or declaring a release GREEN.
+# Release memory: inspect the exact commit -> first real failure -> smallest canonical fix -> rerun -> GREEN -> package.
+
 on:
   workflow_dispatch:
   push:
-    branches: [ main, develop, 'consolidation/**' ]
+    branches: [ main, develop, 'consolidation/**', 'integration/**' ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, 'integration/**' ]
 
 jobs:
   verify-core:
@@ -60,9 +64,12 @@ jobs:
         {
           echo '## CI failure — prvi failing test'
           echo
+          echo 'Read docs/WORKFLOW-RUNBOOK.md before the next repair cycle.'
+          echo
           echo '```text'
           tail -n 120 pytest-output.log || true
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
 
 # CI trigger comment: SMC-004 acceptance verification.
+# Integration checkpoint: PR #140 must execute Verification on its merge result.

@@ -6,8 +6,8 @@ from lat_ces.reference_house import ReferenceHouse
 
 def test_reference_house_is_complete_and_deterministic():
     house = ReferenceHouse.default()
-    assert len(house.levels) == 3
-    assert {level["id"] for level in house.levels} == {"P", "S1", "S2"}
+    assert len(house.levels) == 4
+    assert {level["id"] for level in house.levels} == {"P", "S1", "S2", "S3"}
     assert house.data["roof"]["type"] == "dvovodni"
     assert house.data["heating"]["plant_room"] == "P-BOIL"
     assert house.data["joinery"]["glazing"]["panes"] == 3
@@ -26,12 +26,22 @@ def test_reference_house_is_complete_and_deterministic():
     assert summary.heating_mass_flow_kg_s == pytest.approx(0.46230348598769655, rel=1e-6)
     assert summary.ventilation_m3_h == pytest.approx(804.44, rel=1e-6)
     assert summary.lighting_w == pytest.approx(630.4, rel=1e-6)
+    assert summary.floor_area_m2 > 330
+    assert summary.volume_m3 > 900
+    assert summary.roof_area_m2 > 120
+    assert summary.wall_area_m2 > 250
+    assert summary.blocks > 6000
+    assert summary.slab_concrete_m3 > 60
+    assert summary.heating_load_w > 15000
+    assert summary.heating_mass_flow_kg_s > 0
+    assert summary.ventilation_m3_h > 800
+    assert summary.lighting_w > 100
 
 
 def test_heating_circuits_energy_scenarios_and_comfort_guidance():
     house = ReferenceHouse.default()
     circuits = house.heating_circuits()
-    assert len(circuits) == 3
+    assert len(circuits) == 4
     assert circuits[0].type == "underfloor"
     assert circuits[1].type == "radiator"
     assert circuits[0].delta_t_k == 7.0
