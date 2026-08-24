@@ -39,6 +39,14 @@ class EngineeringResultRegistry:
     def all(self) -> tuple[EngineeringResult, ...]:
         return tuple(self._results.values())
 
+    @property
+    def mep_findings(self) -> tuple[str, ...]:
+        """Compatibility view for GUI consumers of the pre-registry findings API."""
+        return tuple(
+            f"{result.object_type}: {result.status} — {result.message}"
+            for result in self._results.values()
+        )
+
 
 def ensure_engineering_results(registry: object) -> EngineeringResultRegistry:
     results = getattr(registry, "engineering_results", None)
