@@ -11,6 +11,10 @@ from .legacy_device import (
     create_diff_pressure_sensor,
     create_pitot_tube,
 )
+# Historical callers exposed PhysicalQuantity from ``scientific.measurement``.
+# Keep that import path as a compatibility facade while the canonical
+# implementation remains in ``scientific.quantity``.
+from lat_ces.scientific.quantity import PhysicalQuantity
 
 __all__ = [
     "Measurement",
@@ -23,4 +27,5 @@ __all__ = [
     "OutOfRangeError",
     "create_diff_pressure_sensor",
     "create_pitot_tube",
+    "PhysicalQuantity",
 ]
