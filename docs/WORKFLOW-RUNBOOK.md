@@ -1,206 +1,229 @@
 # LAT-CES CI / Release Runbook — persistent workflow memory
 
-This file is the persistent operational memory for future maintenance of LATSES. Read it before continuing a CI/EXE/installer repair cycle.
+This document is the persistent operational memory for CI, EXE and Windows Installer repair/release cycles.
 
 ## Canonical repository
 
-- Working repository: `susnjarfahrudin-ai/LATSES`
-- Do not switch to `fahrudinsusnjar-eng/LATSES` for this workflow.
-- Codex/GitHub connector has write access to the canonical repository.
+- Repository: `susnjarfahrudin-ai/LATSES`
+- Use this repository for the release workflow.
+- Never substitute evidence from another repository, branch or older commit.
 
 ## SCI development order
 
 `SCI 1–145 → gap map → canonical scientific contract → consolidate duplicates → Unit/Dimension/Quantity/Measurement/Uncertainty/Provenance → Validation Gate → BuildingModel integration → SCI verification tests → CI Gate → EXE → Installer → GUI final evaluation`
 
-GUI is not the next target while the scientific contract is open.
+GUI remains downstream of the scientific contract.
 
 ## Safe repair loop
 
-1. Read SCI 1–145 and the current implementation map.
-2. Inspect the latest failing Actions run; use the **first real failing test/error**, not secondary failures.
-3. Fix the smallest canonical source/API problem.
-4. Preserve compatibility facades when they are still required by existing imports; compatibility code must not become a second scientific implementation.
-5. Commit to the active feature branch.
-6. Wait for a new Actions run for the exact commit.
-7. If red, inspect logs, fix, commit, and repeat.
-8. Do not call a build GREEN from a previous commit.
-9. Do not merge until verification and required security checks are GREEN.
-10. After merge, verify the new `main` commit through the same chain.
+1. Identify the exact `main` SHA under test.
+2. Run the relevant Verification workflow for that exact SHA.
+3. Require Verification to be GREEN before packaging evidence is accepted.
+4. If a downstream EXE/Installer workflow fails, inspect the first real failing step.
+5. Fix only the demonstrated root cause and keep the change minimal.
+6. Commit the fix.
+7. Re-run Verification for the new exact SHA.
+8. Require Verification GREEN again.
+9. Run EXE/Installer for that same SHA.
+10. Repeat until the complete release chain is GREEN.
+11. Do not report an artifact as release-ready until its exact source SHA, artifact name, size and SHA-256 are known.
 
 ## Evidence-first release sequence
 
-The required sequence for a repair/release checkpoint is:
+`exact main SHA → Verification GREEN → EXE build → packaged EXE smoke → GUI identity smoke → Inno Setup → installer build → installer smoke → artifact upload → artifact evidence`
 
-`failure → first real failing test → smallest canonical fix → exact repair commit → clean PR diff → PR Verification → merge → exact main commit verification → EXE smoke → Installer build/smoke → artifact evidence`
+Evidence rules:
 
-Rules:
+1. A green workflow from another SHA does not transfer to the current release SHA.
+2. A historical Installer or EXE success is not evidence for the current release SHA.
+3. An Installer failure after Verification GREEN is a packaging/release failure unless logs prove otherwise.
+4. Use the first real failing step, not secondary skipped steps or warnings.
+5. Node.js deprecation warnings are warnings, not the root cause of a failing build unless the workflow proves they caused the failure.
+6. No artifact means no release evidence.
 
-1. The repair commit must contain only the intended application fix; CI marker commits are not release evidence and must be removed from the release branch.
-2. Before opening the PR, compare the repair head against the current `main` and verify the changed-file list. A clean repair PR must show only the intended file(s).
-3. Verification evidence must be tied to the exact commit under test. A green run from another commit does not transfer to the release commit.
-4. A workflow run with `total_count: 0`, no executable job, or equivalent infrastructure-only failure is **not** a Verification failure of the application and is not Verification evidence.
-5. After merge, identify the exact `main` SHA and verify that the application change is actually present in the merged tree.
-6. Only after the exact `main` commit has a valid Verification GREEN may EXE/Installer packaging be treated as the next release stage.
-7. Installer/EXE success from an older commit, another branch, or an unrelated merge is not evidence for the current release commit.
-8. If Installer fails after Verification is GREEN, analyze the first real Installer failure and repair only the packaging/release cause; do not reinterpret a packaging failure as a scientific/Verification failure unless the logs prove that.
-9. Do not report a downloadable artifact until the Installer artifact is successfully uploaded and its exact name, size, SHA-256, and source commit are known.
+## Current ReferenceHouse / main verification checkpoint
 
-## Current ReferenceHouse evidence chain — 2026-08-25
+The historical ReferenceHouse repair chain established a case-insensitive bedroom classification fix. The old Verification evidence associated with that chain is not reusable as release evidence for later documentation or packaging commits.
 
-### 1. First real failure
+Important rule: record the exact tested SHA together with the workflow run number every time.
 
-PR #146 exposed the first real Verification failure in:
+## Installer repair cycle — 2026-08-25
 
-`tests/test_reference_house_showcase.py::test_reference_house_is_complete_and_deterministic`
+### Checkpoint A — documentation commit
 
-Observed result:
+Target commit:
 
-- Obtained lighting: `801.6 W`
-- Expected lighting: `792.0 W`
-- Difference: `9.6 W`
-
-The root cause was case-sensitive room-name classification in `ReferenceHouse.lighting_w()`. `Glavna spavaća soba` was not matched by the bedroom classifier because the comparison expected `Spavaća` with an uppercase initial character.
-
-### 2. Canonical fix
-
-Commit:
-
-`f03cf71df148261da159e0635d683635aa920530`
+`2694a3d876b34f600b9f9b6b030793b6aa9c1635`
 
 Message:
 
-`fix: classify reference-house bedrooms case-insensitively`
+`docs: record ReferenceHouse verification and release evidence chain`
 
-Scope verified from the commit diff:
+Verification Pipeline #818:
 
-- `lat_ces/reference_house.py` only
-- `5` additions / `4` deletions
-- normalization uses `casefold()` before room classification
+- `verify-core`: SUCCESS
+- wheel/package discovery: SUCCESS
+- LAT-CES verification tests: SUCCESS
 
-The fix did not intentionally modify BuildingModel, GUI, or the physical model.
+Windows packaging runs for the same SHA:
 
-### 3. CI marker-commit incident and cleanup
+- Windows Executable #361: SUCCESS
+- Windows Installer #658: FAILURE
 
-Temporary CI trigger commits were created on the repair branch while trying to force workflow execution. They were not application changes and are not release evidence.
+### Checkpoint B — first real Installer failure at #658
 
-The repair branch was subsequently reduced so that its intended application state was the single `f03cf71` repair commit. PRs that did not carry a clean application diff were closed rather than merged as release evidence.
+Installer #658 failed in:
 
-### 4. Clean-main verification outcome
+`GUI identity smoke test`
 
-The repair content was subsequently observed in the canonical `main` tree. Current `main` commit at this checkpoint:
+What was proven before the failure:
 
-`1493e12ab843535526180ef1175e4ef823d9da9a`
+- complete desktop application import: SUCCESS
+- pytest: SUCCESS
+- PyInstaller GUI executable build: SUCCESS
+- packaged EXE smoke test: SUCCESS
 
-`main` contains the case-insensitive lighting implementation (`name = r["name"].casefold()`).
+What failed:
 
-PR #151 merged to `main` at this point; however, earlier PR inspections showed misleading zero-file diffs on some intermediate clean-branch attempts. Therefore the accepted fact is the **current `main` tree content**, not the PR title or commit count alone.
+The workflow attempted to obtain the application's main window through the Windows UI Automation / process window path and timed out. In other words, the packaged EXE was built and remained alive, but the runner-side automation test did not obtain the expected window handle/AutomationElement.
 
-### 5. Verification evidence
+The Inno Setup and artifact stages were skipped because the GUI identity stage failed.
 
-A valid `verify-core` job was observed with conclusion `success` in the LAT-CES Verification Pipeline run:
-
-- Verification Pipeline run: **#812**
-- Job: `verify-core`
-- Conclusion: **SUCCESS**
-- Checkout: SUCCESS
-- Python setup: SUCCESS
-- Project/dependency installation: SUCCESS
-- Wheel/package discovery: SUCCESS
-- LAT-CES Verification tests: SUCCESS
-- First failing-test reporting step: SKIPPED (no failure)
-
-This is the accepted Verification GREEN evidence for the ReferenceHouse repair chain.
-
-Important limitation: the connector's commit-scoped workflow lookup does not expose a stable direct association for every historical run. Therefore future release checkpoints must record the exact tested SHA and workflow run together before declaring release readiness.
-
-### 6. Installer/EXE status
-
-Installer/EXE must remain a separate downstream gate.
-
-Known recent Installer failures are recorded as failures, not as release evidence. In particular, Installer runs observed around the ReferenceHouse recovery trail included failures despite Verification runs succeeding.
-
-Do not reuse those older Installer failures or successes as evidence for the current `main` release commit.
-
-### 7. Required next sequence
-
-Starting from the current confirmed `main` commit:
-
-`1493e12ab843535526180ef1175e4ef823d9da9a`
-
-perform exactly:
-
-1. Confirm the current `main` SHA before packaging.
-2. Start a fresh Windows Installer run for that exact commit.
-3. Inspect the first real Installer failure, if any.
-4. If Installer fails, fix only the demonstrated packaging cause and rerun Installer on the resulting exact commit.
-5. Require all relevant Installer stages to be GREEN: desktop import, pytest, GUI EXE build, packaged EXE smoke test, GUI identity smoke test, Inno Setup compilation, installer smoke test, and artifact upload.
-6. Record the final Installer run number, exact source commit, artifact name, artifact size, and SHA-256.
-7. Only then report the EXE/Installer as release-ready.
-
-## Verification gate
-
-The minimum release gate is:
-
-- LAT-CES Verification Pipeline: `SUCCESS`
-- CodeQL: `SUCCESS`
-- Windows Installer: `SUCCESS`
-- Wheel/package discovery: `SUCCESS`
-- Full pytest suite: `SUCCESS`
-- Complete desktop application import: `SUCCESS`
-- PyInstaller GUI EXE created: `SUCCESS`
-- Packaged EXE smoke test: `SUCCESS`
-- GUI identity smoke test: `SUCCESS`
-- Inno Setup compilation: `SUCCESS`
-- Installer smoke test: `SUCCESS`
-- Installer artifact upload: `SUCCESS`
-
-Only after all gates are green is the EXE/installer considered ready.
-
-## Verified successful baseline — 2026-08-24
+### Repair commit 1
 
 Commit:
 
-`41a53123a10778675b6c05984b05eeb65bf3e88c`
+`683993ac761ce1c670829f8b271d4dc36fca4238`
 
-Successful runs:
+Message:
 
-- LAT-CES Verification Pipeline **#735** — SUCCESS
-- CodeQL Advanced **#9** — SUCCESS
-- LAT-CES Windows Installer **#587** — SUCCESS
+`fix: make packaged GUI identity smoke test robust`
 
-Installer artifact:
+This changed only `.github/workflows/build-installer.yml` and broadened the UIAutomation window lookup from `MainWindowHandle` to a root-window/process-id search.
 
-- Name: `LAT-CES-Windows-Installer`
-- Size: `10,993,218` bytes
-- SHA-256: `4d2aae9b13f5c107daeec005dc2f7500afad621c9c43d0406e8416252a12f9d0`
-- Retention: 30 days
+Verification Pipeline #819 for this repair SHA:
 
-Installer #587 completed every release step: desktop import, pytest, GUI executable build, packaged EXE smoke test, Inno Setup compilation, installer smoke test, and artifact upload.
+- `verify-core`: SUCCESS / GREEN
 
-## Known repair history — preserve these lessons
+Installer #659 for the same repair SHA:
 
-### Measurement import regression
+- build-installer: FAILURE
 
-Introducing the canonical `lat_ces.scientific.measurement` package can shadow the former `measurement.py` API. Existing public names such as `AccuracySpec`, `MeasurementDevice`, `OutOfRangeError`, and `PhysicalQuantity` must remain available through the intended compatibility import path until all consumers migrate.
+### Checkpoint C — second real Installer failure at #659
 
-### ReferenceHouse resource regression
+Installer #659 again proved:
 
-`importlib.resources.files("lat_ces")` is unsafe when `lat_ces` is a namespace-style package in the tested environment. Reference-house bundled data must resolve through the canonical module/resource location so both source checkout and built wheel remain functional.
+- package/dependencies: SUCCESS
+- complete desktop import: SUCCESS
+- pytest: SUCCESS
+- GUI EXE build: SUCCESS
+- packaged EXE smoke: SUCCESS
 
-### ReferenceHouse test drift
+The new failure was again the `GUI identity smoke test`.
 
-Do not inflate the model to satisfy stale tests. When deterministic canonical ReferenceHouse values changed legitimately, update the stale test expectations to the canonical model and keep physical assertions meaningful.
+Exact error:
 
-## Current architectural rules
+`GUI identity smoke test timed out waiting for a Window AutomationElement for LATSES.exe (PID 1304)`
 
-- One canonical implementation per scientific concept.
-- Compatibility facades may re-export; they must not define competing semantics.
-- Derived scientific results retain provenance, assumptions, lineage, uncertainty/confidence and validation state.
-- Measurements are not conclusions; AI/heuristic suggestions are not authoritative scientific facts.
-- BuildingModel consumes validated scientific contracts.
-- GUI consumes BuildingModel/scientific results; it should not become the source of scientific truth.
-- EXE/installer packaging is a release verification stage, not a substitute for scientific verification.
+Conclusion:
 
-## Release evidence format
+The issue is not PyInstaller, not the GUI application's class construction, and not an application crash. The runner-side UIAutomation requirement is itself unreliable for this packaged Tk application.
 
-When reporting readiness, record the exact commit SHA, workflow run numbers, conclusions, artifact name, artifact size, and SHA-256. Never report “ready” from an earlier commit or from a workflow that has not completed.
+### Canonical test already present in the application
+
+`lat_ces/gui_complete.py` already provides the environment-controlled smoke path:
+
+`LATCES_GUI_SMOKE=1`
+
+When enabled, the packaged application's `main()` calls `_run_gui_identity_smoke()`, which:
+
+1. Instantiates the real `CompleteBuildingWorkspaceApp`.
+2. Confirms the concrete class identity.
+3. Reads the actual Notebook tabs from the live Tk object.
+4. Requires the expected surface identities:
+   - `Model / Pogledi`
+   - `Konstrukcija / Statika`
+   - `MEP`
+   - `Fasade`
+5. Raises a non-zero exit code on mismatch.
+6. Destroys the application after the check.
+
+This is the canonical application-level GUI identity check and does not depend on runner desktop/window-handle behavior.
+
+### Repair commit 2 — current
+
+Commit:
+
+`25e6a6ece9895012353b915a6a06cdc6aa246463`
+
+Message:
+
+`fix: use packaged GUI identity smoke hook on Windows runner`
+
+Change:
+
+The Installer workflow `GUI identity smoke test` no longer uses UIAutomation. It now executes the packaged EXE with:
+
+`LATCES_GUI_SMOKE=1`
+
+and waits for the process to exit successfully. A non-zero exit code fails the workflow.
+
+The workflow still separately retains the generic packaged EXE smoke test, so there are two distinct gates:
+
+- EXE runtime/survival smoke
+- canonical GUI identity smoke
+
+No application source file was changed by this repair.
+
+## Required sequence from `25e6a6ec…`
+
+The mandatory sequence is now:
+
+1. Verify exact `main` SHA.
+2. Verification Pipeline for `25e6a6ece9895012353b915a6a06cdc6aa246463` must be GREEN.
+3. Windows Installer for the same SHA.
+4. Confirm package/dependency installation.
+5. Confirm complete desktop application imports.
+6. Confirm full pytest suite.
+7. Build `LATSES.exe` with PyInstaller.
+8. Confirm packaged EXE creation and size.
+9. Run packaged EXE smoke test.
+10. Run canonical `LATCES_GUI_SMOKE=1` identity test.
+11. Install Inno Setup.
+12. Compile `installer/LATSES.iss`.
+13. Confirm `installer-output/LAT-CES-Setup.exe` exists and is above the minimum size.
+14. Compute SHA-256.
+15. Upload `LAT-CES-Windows-Installer`.
+16. Accept release evidence only after the upload succeeds.
+17. Record final workflow run number, exact source SHA, artifact name, artifact size and SHA-256.
+
+## Current release gate
+
+All of the following must be GREEN for release readiness:
+
+- exact `main` SHA identified
+- LAT-CES Verification Pipeline: SUCCESS
+- CodeQL: SUCCESS
+- wheel/package discovery: SUCCESS
+- full pytest suite: SUCCESS
+- complete desktop application import: SUCCESS
+- PyInstaller GUI EXE build: SUCCESS
+- packaged EXE smoke test: SUCCESS
+- canonical GUI identity smoke test: SUCCESS
+- Inno Setup compilation: SUCCESS
+- installer artifact smoke test: SUCCESS
+- artifact upload: SUCCESS
+
+## Artifact reporting rule
+
+Never report “release-ready” from a workflow that has no artifact. Never reuse an artifact from a different SHA. The final evidence record must include:
+
+`SHA → Verification run → Installer run → artifact name → artifact size → SHA-256`
+
+## Architectural rules
+
+- One canonical scientific implementation per concept.
+- Compatibility facades may re-export but must not create competing semantics.
+- BuildingModel is the source of truth for the GUI.
+- GUI does not become the source of scientific truth.
+- EXE/Installer packaging is a release verification stage, not a substitute for scientific verification.
