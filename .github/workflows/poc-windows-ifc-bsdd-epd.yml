@@ -1,0 +1,46 @@
+name: LAT-CES Windows IFC bSDD EPD POC
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - poc/windows-ifc-bsdd-epd
+
+jobs:
+  windows-poc:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install LAT-CES and POC dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install ifcopenshell pyinstaller
+
+      - name: Run POC in Python
+        shell: pwsh
+        run: python tools/poc/windows_ifc_bsdd_epd.py
+
+      - name: Build POC executable
+        shell: pwsh
+        run: |
+          pyinstaller --clean --onefile --name LATCES-Windows-POC tools/poc/windows_ifc_bsdd_epd.py
+
+      - name: Run packaged EXE
+        shell: pwsh
+        run: .\dist\LATCES-Windows-POC.exe
+
+      - name: Upload POC artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LATCES-Windows-POC
+          path: dist/LATCES-Windows-POC.exe
+          if-no-files-found: error
