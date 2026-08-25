@@ -41,14 +41,17 @@ class ReleaseLATCESApp(FunctionalLATCESApp):
         self._update_reference_house_status()
 
     def _update_reference_house_status(self) -> None:
+        status = getattr(self, "reference_house_status", None)
+        if status is None:
+            return
         house = self.reference_house
         model = getattr(getattr(self, "workflow", None), "model", None)
         if house is None or model is None:
-            self.reference_house_status.configure(text="Referentna kuća nije učitana.")
+            status.configure(text="Referentna kuća nije učitana.")
             return
         levels = len(model.levels)
         rooms = sum(len(level.rooms) for level in model.levels.values())
-        self.reference_house_status.configure(
+        status.configure(
             text=f"Referentna kuća: {house.data['name']}  |  etaže: {levels}  |  prostorije: {rooms}  |  BuildingModel: AKTIVAN"
         )
 
