@@ -1,0 +1,34 @@
+name: Restore GUI baseline (foundation branch only)
+
+on:
+  push:
+    branches:
+      - foundation/gui-280832b6-sci-integration
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore-gui-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: foundation/gui-280832b6-sci-integration
+
+      - name: Restore exact known-good gui_complete.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout 280832b68eb157d84fb45f294a9c87cc79013ec8 -- lat_ces/gui_complete.py
+          if git diff --quiet -- lat_ces/gui_complete.py; then
+            echo "GUI baseline already restored"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lat_ces/gui_complete.py
+          git commit -m "restore(gui): use 280832b6 CompleteBuildingWorkspaceApp baseline"
+          git push origin HEAD:foundation/gui-280832b6-sci-integration
