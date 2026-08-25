@@ -1,13 +1,13 @@
 name: LAT-CES Windows Installer
 
-# Persistent operational memory: docs/WORKFLOW-RUNBOOK.md
-# Release rule: exact commit -> verification GREEN -> EXE smoke -> installer smoke -> artifact evidence.
-# Never report an EXE/installer as ready from an older commit.
+# HISTORICAL TEST HARNESS: application code is pinned to 74f96b6.
+# This branch-only push trigger exists solely to execute the historical release path.
+# Do not merge this workflow change into main.
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ main, 'test/74f96b6-release-harness' ]
   pull_request:
     branches: [ main ]
 
