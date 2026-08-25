@@ -25,6 +25,11 @@ def test_reference_house_non_strict_mapping_preserves_explicit_level_geometry_on
     assert all(level.width_m == 10.0 for level in model.levels.values())
     assert all(level.height_m == 2.8 for level in model.levels.values())
     assert all(not level.rooms for level in model.levels.values())
+    assert all(len(level.walls) == 4 for level in model.levels.values())
+    assert all(
+        sum(wall.length_m for wall in level.walls.values()) == pytest.approx(44.0)
+        for level in model.levels.values()
+    )
 
 
 def test_reference_house_fixture_metrics_remain_deterministic():
