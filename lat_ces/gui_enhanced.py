@@ -23,6 +23,8 @@ class EnhancedLATCESApp(LATCESApp):
     def __init__(self) -> None:
         self.zoom_3d = 1.0
         self.drag_payload: str | None = None
+        self.selected_room_id: str | None = None
+        self.room_drag_last: Point2D | None = None
         self.room_name_var: tk.StringVar | None = None
         self.room_length_var: tk.StringVar | None = None
         self.room_width_var: tk.StringVar | None = None
@@ -36,6 +38,9 @@ class EnhancedLATCESApp(LATCESApp):
         self.canvas.bind("<MouseWheel>", self._zoom_wheel, add="+")
         self.canvas.bind("<Button-4>", self._zoom_in_linux, add="+")
         self.canvas.bind("<Button-5>", self._zoom_out_linux, add="+")
+        self.canvas.bind("<ButtonPress-1>", self._room_press, add="+")
+        self.canvas.bind("<B1-Motion>", self._room_drag, add="+")
+        self.canvas.bind("<ButtonRelease-1>", self._room_release, add="+")
 
     def _build_side_panel(self, side: ttk.Frame) -> None:
         super()._build_side_panel(side)
@@ -77,6 +82,17 @@ class EnhancedLATCESApp(LATCESApp):
 
         hint = ttk.Label(palette, text="Otvor se hvata za najbliži zid.\nProstorije ostaju dimenzionalni objekti BuildingModela.", wraplength=315)
         hint.pack(anchor="w", pady=(4, 0))
+
+        selected_room = ttk.LabelFrame(side, text="Odabrana prostorija", padding=8)
+        selected_room.pack(fill="x", pady=(10, 0))
+        self.selected_room_name_var = tk.StringVar(value="—")
+        self.selected_room_length_var = tk.StringVar(value="—")
+        self.selected_room_width_var = tk.StringVar(value="—")
+        self._field(selected_room, "Naziv", self.selected_room_name_var, 0)
+        self._field(selected_room, "Dužina (m)", self.selected_room_length_var, 1)
+        self._field(selected_room, "Širina (m)", self.selected_room_width_var, 2)
+        ttk.Button(selected_room, text="Primijeni dimenzije prostorije", command=self.apply_selected_room_dimensions).grid(row=3, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+        ttk.Label(selected_room, text="Alat Pomjeri premješta odabranu prostoriju.", wraplength=315).grid(row=4, column=0, columnspan=2, sticky="w", pady=(5, 0))
 
         self.canvas.bind("<ButtonRelease-1>", self._drop_payload, add="+")
 
@@ -148,7 +164,98 @@ class EnhancedLATCESApp(LATCESApp):
         y = min(max(point.y, 0.0), max(0.0, max_y - width))
         room = Room(name=name, footprint=Box3D(Point3D(x, y, 0.0), length, width, height))
         level.add_room(room)
+        self.selected_room_id = room.room_id
+        self._update_selected_room_fields()
         self.status_var.set(f"Dodana prostorija: {name} · {length:.2f} × {width:.2f} m")
+        self.refresh_view()
+
+    def _room_at(self, point: Point2D):
+        for room in reversed(tuple(self.active_level.rooms.values())):
+            fp = room.footprint
+            if fp.origin.x <= point.x <= fp.max_point.x and fp.origin.y <= point.y <= fp.max_point.y:
+                return room
+        return None
+
+    def _room_press(self, event: tk.Event) -> None:
+        if self.view_step.get() != 3 or self.editor.tool not in {"select", "move"}:
+            return
+        point = self.snap_point(self.canvas_to_model(event.x, event.y))
+        room = self._room_at(point)
+        if room is None:
+            return
+        self.selected_room_id = room.room_id
+        self._update_selected_room_fields()
+        if self.editor.tool == "move":
+            self.room_drag_last = point
+            self.status_var.set(f"Odabrana prostorija: {room.name} — povuci je na novu poziciju")
+        else:
+            self.room_drag_last = None
+            self.status_var.set(f"Odabrana prostorija: {room.name} · {room.footprint.length:.2f} × {room.footprint.width:.2f} m")
+        self.refresh_view()
+
+    def _room_drag(self, event: tk.Event) -> None:
+        if self.view_step.get() != 3 or self.editor.tool != "move" or not self.selected_room_id or self.room_drag_last is None:
+            return
+        room = self.active_level.rooms.get(self.selected_room_id)
+        if room is None:
+            self.room_drag_last = None
+            return
+        point = self.snap_point(self.canvas_to_model(event.x, event.y))
+        dx, dy = point.x - self.room_drag_last.x, point.y - self.room_drag_last.y
+        fp = room.footprint
+        level_length = self.active_level.length_m or self.plan_bounds()[1]
+        level_width = self.active_level.width_m or self.plan_bounds()[3]
+        max_x = max(0.0, level_length - fp.length)
+        max_y = max(0.0, level_width - fp.width)
+        new_x = min(max(fp.origin.x + dx, 0.0), max_x)
+        new_y = min(max(fp.origin.y + dy, 0.0), max_y)
+        room.footprint = Box3D(Point3D(new_x, new_y, fp.origin.z), fp.length, fp.width, fp.height)
+        self.room_drag_last = point
+        self._update_selected_room_fields()
+        self.refresh_view()
+
+    def _room_release(self, _event: tk.Event) -> None:
+        self.room_drag_last = None
+
+    def _update_selected_room_fields(self) -> None:
+        if not hasattr(self, "selected_room_name_var"):
+            return
+        room = self.active_level.rooms.get(self.selected_room_id) if self.selected_room_id else None
+        if room is None:
+            self.selected_room_name_var.set("—")
+            self.selected_room_length_var.set("—")
+            self.selected_room_width_var.set("—")
+            return
+        self.selected_room_name_var.set(room.name)
+        self.selected_room_length_var.set(f"{room.footprint.length:.2f}")
+        self.selected_room_width_var.set(f"{room.footprint.width:.2f}")
+
+    def apply_selected_room_dimensions(self) -> None:
+        room = self.active_level.rooms.get(self.selected_room_id) if self.selected_room_id else None
+        if room is None:
+            messagebox.showinfo("LAT-CES — Prostorija", "Prvo odaberi prostoriju na tlocrtu.", parent=self)
+            return
+        try:
+            length = float(self.selected_room_length_var.get())
+            width = float(self.selected_room_width_var.get())
+            if length <= 0 or width <= 0:
+                raise ValueError("Dimenzije prostorije moraju biti > 0")
+        except ValueError as exc:
+            messagebox.showwarning("LAT-CES — Prostorija", str(exc), parent=self)
+            return
+        level_length = self.active_level.length_m or self.plan_bounds()[1]
+        level_width = self.active_level.width_m or self.plan_bounds()[3]
+        if length > level_length or width > level_width:
+            messagebox.showwarning("LAT-CES — Prostorija", "Dimenzije prostorije moraju stati u aktivnu etažu.", parent=self)
+            return
+        max_x = max(0.0, level_length - length)
+        max_y = max(0.0, level_width - width)
+        origin = room.footprint.origin
+        x = min(max(origin.x, 0.0), max_x)
+        y = min(max(origin.y, 0.0), max_y)
+        room.footprint = Box3D(Point3D(x, y, origin.z), length, width, room.footprint.height)
+        self._update_selected_room_fields()
+        self.status_var.set(f"Prostorija dimenzionirana: {length:.2f} × {width:.2f} m")
         self.refresh_view()
 
     def _drop_partition(self, point: Point2D) -> None:

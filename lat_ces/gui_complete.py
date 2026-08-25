@@ -49,8 +49,12 @@ class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
         ttk.Button(quick, text="Referentna kuća", command=self.open_reference_house).pack(fill="x")
         draft = ttk.Frame(quick)
         draft.pack(fill="x", pady=(6, 0))
-        for text, command in (("Tlocrt", lambda: self._set_view_step(3)), ("Zid", self._open_wall_editor), ("Prostorija", lambda: self._start_payload("room")), ("Vrata", lambda: self._start_payload("door")), ("Prozor", lambda: self._start_payload("window"))):
+        for text, command in (("Tlocrt", lambda: self._set_view_step(3)), ("Zid", self._open_wall_editor), ("Prostorija", lambda: self._start_payload("room"))):
             ttk.Button(draft, text=text, command=command).pack(side="left", expand=True, fill="x", padx=2)
+        openings = ttk.Frame(quick)
+        openings.pack(fill="x", pady=(4, 0))
+        for text, command in (("Vrata", lambda: self._start_payload("door")), ("Prozor", lambda: self._start_payload("window"))):
+            ttk.Button(openings, text=text, command=command).pack(side="left", expand=True, fill="x", padx=2)
         super()._build_side_panel(side)
 
     def open_reference_house(self) -> None:
