@@ -36,6 +36,14 @@ jobs:
           python -m pip install -e .
           python -m pip install pytest pyinstaller
 
+      - name: SCI acceptance gate before installer build
+        shell: pwsh
+        run: |
+          python tools/validate_sci_acceptance.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pytest -q tests/scientific/test_sci145_contract.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Verify complete desktop application imports
         shell: pwsh
         run: |
