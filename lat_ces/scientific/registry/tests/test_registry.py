@@ -1,6 +1,4 @@
-"""
-LAT-CES Scientific Core Registry Tests
-"""
+"""LAT-CES Scientific Core Registry Tests."""
 
 import pytest
 
@@ -10,7 +8,7 @@ from lat_ces.scientific.registry.constants import (
     SPEED_OF_LIGHT,
 )
 from lat_ces.scientific.registry.registry import RegistryError, ScientificKnowledgeRegistry
-from lat_ces.scientific.units.dimension import LENGTH
+from lat_ces.scientific.units.dimension import LENGTH, TIME
 from lat_ces.scientific.units.unit import METER
 
 
@@ -42,7 +40,7 @@ def test_registry_physical_constants_are_typed_and_retrievable():
     assert reg.get_constant("c") is SPEED_OF_LIGHT
     assert reg.get_constant("h").value == pytest.approx(6.62607015e-34)
     assert reg.get_constant("G").value == pytest.approx(6.67430e-11)
-    assert reg.get_constant("c").unit.dimension == LENGTH / lat_ces.scientific.units.dimension.TIME
+    assert reg.get_constant("c").unit.dimension == LENGTH / TIME
 
 
 def test_registry_duplicate_constant_registration_fails():
