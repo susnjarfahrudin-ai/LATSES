@@ -7,5 +7,6 @@
       "lambda_W_mK": 1.7,
       "density_kg_m3": 2400
     }
-  ]
+  ],
+  "service_checks": ["bSDD", "ÖKOBAUDAT"]
 }
