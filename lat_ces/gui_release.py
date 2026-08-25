@@ -8,8 +8,6 @@ single visible action to open the editable floor-plan step.
 from __future__ import annotations
 
 import os
-import tkinter as tk
-from tkinter import ttk
 
 from lat_ces.gui_functional import FunctionalLATCESApp, _run_gui_identity_smoke
 
@@ -19,9 +17,6 @@ class ReleaseLATCESApp(FunctionalLATCESApp):
 
     def __init__(self) -> None:
         super().__init__()
-        # Do not wait for an idle callback in the packaged application.  The
-        # action bar and Reference House must exist before the first frame is
-        # presented to the user.
         self._install_functional_layer()
 
     def _route_module(self, key: str) -> None:
@@ -30,8 +25,6 @@ class ReleaseLATCESApp(FunctionalLATCESApp):
             self._action("edit_floor_plan", "Otvori tlocrt", self._open_floor_plan)
 
     def _open_floor_plan(self) -> None:
-        # Reference House is the starting BuildingModel; the existing complete
-        # workspace owns the actual editable floor-plan view.
         if self.reference_house is None:
             self.load_reference_house()
         self._route_module("model")
@@ -44,7 +37,6 @@ class ReleaseLATCESApp(FunctionalLATCESApp):
 def main() -> None:
     if os.environ.get("LATCES_GUI_SMOKE") == "1":
         _run_gui_identity_smoke()
-        # Also validate the release-only first-use path.
         app = ReleaseLATCESApp()
         try:
             app.withdraw()
@@ -54,7 +46,7 @@ def main() -> None:
             if missing:
                 raise RuntimeError(f"Release object actions missing: {sorted(missing)}")
             app.module_action_commands["edit_floor_plan"]()
-            if app.active_nav.get() != "model":
+            if app.current_nav.get().lower() != "model":
                 raise RuntimeError("Release GUI did not route to MODEL")
             print("Release GUI first-use path OK: Reference House -> Tlocrt")
         finally:
