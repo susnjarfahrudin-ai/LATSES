@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           git checkout 280832b68eb157d84fb45f294a9c87cc79013ec8 -- lat_ces/gui_complete.py
-          if git diff --quiet -- lat_ces/gui_complete.py; then
+          if git diff --quiet HEAD -- lat_ces/gui_complete.py; then
             echo "GUI baseline already restored"
             exit 0
           fi
