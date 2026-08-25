@@ -43,19 +43,15 @@ class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
         self._refresh_complete_tabs()
 
     def _build_side_panel(self, side: ttk.Frame) -> None:
+        side.configure(width=320)
+        quick = ttk.LabelFrame(side, text="Brzi pristup", padding=8)
+        quick.pack(fill="x", pady=(0, 8))
+        ttk.Button(quick, text="Referentna kuća", command=self.open_reference_house).pack(fill="x")
+        draft = ttk.Frame(quick)
+        draft.pack(fill="x", pady=(6, 0))
+        for text, command in (("Tlocrt", lambda: self._set_view_step(3)), ("Zid", self._open_wall_editor), ("Prostorija", lambda: self._start_payload("room")), ("Vrata", lambda: self._start_payload("door")), ("Prozor", lambda: self._start_payload("window"))):
+            ttk.Button(draft, text=text, command=command).pack(side="left", expand=True, fill="x", padx=2)
         super()._build_side_panel(side)
-        reference_box = ttk.LabelFrame(side, text="Referentna kuća", padding=10)
-        reference_box.pack(fill="x", pady=(10, 0))
-        ttk.Label(
-            reference_box,
-            text="Ugrađena LAT-CES P+3 referentna kuća. Učitava stvarni fixture i eksplicitni gabarit/zidove.",
-            wraplength=320,
-        ).pack(anchor="w")
-        ttk.Button(
-            reference_box,
-            text="Otvori Referentnu kuću",
-            command=self.open_reference_house,
-        ).pack(fill="x", pady=(7, 0))
 
     def open_reference_house(self) -> None:
         try:

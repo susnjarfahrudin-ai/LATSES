@@ -228,7 +228,7 @@ class LATCESApp(tk.Tk):
         self.canvas.bind("<B1-Motion>", self.editor.drag)
         self.canvas.bind("<ButtonRelease-1>", self.editor.end_drag)
 
-        side = ttk.Frame(body, width=360)
+        side = ttk.Frame(body, width=320)
         side.pack(side="left", fill="y", padx=(14, 0))
         side.pack_propagate(False)
         self._build_side_panel(side)
