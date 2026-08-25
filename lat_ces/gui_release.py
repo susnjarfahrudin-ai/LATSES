@@ -91,11 +91,28 @@ class ReleaseLATCESApp(FunctionalLATCESApp):
         if key == "object":
             self._action("edit_floor_plan", "Otvori tlocrt", self._open_floor_plan)
 
+    def _restore_drafting_workspace(self) -> None:
+        """Show the canonical Canvas/editor instead of the auxiliary notebook.
+
+        CompleteBuildingWorkspaceApp installs a separate Notebook inside the
+        same legacy body that owns the real FloorPlan canvas. The release
+        workflow uses the real drafting workspace, so the auxiliary notebook
+        must not consume that layout space.
+        """
+        tabs = getattr(self, "complete_tabs", None)
+        if tabs is not None and tabs.winfo_exists():
+            tabs.pack_forget()
+        workspace = getattr(self, "workspace", None)
+        if workspace is not None and workspace.winfo_exists():
+            workspace.pack_configure(fill="both", expand=True)
+
     def _open_floor_plan(self) -> None:
         if self.reference_house is None:
             self.load_reference_house()
         self._route_module("model")
+        self._restore_drafting_workspace()
         self._set_view_step(3)
+        self.refresh_view()
         self.status_var.set("Tlocrt spreman za unos · BuildingModel = Referentna kuća")
         self._update_reference_house_status()
 
@@ -136,11 +153,11 @@ def main() -> None:
                 raise RuntimeError("Release GUI did not route to MODEL")
             if app.view_step.get() != 3:
                 raise RuntimeError("Release GUI did not open Tlocrt")
-            if not app.release_entry.winfo_exists():
-                raise RuntimeError("Release entry panel was destroyed during MODEL routing")
-            if not app.reference_house_status.winfo_exists():
-                raise RuntimeError("Reference House status widget was destroyed during MODEL routing")
-            print("Release GUI first-use path OK: Reference House -> Tlocrt")
+            if not app.floor_plan.walls:
+                raise RuntimeError("Release GUI Tlocrt has no floor-plan walls")
+            if not app.canvas.winfo_exists():
+                raise RuntimeError("Release GUI FloorPlan canvas is missing")
+            print("Release GUI first-use path OK: Reference House -> Tlocrt -> FloorPlan canvas")
         finally:
             app.destroy()
         os._exit(0)
