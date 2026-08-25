@@ -49,6 +49,9 @@ class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
         action_bar.pack(fill="x", before=shell, padx=0, pady=(2, 0))
         self.module_actions = action_bar
         self._wire_top_navigation()
+        # A packaged application must open on a real engineering object, not an
+        # empty workspace. The ReferenceHouse is the deterministic starter model.
+        self.load_reference_house()
         self._route_module("object")
 
     def _all_widgets(self, parent):
@@ -127,12 +130,15 @@ class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
             return
         house = self.reference_house or ReferenceHouse.default()
         summary = house.summary()
+        active_name = self.level_var.get() if hasattr(self, "level_var") else ""
         text = (
             "LAT-CES REFERENTNA KUĆA\n"
             "=======================\n"
             f"Model: {house.data['model_id']}\n"
             f"Naziv: {house.data['name']}\n"
             f"Etaže: {len(house.levels)}\n"
+            f"Aktivna etaža: {active_name}\n"
+            f"Prostorije: {sum(len(level.rooms) for level in self.workflow.model.levels.values())}\n"
             f"Površina: {summary.floor_area_m2:.1f} m²\n"
             f"Volumen: {summary.volume_m3:.1f} m³\n"
             f"Krov: {house.data['roof']['type']} · {house.data['roof']['slope_deg']:.0f}°\n"
@@ -163,7 +169,12 @@ class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
                 interior_plaster_thickness_m=data["envelope"]["exterior_wall"]["interior_finish_thickness_m"],
                 dead_load_kpa=level_data["loads"]["dead_kpa"],
                 live_load_kpa=level_data["loads"]["live_kpa"],
-                floor_plan=make_envelope_floor_plan(level_data["name"], dimensions["length_m"], dimensions["width_m"], 0.20),
+                floor_plan=make_envelope_floor_plan(
+                    level_data["name"],
+                    dimensions["length_m"],
+                    dimensions["width_m"],
+                    0.20,
+                ),
             )
             previous = list(model.levels.values())[-1] if model.levels else None
             level.elevation = previous.top_elevation if previous else 0.0
@@ -231,7 +242,8 @@ class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
 def _run_gui_identity_smoke() -> None:
     app = FunctionalLATCESApp()
     try:
-        # Make the smoke deterministic; production startup still uses after_idle.
+        # Make the smoke deterministic; production startup and packaged EXE both
+        # install the functional layer and immediately open the ReferenceHouse.
         app._install_functional_layer()
         app.update_idletasks()
         expected = tuple(FunctionalLATCESApp.MODULES.keys())
@@ -244,7 +256,6 @@ def _run_gui_identity_smoke() -> None:
         if missing:
             raise RuntimeError(f"Missing canonical navigation: {missing}; actual={actual}")
 
-        app.load_reference_house()
         model = app.workflow.model
         room_count = sum(len(level.rooms) for level in model.levels.values())
         if model.name != ReferenceHouse.default().data["name"]:
@@ -253,15 +264,32 @@ def _run_gui_identity_smoke() -> None:
             raise RuntimeError("Reference house level count mismatch")
         if room_count < 10:
             raise RuntimeError(f"Reference house room mapping incomplete: {room_count}")
+        if model.roof is None or model.roof.slope_deg <= 0:
+            raise RuntimeError("Reference house roof was not loaded into BuildingModel")
 
+        # Exercise the actual command routes represented by the UI buttons.
         for key in FunctionalLATCESApp.MODULES.values():
             app._route_module(key)
             if not app.module_action_commands:
                 raise RuntimeError(f"No functional actions registered for module: {key}")
 
+        # Exercise non-blocking representative actions.
+        app._route_module("object")
+        app.module_action_commands["reference_house"]()
+        app._route_module("model")
+        app.module_action_commands["roof"]()
+        app.module_action_commands["plan"]()
+        app._route_module("analysis")
+        app.module_action_commands["validate"]()
+        app._route_module("systems")
+        app.module_action_commands["mep_refresh"]()
+        app._route_module("ai")
+        app.module_action_commands["mentor"]()
+
         print(
             "GUI functional identity OK: "
-            f"navigation={actual}; levels={len(model.levels)}; rooms={room_count}"
+            f"navigation={actual}; levels={len(model.levels)}; rooms={room_count}; "
+            f"roof={model.roof.roof_type}/{model.roof.slope_deg:g}deg"
         )
     finally:
         app.destroy()
