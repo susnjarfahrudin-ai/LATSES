@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tkinter as tk
 
 import pytest
@@ -7,7 +8,19 @@ import pytest
 from lat_ces.gui_properties import PropertiesPanel
 
 
-@pytest.mark.skipif(not tk.TkVersion, reason="Tk unavailable")
+def _gui_display_available() -> bool:
+    """Return whether a real Tk display is available for the widget test."""
+    if os.name != "nt" and not os.environ.get("DISPLAY"):
+        return False
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        return False
+    root.destroy()
+    return True
+
+
+@pytest.mark.skipif(not _gui_display_available(), reason="Tk display unavailable")
 def test_properties_panel_renders_context_sections() -> None:
     root = tk.Tk()
     root.withdraw()
