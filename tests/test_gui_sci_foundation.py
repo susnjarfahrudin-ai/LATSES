@@ -1,24 +1,27 @@
 from __future__ import annotations
 
+import hashlib
 import pathlib
-import subprocess
+
+
+KNOWN_GOOD_GUI_BLOB_SHA = "489ba0bc16fb24cba7bc768c09d3632608ece59e"
 
 
 def _repo_root() -> pathlib.Path:
     return pathlib.Path(__file__).resolve().parents[1]
 
 
+def _git_blob_sha(content: bytes) -> str:
+    header = f"blob {len(content)}\0".encode("utf-8")
+    return hashlib.sha1(header + content).hexdigest()
+
+
 def test_gui_complete_matches_known_good_reference() -> None:
     root = _repo_root()
-    actual = (root / "lat_ces" / "gui_complete.py").read_text(encoding="utf-8")
-    expected = subprocess.run(
-        ["git", "show", "280832b68eb157d84fb45f294a9c87cc79013ec8:lat_ces/gui_complete.py"],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout
-    assert actual == expected, "Production GUI drifted from the known-good 280832b6 interface baseline"
+    actual = (root / "lat_ces" / "gui_complete.py").read_bytes()
+    assert _git_blob_sha(actual) == KNOWN_GOOD_GUI_BLOB_SHA, (
+        "Production GUI drifted from the known-good 280832b6 interface baseline"
+    )
 
 
 def test_production_entrypoint_is_canonical_gui_complete() -> None:
