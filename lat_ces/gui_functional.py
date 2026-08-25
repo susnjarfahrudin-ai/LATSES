@@ -205,8 +205,14 @@ class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
 
 
 def _run_gui_identity_smoke() -> None:
+    print("GUI identity smoke: creating FunctionalLATCESApp")
     app = FunctionalLATCESApp()
     try:
+        # The identity test does not need an interactive window. Keeping the
+        # Tk root withdrawn reduces runner/display interaction while retaining
+        # the real widget tree and BuildingModel lifecycle.
+        app.withdraw()
+        print("GUI identity smoke: installing functional layer")
         app._install_functional_layer()
         app.update_idletasks()
         expected = tuple(FunctionalLATCESApp.MODULES.keys())
@@ -231,6 +237,7 @@ def _run_gui_identity_smoke() -> None:
         # Do not execute calculation/report actions here: those are validated by
         # pytest/Verification and may be interactive or long-running on Windows.
         for key in FunctionalLATCESApp.MODULES.values():
+            print(f"GUI identity smoke: routing module {key}")
             app._route_module(key)
             if not app.module_action_commands:
                 raise RuntimeError(f"No functional actions registered for module: {key}")
