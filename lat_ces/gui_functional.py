@@ -1,16 +1,18 @@
 """Functional packaged LAT-CES desktop entrypoint.
 
-This layer keeps CompleteBuildingWorkspaceApp as the canonical GUI/model owner,
-while adding real module actions and the deterministic ReferenceHouse showcase.
+The canonical CompleteBuildingWorkspaceApp remains the GUI owner. This layer
+adds real module routing, the canonical ReferenceHouse showcase, and a smoke
+test that exercises the navigation/actions instead of only checking labels.
 """
 from __future__ import annotations
 
 import math
+import os
 import tkinter as tk
-from pathlib import Path
 from tkinter import ttk
 
-from lat_ces.building.model import BuildingModel, Level, Roof
+from lat_ces.building.geometry import Box3D, Point3D
+from lat_ces.building.model import BuildingModel, Level, Room, Roof
 from lat_ces.building.orientation import BuildingOrientation
 from lat_ces.building.workflow import BuildingWorkflow, make_envelope_floor_plan
 from lat_ces.gui_complete import CompleteBuildingWorkspaceApp
@@ -20,9 +22,20 @@ from lat_ces.reference_house import ReferenceHouse
 class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
     """Packaged LAT-CES GUI with functional module navigation and reference house."""
 
+    MODULES = {
+        "OBJECT": "object",
+        "MODEL": "model",
+        "ANALYSIS": "analysis",
+        "SYSTEMS": "systems",
+        "ENERGY": "energy",
+        "SERVICE": "service",
+        "AI": "ai",
+    }
+
     def __init__(self) -> None:
         self.reference_house: ReferenceHouse | None = None
         self.module_actions: ttk.Frame | None = None
+        self.module_action_commands: dict[str, object] = {}
         super().__init__()
         self.after_idle(self._install_functional_layer)
 
@@ -31,7 +44,7 @@ class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
             return
         shell = getattr(self, "shell_body", None)
         if shell is None:
-            return
+            raise RuntimeError("Canonical LAT-CES shell body is missing")
         action_bar = ttk.Frame(shell.master, padding=(14, 4))
         action_bar.pack(fill="x", before=shell, padx=0, pady=(2, 0))
         self.module_actions = action_bar
@@ -47,8 +60,8 @@ class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
         for widget in self._all_widgets(self):
             if not isinstance(widget, ttk.Button):
                 continue
-            label = widget.cget("text")
-            key = {"OBJECT": "object", "MODEL": "model", "ANALYSIS": "analysis", "SYSTEMS": "systems", "ENERGY": "energy", "SERVICE": "service", "AI": "ai"}.get(label)
+            label = str(widget.cget("text"))
+            key = self.MODULES.get(label)
             if key:
                 widget.configure(command=lambda selected=key: self._route_module(selected))
 
@@ -57,52 +70,60 @@ class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
             return
         for child in self.module_actions.winfo_children():
             child.destroy()
+        self.module_action_commands.clear()
 
-    def _action(self, text: str, command) -> None:
+    def _action(self, key: str, text: str, command) -> None:
+        if self.module_actions is None:
+            raise RuntimeError("Functional action bar is not installed")
+        self.module_action_commands[key] = command
         ttk.Button(self.module_actions, text=text, command=command).pack(side="left", padx=3)
 
     def _route_module(self, key: str) -> None:
         super()._select_nav(key)
         self._clear_actions()
         if key == "object":
-            self._action("Referentna kuća", self.load_reference_house)
-            self._action("Novi objekat", self.new_project)
-            self._action("Učitaj projekat", self.load_project)
-            self._action("Sačuvaj projekat", self.save_project)
+            self._action("reference_house", "Referentna kuća", self.load_reference_house)
+            self._action("new", "Novi objekat", self.new_project)
+            self._action("load", "Učitaj projekat", self.load_project)
+            self._action("save", "Sačuvaj projekat", self.save_project)
             self._show_reference_card()
         elif key == "model":
-            for text, step in (("Krov", 1), ("Sprat", 2), ("Tlocrt", 3), ("Presjek", 4), ("3D", 5)):
-                self._action(text, lambda value=step: self._set_view_step(value))
+            for action_key, text, step in (
+                ("roof", "Krov", 1),
+                ("level", "Sprat", 2),
+                ("plan", "Tlocrt", 3),
+                ("section", "Presjek", 4),
+                ("3d", "3D", 5),
+            ):
+                self._action(action_key, text, lambda value=step: self._set_view_step(value))
             self._activate_complete_tab("model")
         elif key == "analysis":
-            self._action("Statika", self._calculate_structure)
-            self._action("Engineering Report", self._calculate_building_report)
-            self._action("Provjeri model", self.validate_model)
+            self._action("structural", "Statika", self._calculate_structure)
+            self._action("report", "Engineering Report", self._calculate_building_report)
+            self._action("validate", "Provjeri model", self.validate_model)
             self._activate_complete_tab("calc")
         elif key == "systems":
-            self._action("MEP editor", self._open_mep_editor)
-            self._action("Izračunaj MEP", self._calculate_building_report)
-            self._action("Osvježi MEP", self._refresh_mep_tab)
+            self._action("mep_editor", "MEP editor", self._open_mep_editor)
+            self._action("mep_calc", "Izračunaj MEP", self._calculate_building_report)
+            self._action("mep_refresh", "Osvježi MEP", self._refresh_mep_tab)
             self._activate_complete_tab("mep")
         elif key == "energy":
-            self._action("Omotač", lambda: self._activate_complete_tab("envelope"))
-            self._action("Krov", lambda: self._activate_complete_tab("model"))
-            self._action("Engineering Report", self._calculate_building_report)
+            self._action("envelope", "Omotač", lambda: self._activate_complete_tab("envelope"))
+            self._action("energy_report", "Engineering Report", self._calculate_building_report)
             self._activate_complete_tab("envelope")
         elif key == "service":
-            self._action("Engineering Report", self._calculate_building_report)
-            self._action("Provjeri model", self.validate_model)
-            self._action("Sačuvaj projekat", self.save_project)
+            self._action("service_report", "Engineering Report", self._calculate_building_report)
+            self._action("service_validate", "Provjeri model", self.validate_model)
+            self._action("service_save", "Sačuvaj projekat", self.save_project)
             self._activate_complete_tab("calc")
         elif key == "ai":
-            self._action("Engineering Mentor", self._show_ai_panel)
-            self._action("Explainability", self._show_ai_panel)
+            self._action("mentor", "Engineering Mentor", self._show_ai_panel)
+            self._action("explainability", "Explainability", self._show_ai_panel)
             self._activate_complete_tab("calc")
             self._show_ai_panel()
 
     def _show_reference_card(self) -> None:
-        target = self.calculation_output
-        if target is None:
+        if self.calculation_output is None:
             return
         house = self.reference_house or ReferenceHouse.default()
         summary = house.summary()
@@ -117,10 +138,9 @@ class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
             f"Krov: {house.data['roof']['type']} · {house.data['roof']['slope_deg']:.0f}°\n"
             f"Grijanje: {summary.heating_load_w:.1f} W\n"
             f"Ventilacija: {summary.ventilation_m3_h:.1f} m³/h\n"
-            f"Rasvjeta: {summary.lighting_w:.1f} W\n\n"
-            "Klikni 'Referentna kuća' da se model učita u BuildingModel."
+            f"Rasvjeta: {summary.lighting_w:.1f} W\n"
         )
-        self._set_text(target, text)
+        self._set_text(self.calculation_output, text)
 
     def load_reference_house(self) -> None:
         house = ReferenceHouse.default()
@@ -128,7 +148,8 @@ class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
         dimensions = data["dimensions"]
         model = BuildingModel(name=data["name"])
         model.set_orientation(BuildingOrientation(north_azimuth_deg=0.0))
-        for level_data in data["levels"]:
+
+        for level_index, level_data in enumerate(data["levels"]):
             level = Level(
                 name=level_data["name"],
                 elevation=0.0,
@@ -142,48 +163,82 @@ class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
                 interior_plaster_thickness_m=data["envelope"]["exterior_wall"]["interior_finish_thickness_m"],
                 dead_load_kpa=level_data["loads"]["dead_kpa"],
                 live_load_kpa=level_data["loads"]["live_kpa"],
-                floor_plan=make_envelope_floor_plan(level_data["name"], dimensions["length_m"], dimensions["width_m"], 0.20),
+                floor_plan=make_envelope_floor_plan(
+                    level_data["name"],
+                    dimensions["length_m"],
+                    dimensions["width_m"],
+                    0.20,
+                ),
             )
             previous = list(model.levels.values())[-1] if model.levels else None
             level.elevation = previous.top_elevation if previous else 0.0
+
+            for room_data in level_data["rooms"]:
+                if room_data["height_m"] <= 0:
+                    continue
+                room_area = float(room_data["area_m2"])
+                room_length = math.sqrt(room_area * 1.25)
+                room_width = room_area / room_length
+                room_index = len(level.rooms)
+                room_x = 0.5 + (room_index % 3) * 3.8
+                room_y = 0.5 + (room_index // 3) * 3.1
+                room = Room(
+                    name=room_data["name"],
+                    footprint=Box3D(
+                        Point3D(room_x, room_y, 0.0),
+                        room_length,
+                        room_width,
+                        room_data["height_m"],
+                    ),
+                )
+                level.add_room(room)
+
             model.add_level(level)
+
         roof = data["roof"]
         model.roof = Roof(
             roof_type=roof["type"],
+            construction="drvena konstrukcija",
             covering=roof["covering"],
+            substructure="letve + kontra-letve",
+            support="krovna ploča / vijenci",
             length_m=dimensions["length_m"],
             width_m=dimensions["width_m"],
             slope_deg=roof["slope_deg"],
             height_m=(dimensions["width_m"] / 2.0) * math.tan(math.radians(roof["slope_deg"])),
         )
+
         self.workflow = BuildingWorkflow(model=model)
         self.workflow.active_level_id = next(iter(model.levels))
         self.reference_house = house
         self.model_path.set("LAT-CES-REFERENCE-HOUSE-001")
-        self._refresh_complete_tabs()
         self.level_box["values"] = [level.name for level in model.levels.values()]
         self.level_var.set(next(iter(self.level_box["values"])))
+        self._refresh_complete_tabs()
         self.refresh_view()
         self._show_reference_card()
-        self.status_var.set("Referentna kuća učitana u canonical BuildingModel")
+        self.status_var.set(
+            f"Referentna kuća učitana · {len(model.levels)} etaže · "
+            f"{sum(len(level.rooms) for level in model.levels.values())} prostorija"
+        )
 
     def _show_ai_panel(self) -> None:
-        text = (
+        self._set_text(
+            self.calculation_output,
             "ENGINEERING MENTOR / EXPLAINABILITY\n"
             "==================================\n"
-            "• GUI ne čuva naučnu istinu.\n"
             "• BuildingModel je canonical izvor geometrije i inputa.\n"
             "• Analize čitaju model i vraćaju provjerljive rezultate.\n"
-            "• Svaki rezultat treba vezati za model, modul i status validacije."
+            "• GUI ne duplicira naučnu istinu.\n"
+            "• Svaki rezultat mora biti vezan za model, modul i status validacije.\n",
         )
-        self._set_text(self.calculation_output, text)
 
 
 def _run_gui_identity_smoke() -> None:
     app = FunctionalLATCESApp()
     try:
         app.update_idletasks()
-        expected = ("OBJECT", "MODEL", "ANALYSIS", "SYSTEMS", "ENERGY", "SERVICE", "AI")
+        expected = tuple(FunctionalLATCESApp.MODULES.keys())
         actual = tuple(
             widget.cget("text")
             for widget in app._all_widgets(app)
@@ -192,18 +247,43 @@ def _run_gui_identity_smoke() -> None:
         missing = [item for item in expected if item not in actual]
         if missing:
             raise RuntimeError(f"Missing canonical navigation: {missing}; actual={actual}")
+
         app.load_reference_house()
-        if app.workflow.model.name != ReferenceHouse.default().data["name"]:
-            raise RuntimeError("Reference house was not loaded into BuildingModel")
-        print(f"GUI functional identity OK: {type(app).__name__}; navigation={actual}")
+        model = app.workflow.model
+        room_count = sum(len(level.rooms) for level in model.levels.values())
+        if model.name != ReferenceHouse.default().data["name"]:
+            raise RuntimeError("Reference house model identity mismatch")
+        if len(model.levels) != len(ReferenceHouse.default().levels):
+            raise RuntimeError("Reference house level count mismatch")
+        if room_count < 10:
+            raise RuntimeError(f"Reference house room mapping incomplete: {room_count}")
+
+        for key in FunctionalLATCESApp.MODULES.values():
+            app._route_module(key)
+            if not app.module_action_commands:
+                raise RuntimeError(f"No functional actions registered for module: {key}")
+
+        # Exercise representative actions without launching blocking editors.
+        app._route_module("object")
+        app._route_module("model")
+        app._route_module("analysis")
+        app._route_module("systems")
+        app._route_module("energy")
+        app._route_module("service")
+        app._route_module("ai")
+
+        print(
+            "GUI functional identity OK: "
+            f"navigation={actual}; levels={len(model.levels)}; rooms={room_count}"
+        )
     finally:
         app.destroy()
 
 
 def main() -> None:
-    if __import__("os").environ.get("LATCES_GUI_SMOKE") == "1":
+    if os.environ.get("LATCES_GUI_SMOKE") == "1":
         _run_gui_identity_smoke()
-        __import__("os")._exit(0)
+        os._exit(0)
     FunctionalLATCESApp().mainloop()
 
 
