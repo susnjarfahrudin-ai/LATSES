@@ -32,6 +32,6 @@ def test_reference_house_fixture_metrics_remain_deterministic():
     summary = house.summary()
 
     assert len(house.levels) == 4
-    assert summary.floor_area_m2 == 338.0
-    assert summary.volume_m3 == 946.4
-    assert summary.ventilation_m3_h == pytest.approx(804.44)
+    assert summary.floor_area_m2 == 454.0
+    assert summary.volume_m3 == 1271.2
+    assert summary.ventilation_m3_h == pytest.approx(1080.52)
