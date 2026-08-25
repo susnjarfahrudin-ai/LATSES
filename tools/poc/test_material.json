@@ -1,0 +1,11 @@
+{
+  "dataset": "LAT-CES POC fixture; not an ÖKOBAUDAT redistribution",
+  "materials": [
+    {
+      "id": "poc-concrete",
+      "name": "Concrete test material",
+      "lambda_W_mK": 1.7,
+      "density_kg_m3": 2400
+    }
+  ]
+}
