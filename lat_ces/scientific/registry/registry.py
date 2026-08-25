@@ -3,7 +3,7 @@ LAT-CES Scientific Core
 Scientific Knowledge Registry Reference Implementation (LAT-SCI-CORE-0020)
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from lat_ces.scientific.units.dimension import Dimension
 from lat_ces.scientific.units.unit import Unit
@@ -17,7 +17,10 @@ class RegistryError(Exception):
 
 class ScientificKnowledgeRegistry:
     """
-    Central immutable registry for dimensions, units, physical constants, and SKO references.
+    Central registry for dimensions, units, physical constants, and SKO references.
+
+    Constants are stored in this canonical registry; the legacy constants module
+    remains a source of typed definitions, not a second registry authority.
     """
 
     def __init__(self):
@@ -48,6 +51,18 @@ class ScientificKnowledgeRegistry:
         if symbol not in self._units:
             raise RegistryError(f"Unit '{symbol}' not found in registry.")
         return self._units[symbol]
+
+    def register_constant(self, symbol: str, constant: Any) -> None:
+        if symbol in self._constants:
+            raise RegistryError(f"Constant '{symbol}' is already registered.")
+        if not hasattr(constant, "value") or not hasattr(constant, "unit"):
+            raise RegistryError("Object must be a typed physical constant with value and unit.")
+        self._constants[symbol] = constant
+
+    def get_constant(self, symbol: str) -> Any:
+        if symbol not in self._constants:
+            raise RegistryError(f"Constant '{symbol}' not found in registry.")
+        return self._constants[symbol]
 
     def clear(self) -> None:
         """Resets the registry state (primarily used in test teardowns)."""
