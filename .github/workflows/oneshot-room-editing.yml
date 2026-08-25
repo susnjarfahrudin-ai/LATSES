@@ -21,7 +21,7 @@ jobs:
         run: |
           python -m pip install -q pytest
           python -m py_compile lat_ces/gui_enhanced.py lat_ces/gui_complete.py
-          pytest -q tests/building_model/test_building_model_foundation.py tests/test_building_editor_dimensions.py
+          pytest -q tests/test_building_model_foundation.py tests/test_building_editor_dimensions.py
       - name: Commit patch and remove one-shot files
         run: |
           git config user.name "github-actions[bot]"
