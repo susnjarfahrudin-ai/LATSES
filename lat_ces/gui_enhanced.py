@@ -25,6 +25,7 @@ class EnhancedLATCESApp(LATCESApp):
         self.drag_payload: str | None = None
         self.selected_room_id: str | None = None
         self.room_drag_last: Point2D | None = None
+        self.room_placing = False
         self.room_name_var: tk.StringVar | None = None
         self.room_length_var: tk.StringVar | None = None
         self.room_width_var: tk.StringVar | None = None
@@ -55,15 +56,9 @@ class EnhancedLATCESApp(LATCESApp):
         self._field(room_box, "Naziv", self.room_name_var, 0)
         self._field(room_box, "Dužina (m)", self.room_length_var, 1)
         self._field(room_box, "Širina (m)", self.room_width_var, 2)
+        ttk.Button(room_box, text="＋ Nova prostorija — postavi na tlocrt", command=self._start_room_placement).grid(row=3, column=0, columnspan=2, sticky="ew", pady=(6, 0))
         self._drag_label(room_box, "▣  PROSTORIJA  — povuci", "room")
 
-        partition_box = ttk.LabelFrame(palette, text="Pregradni zid", padding=6)
-        partition_box.pack(fill="x", pady=6)
-        self.partition_length_var = tk.StringVar(value="3.00")
-        self.partition_thickness_var = tk.StringVar(value="0.12")
-        self._field(partition_box, "Dužina (m)", self.partition_length_var, 0)
-        self._field(partition_box, "Debljina (m)", self.partition_thickness_var, 1)
-        self._drag_label(partition_box, "━  PREGRADNI ZID  — povuci", "partition")
 
         opening_box = ttk.LabelFrame(palette, text="Vrata / prozor", padding=6)
         opening_box.pack(fill="x", pady=6)
@@ -116,6 +111,15 @@ class EnhancedLATCESApp(LATCESApp):
             label.pack(side="left", fill="x", expand=True, padx=2, pady=2)
         label.bind("<ButtonPress-1>", lambda _event, value=payload: self._start_payload(value))
 
+    def _start_room_placement(self) -> None:
+        if self.view_step.get() != 3:
+            self.view_step.set(3)
+            self.goto_step()
+        self.editor.set_tool("select")
+        self.drag_payload = None
+        self.room_placing = True
+        self.status_var.set("Nova prostorija: provjeri dužinu i širinu, zatim klikni mjesto unutar kuće.")
+
     def _start_payload(self, payload: str) -> None:
         if self.view_step.get() != 3:
             self.view_step.set(3)
@@ -164,6 +168,7 @@ class EnhancedLATCESApp(LATCESApp):
         y = min(max(point.y, 0.0), max(0.0, max_y - width))
         room = Room(name=name, footprint=Box3D(Point3D(x, y, 0.0), length, width, height))
         level.add_room(room)
+        self._sync_room_partition_walls(room)
         self.selected_room_id = room.room_id
         self._update_selected_room_fields()
         self.status_var.set(f"Dodana prostorija: {name} · {length:.2f} × {width:.2f} m")
@@ -177,9 +182,16 @@ class EnhancedLATCESApp(LATCESApp):
         return None
 
     def _room_press(self, event: tk.Event) -> None:
-        if self.view_step.get() != 3 or self.editor.tool not in {"select", "move"}:
+        if self.view_step.get() != 3:
             return
         point = self.snap_point(self.canvas_to_model(event.x, event.y))
+        if self.room_placing:
+            self._drop_room(point)
+            self.room_placing = False
+            self.status_var.set("Prostorija postavljena. Možeš je odmah odabrati i urediti.")
+            return
+        if self.editor.tool not in {"select", "move"}:
+            return
         room = self._room_at(point)
         if room is None:
             return
@@ -210,6 +222,7 @@ class EnhancedLATCESApp(LATCESApp):
         new_x = min(max(fp.origin.x + dx, 0.0), max_x)
         new_y = min(max(fp.origin.y + dy, 0.0), max_y)
         room.footprint = Box3D(Point3D(new_x, new_y, fp.origin.z), fp.length, fp.width, fp.height)
+        self._sync_room_partition_walls(room)
         self.room_drag_last = point
         self._update_selected_room_fields()
         self.refresh_view()
@@ -254,9 +267,32 @@ class EnhancedLATCESApp(LATCESApp):
         x = min(max(origin.x, 0.0), max_x)
         y = min(max(origin.y, 0.0), max_y)
         room.footprint = Box3D(Point3D(x, y, origin.z), length, width, room.footprint.height)
+        self._sync_room_partition_walls(room)
         self._update_selected_room_fields()
         self.status_var.set(f"Prostorija dimenzionirana: {length:.2f} × {width:.2f} m")
         self.refresh_view()
+
+    def _sync_room_partition_walls(self, room: Room) -> None:
+        """Derive interior wall segments from the room rectangle."""
+        fp = room.footprint
+        level = self.active_level
+        xmin, xmax = fp.origin.x, fp.origin.x + fp.length
+        ymin, ymax = fp.origin.y, fp.origin.y + fp.width
+        edges = ((Point2D(xmin, ymin), Point2D(xmax, ymin)), (Point2D(xmax, ymin), Point2D(xmax, ymax)), (Point2D(xmax, ymax), Point2D(xmin, ymax)), (Point2D(xmin, ymax), Point2D(xmin, ymin)))
+        tol = 0.001
+        def exterior(a: Point2D, b: Point2D) -> bool:
+            return ((abs(a.x) < tol and abs(b.x) < tol) or (abs(a.y) < tol and abs(b.y) < tol) or (abs(a.x - level.length_m) < tol and abs(b.x - level.length_m) < tol) or (abs(a.y - level.width_m) < tol and abs(b.y - level.width_m) < tol))
+        for index, (a, b) in enumerate(edges, 1):
+            if exterior(a, b):
+                continue
+            name = f"Zid prostorije {room.room_id} {index}"
+            existing = next((w for w in self.floor_plan.walls.values() if w.name == name), None)
+            if existing is not None:
+                existing.segment = Segment2D(a, b)
+                continue
+            shared = next((w for w in self.floor_plan.walls.values() if w.name.startswith("Zid prostorije ") and ((abs(w.segment.start.x-a.x)<tol and abs(w.segment.start.y-a.y)<tol and abs(w.segment.end.x-b.x)<tol and abs(w.segment.end.y-b.y)<tol) or (abs(w.segment.start.x-b.x)<tol and abs(w.segment.start.y-b.y)<tol and abs(w.segment.end.x-a.x)<tol and abs(w.segment.end.y-a.y)<tol))), None)
+            if shared is None:
+                self.floor_plan.add_wall(Wall(name=name, segment=Segment2D(a, b), thickness=0.12))
 
     def _drop_partition(self, point: Point2D) -> None:
         length = self._number(self.partition_length_var, "Dužina pregradnog zida")

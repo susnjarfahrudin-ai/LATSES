@@ -75,8 +75,21 @@ class FloorPlanEditor:
                 self.start_point = point
                 self.app.status_var.set(f"Početak zida: ({point.x:.1f}, {point.y:.1f}) m — klikni kraj")
                 return
-            if math.hypot(point.x - self.start_point.x, point.y - self.start_point.y) < 0.1:
+            dx = point.x - self.start_point.x
+            dy = point.y - self.start_point.y
+            if math.hypot(dx, dy) < 0.1:
                 return
+            reference = self.nearest_wall(self.start_point, tolerance_m=2.0)
+            if reference is not None and reference.segment.length > 0:
+                angle = math.atan2(reference.segment.end.y - reference.segment.start.y, reference.segment.end.x - reference.segment.start.x)
+                candidate_angles = (angle, angle + math.pi / 2.0)
+                best = max(candidate_angles, key=lambda a: abs(dx * math.cos(a) + dy * math.sin(a)))
+                distance = math.hypot(dx, dy)
+                point = Point2D(self.start_point.x + distance * math.cos(best), self.start_point.y + distance * math.sin(best))
+            elif abs(dx) >= abs(dy):
+                point = Point2D(point.x, self.start_point.y)
+            else:
+                point = Point2D(self.start_point.x, point.y)
             wall = Wall(name=f"Zid {self.floor_plan.wall_count + 1}", segment=Segment2D(self.start_point, point), thickness=0.20)
             self.floor_plan.add_wall(wall)
             self.start_point = None
