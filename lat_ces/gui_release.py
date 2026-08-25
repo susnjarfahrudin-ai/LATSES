@@ -18,17 +18,11 @@ class ReleaseLATCESApp(FunctionalLATCESApp):
         self._open_floor_plan()
 
     def _install_release_entry_panel(self) -> None:
-        """Install persistent release controls outside the routed action bar.
-
-        FunctionalLATCESApp._route_module() intentionally clears every child
-        of ``module_actions``. The release controls must therefore live in a
-        sibling container so routing to MODEL cannot destroy their widgets.
-        """
+        """Install persistent release controls outside the routed action bar."""
         panel = getattr(self, "module_actions", None)
         shell = getattr(self, "shell_body", None)
         if panel is None or shell is None:
             raise RuntimeError("Canonical LAT-CES release shell is missing")
-
         parent = panel.master
         self.release_entry = ttk.LabelFrame(
             parent,
@@ -42,24 +36,12 @@ class ReleaseLATCESApp(FunctionalLATCESApp):
         ).pack(anchor="w", pady=(0, 5))
         buttons = ttk.Frame(self.release_entry)
         buttons.pack(fill="x")
-        ttk.Button(
-            buttons, text="Referentna kuća", command=self.load_reference_house
-        ).pack(side="left", padx=2)
-        ttk.Button(
-            buttons, text="Otvori tlocrt", command=self._open_floor_plan
-        ).pack(side="left", padx=2)
-        ttk.Button(
-            buttons, text="＋ Prostorija", command=lambda: self._activate_editor("room")
-        ).pack(side="left", padx=2)
-        ttk.Button(
-            buttons, text="＋ Pregradni zid", command=lambda: self._activate_editor("partition")
-        ).pack(side="left", padx=2)
-        ttk.Button(
-            buttons, text="Vrata", command=lambda: self._activate_editor("door")
-        ).pack(side="left", padx=2)
-        ttk.Button(
-            buttons, text="Prozor", command=lambda: self._activate_editor("window")
-        ).pack(side="left", padx=2)
+        ttk.Button(buttons, text="Referentna kuća", command=self.load_reference_house).pack(side="left", padx=2)
+        ttk.Button(buttons, text="Otvori tlocrt", command=self._open_floor_plan).pack(side="left", padx=2)
+        ttk.Button(buttons, text="＋ Prostorija", command=lambda: self._activate_editor("room")).pack(side="left", padx=2)
+        ttk.Button(buttons, text="＋ Pregradni zid", command=lambda: self._activate_editor("partition")).pack(side="left", padx=2)
+        ttk.Button(buttons, text="Vrata", command=lambda: self._activate_editor("door")).pack(side="left", padx=2)
+        ttk.Button(buttons, text="Prozor", command=lambda: self._activate_editor("window")).pack(side="left", padx=2)
         self.reference_house_status = ttk.Label(self.release_entry, anchor="w")
         self.reference_house_status.pack(fill="x", pady=(5, 0))
         self._update_reference_house_status()
@@ -92,19 +74,30 @@ class ReleaseLATCESApp(FunctionalLATCESApp):
             self._action("edit_floor_plan", "Otvori tlocrt", self._open_floor_plan)
 
     def _restore_drafting_workspace(self) -> None:
-        """Show the canonical Canvas/editor instead of the auxiliary notebook.
-
-        CompleteBuildingWorkspaceApp installs a separate Notebook inside the
-        same legacy body that owns the real FloorPlan canvas. The release
-        workflow uses the real drafting workspace, so the auxiliary notebook
-        must not consume that layout space.
-        """
+        """Restore the canonical drafting body and explicitly remap the canvas."""
         tabs = getattr(self, "complete_tabs", None)
         if tabs is not None and tabs.winfo_exists():
             tabs.pack_forget()
+
         workspace = getattr(self, "workspace", None)
-        if workspace is not None and workspace.winfo_exists():
-            workspace.pack_configure(fill="both", expand=True)
+        if workspace is None or not workspace.winfo_exists():
+            raise RuntimeError("Canonical FloorPlan workspace is missing")
+
+        parent = workspace.master
+        if parent is None or not parent.winfo_exists():
+            raise RuntimeError("Canonical FloorPlan workspace parent is missing")
+
+        # Re-establish the parent body and the real drafting workspace explicitly.
+        try:
+            parent.pack_configure(fill="both", expand=True, padx=4, pady=4)
+        except Exception:
+            pass
+        workspace.pack_forget()
+        workspace.pack(in_=parent, side="left", fill="both", expand=True, padx=0, pady=0)
+
+        canvas = getattr(self, "canvas", None)
+        if canvas is None or not canvas.winfo_exists():
+            raise RuntimeError("Canonical FloorPlan canvas is missing")
 
     def _open_floor_plan(self) -> None:
         if self.reference_house is None:
@@ -112,7 +105,9 @@ class ReleaseLATCESApp(FunctionalLATCESApp):
         self._route_module("model")
         self._restore_drafting_workspace()
         self._set_view_step(3)
+        self.update_idletasks()
         self.refresh_view()
+        self.update_idletasks()
         self.status_var.set("Tlocrt spreman za unos · BuildingModel = Referentna kuća")
         self._update_reference_house_status()
 
@@ -157,7 +152,18 @@ def main() -> None:
                 raise RuntimeError("Release GUI Tlocrt has no floor-plan walls")
             if not app.canvas.winfo_exists():
                 raise RuntimeError("Release GUI FloorPlan canvas is missing")
-            print("Release GUI first-use path OK: Reference House -> Tlocrt -> FloorPlan canvas")
+            app.update_idletasks()
+            if not app.workspace.winfo_ismapped():
+                raise RuntimeError("Release GUI FloorPlan workspace is not mapped")
+            if not app.canvas.winfo_ismapped():
+                raise RuntimeError("Release GUI FloorPlan canvas is not mapped")
+            if app.canvas.winfo_width() < 200 or app.canvas.winfo_height() < 150:
+                raise RuntimeError(
+                    f"Release GUI FloorPlan canvas has invalid size: {app.canvas.winfo_width()}x{app.canvas.winfo_height()}"
+                )
+            if not app.canvas.find_all():
+                raise RuntimeError("Release GUI FloorPlan canvas rendered no items")
+            print("Release GUI first-use path OK: Reference House -> Tlocrt -> visible rendered FloorPlan canvas")
         finally:
             app.destroy()
         os._exit(0)
