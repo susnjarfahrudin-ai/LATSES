@@ -36,6 +36,14 @@ jobs:
           python -m pip install -e .
           python -m pip install pytest pyinstaller
 
+      - name: SCI acceptance gate before installer build
+        shell: pwsh
+        run: |
+          python tools/validate_sci_acceptance.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pytest -q tests/scientific/test_sci145_contract.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Verify complete desktop application imports
         shell: pwsh
         run: |
@@ -61,8 +69,23 @@ jobs:
         shell: pwsh
         run: |
           $env:LATCES_GUI_SMOKE = '1'
-          python -X utf8 -c "from lat_ces.gui_functional import _run_gui_identity_smoke; _run_gui_identity_smoke()"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $log = Join-Path $env:RUNNER_TEMP 'latces-gui-identity-smoke.log'
+          $err = Join-Path $env:RUNNER_TEMP 'latces-gui-identity-smoke.err.log'
+          $p = Start-Process -FilePath 'python' -ArgumentList '-X','utf8','-c','from lat_ces.gui_functional import _run_gui_identity_smoke; _run_gui_identity_smoke()' -WorkingDirectory $PWD -RedirectStandardOutput $log -RedirectStandardError $err -PassThru -WindowStyle Hidden
+          $deadline = (Get-Date).AddSeconds(180)
+          while (!$p.HasExited -and (Get-Date) -lt $deadline) {
+            Start-Sleep -Seconds 2
+          }
+          if (!$p.HasExited) {
+            Write-Host 'GUI functional identity smoke exceeded 180 seconds; terminating process.'
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            if (Test-Path $log) { Get-Content $log }
+            if (Test-Path $err) { Get-Content $err }
+            throw 'GUI functional identity smoke timed out after 180 seconds'
+          }
+          if (Test-Path $log) { Get-Content $log }
+          if (Test-Path $err) { Get-Content $err }
+          if ($p.ExitCode -ne 0) { throw "GUI functional identity smoke failed with exit code $($p.ExitCode)" }
           Write-Host 'GUI functional identity OK: canonical navigation + ReferenceHouse + BuildingModel smoke passed'
 
       - name: Install Inno Setup
