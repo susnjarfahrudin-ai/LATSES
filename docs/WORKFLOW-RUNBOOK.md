@@ -212,6 +212,108 @@ This is the first complete evidence chain in this repair cycle where Verificatio
 - Artifact: `https://github.com/susnjarfahrudin-ai/LATSES/actions/runs/32789740148/artifacts/9542719493`
 - Source commit: `https://github.com/susnjarfahrudin-ai/LATSES/commit/36ede3d8fcfa3e7d15ac10d338e592ea289f432d`
 
+## Functional GUI shell checkpoint — 2026-08-25
+
+The next GUI phase introduced a canonical engineering navigation shell and then replaced the shell-only smoke with functional checks.
+
+### GUI navigation shell
+
+Initial GUI shell commit:
+
+`caea929fe4b425d6bfdddca69c7adf4e36ad4697`
+
+`feat: implement canonical LAT-CES engineering navigation shell`
+
+Canonical navigation groups:
+
+`OBJECT → MODEL → ANALYSIS → SYSTEMS → ENERGY → SERVICE → AI`
+
+The initial shell passed Verification #831, but the first Installer attempt exposed a lifecycle regression (`StringVar` before Tk root). That was fixed in:
+
+`462655e232c5d3c41d986d0488fb5e2e7f190b44`
+
+`fix: initialize GUI navigation variables after Tk root`
+
+Verification #833: **SUCCESS**.
+
+Installer #676: **SUCCESS**.
+
+### Functional GUI entrypoint
+
+A dedicated packaged entrypoint was introduced:
+
+`lat_ces/gui_functional.py`
+
+The functional entrypoint extends `CompleteBuildingWorkspaceApp` and adds real module routing, ReferenceHouse loading and action groups for the seven canonical navigation areas.
+
+The Installer workflow was updated to build:
+
+`pyinstaller --noconfirm --clean --onefile --windowed --name LATSES lat_ces/gui_functional.py`
+
+and to run the functional smoke using:
+
+`LATCES_GUI_SMOKE=1`
+
+The smoke now verifies, for the actual GUI class:
+
+- all seven canonical navigation groups exist
+- the ReferenceHouse identity matches the canonical ReferenceHouse data
+- the ReferenceHouse loads into the canonical `BuildingModel`
+- the expected number of levels is present
+- the model contains mapped rooms (not only envelope geometry)
+- every navigation group registers functional actions
+- representative module routing is exercised deterministically without blocking editors
+
+Functional test commit:
+
+`f349470ff456100905e2aab414a13b2e2c0af1b1`
+
+`test: exercise functional GUI actions deterministically`
+
+### Verification — #838
+
+- Workflow: `LAT-CES Verification Pipeline`
+- Job: `verify-core`
+- Run: **#838**
+- Exact SHA: `f349470ff456100905e2aab414a13b2e2c0af1b1`
+- Result: **SUCCESS**
+
+### Windows EXE — #379
+
+- Workflow: `LATSES Windows Executable`
+- Run: **#379`
+- Exact SHA: `f349470ff456100905e2aab414a13b2e2c0af1b1`
+- Result: **SUCCESS**
+- Artifact name: `LATSES-Windows-x64`
+- Artifact ID: `9543457546`
+- Artifact size: `6,420,243 bytes`
+- Artifact ZIP SHA-256: `0c631a903bf37e2ab1c37aca22ee3b60416d669e90522b7eb1f98ff6d235d9f0`
+
+### Windows Installer — #680
+
+- Workflow: `LAT-CES Windows Installer`
+- Run: **#680**
+- Exact SHA: `f349470ff456100905e2aab414a13b2e2c0af1b1`
+- Result: **SUCCESS**
+- Desktop import + pytest: **SUCCESS**
+- PyInstaller GUI executable build: **SUCCESS**
+- Packaged EXE smoke: **SUCCESS**
+- GUI functional identity smoke: **SUCCESS**
+- Inno Setup installation: **SUCCESS**
+- Inno Setup compile: **SUCCESS**
+- Installer artifact smoke: **SUCCESS**
+- Artifact upload: **SUCCESS**
+- Artifact name: `LAT-CES-Windows-Installer`
+- Artifact ID: `9543463818`
+- Artifact size: `11,009,753 bytes`
+- Artifact ZIP SHA-256: `d76012df843ffd8fc6d832e48d083eaf1daca4c87e11b892f98f5db1df1549cd`
+
+### Functional GUI acceptance rule
+
+The `f349470f…` artifact is the first artifact in this GUI phase whose smoke test proves more than button presence. It proves canonical navigation, functional action registration, ReferenceHouse loading and `BuildingModel` room mapping.
+
+However, visual/interactive Windows acceptance is still a separate human check: CI proves the wired behaviors above, while the user must confirm the actual installed screen and interactive usability on Windows.
+
 ## Release gate
 
 All of the following must be GREEN for release readiness:
