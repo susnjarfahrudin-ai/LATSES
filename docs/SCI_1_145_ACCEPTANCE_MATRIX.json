@@ -1,0 +1,20 @@
+{
+  "schema": "LATCES-SCI-ACCEPTANCE-1",
+  "scope": "LAT-SCOPE-0001 plus LAT-SCI-CORE-0002..0145",
+  "rule": "No SCI item is ACCEPTED until the canonical implementation is on main and the associated verification gate is GREEN.",
+  "source": "LATCES_SCI_1_145_ACCEPTANCE_AUDIT.csv",
+  "status_on_branch": "PENDING_CI",
+  "groups": [
+    {"range":"0002-0009","module":"lat_ces.scientific.core.sko","test":"tests/test_sko.py","anchor":"SKO"},
+    {"range":"0010-0045","module":"lat_ces.scientific.units + lat_ces.scientific.dimensions","test":"tests/scientific","anchor":"units-dimensions-quantity"},
+    {"range":"0046-0061","module":"lat_ces.scientific.measurement","test":"tests/scientific/test_measurement_contract.py","anchor":"measurement-provenance-validation"},
+    {"range":"0062-0065","module":"lat_ces.scientific.core.ontology","test":"tests/scientific/test_sci145_contract.py","anchor":"ontology"},
+    {"range":"0066-0069","module":"lat_ces.scientific.core.reasoning","test":"tests/scientific/test_sci145_contract.py","anchor":"reasoning"},
+    {"range":"0070-0073","module":"lat_ces.scientific.core.synthesis","test":"tests/scientific/test_sci145_contract.py","anchor":"synthesis"},
+    {"range":"0074-0125","module":"lat_ces.scientific.core.governance","test":"tests/scientific/test_sci145_contract.py","anchor":"evolution-governance-preservation-trust-assurance-lifecycle-ecosystem-intelligence"},
+    {"range":"0126-0139","module":"lat_ces.scientific.core.governance","test":"tests/scientific/test_sci145_contract.py","anchor":"federation-security"},
+    {"range":"0140-0141","module":"lat_ces.scientific.core.governance","test":"tests/scientific/test_sci145_contract.py","anchor":"security-maturity"},
+    {"range":"0142-0145","module":"lat_ces.scientific.core.governance","test":"tests/scientific/test_sci145_contract.py","anchor":"adaptive-security"}
+  ],
+  "scope_item": {"sci_id":"LAT-SCOPE-0001","document":"docs/LAT-SCOPE-0001*","status_on_branch":"PENDING_CI","acceptance":"architecture scope is represented by the canonical chain and release gate"}
+}

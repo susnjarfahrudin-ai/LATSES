@@ -46,12 +46,26 @@ jobs:
             "lat_ces/scientific/analysis/plenum.py",
             "lat_ces/scientific/reports/exporter.py",
             "lat_ces/gui.py",
+            "lat_ces/scientific/core/ontology.py",
+            "lat_ces/scientific/core/reasoning.py",
+            "lat_ces/scientific/core/synthesis.py",
+            "lat_ces/scientific/core/governance.py",
+            "lat_ces/scientific/core/building_adapter.py",
         }
         missing = sorted(required - names)
         if missing:
             raise SystemExit(f"Wheel is missing expected LAT-CES modules: {missing}")
         print(f"Wheel package discovery OK: {wheel.name}")
         PY
+
+    - name: SCI 1-145 structural acceptance audit
+      run: |
+        python tools/validate_sci_acceptance.py
+
+    - name: SCI ontology/reasoning/synthesis/governance contract tests
+      run: |
+        set -o pipefail
+        pytest -q tests/scientific/test_sci145_contract.py 2>&1 | tee sci145-contract-output.log
 
     - name: Pokretanje LAT-CES Verifikacijskih Testova (0001 - 0009)
       run: |
@@ -66,10 +80,16 @@ jobs:
           echo
           echo 'Read docs/WORKFLOW-RUNBOOK.md before the next repair cycle.'
           echo
+          echo '### SCI contract output'
+          echo '```text'
+          tail -n 120 sci145-contract-output.log || true
+          echo '```'
+          echo
+          echo '### General pytest output'
           echo '```text'
           tail -n 120 pytest-output.log || true
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
 
 # CI trigger comment: SMC-004 acceptance verification.
-# Integration checkpoint: PR #140 must execute Verification on its merge result.
+# Scientific contract acceptance is a prerequisite for EXE/installer packaging.
