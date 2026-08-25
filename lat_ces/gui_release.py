@@ -2,14 +2,13 @@
 from __future__ import annotations
 
 import os
-import tkinter as tk
 from tkinter import ttk
 
 from lat_ces.gui_functional import FunctionalLATCESApp, _run_gui_identity_smoke
 
 
 class ReleaseLATCESApp(FunctionalLATCESApp):
-    """Packaged GUI with a visible Reference House and editing entry path."""
+    """Packaged GUI with a persistent Reference House and editing entry path."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -19,30 +18,55 @@ class ReleaseLATCESApp(FunctionalLATCESApp):
         self._open_floor_plan()
 
     def _install_release_entry_panel(self) -> None:
+        """Install persistent release controls outside the routed action bar.
+
+        FunctionalLATCESApp._route_module() intentionally clears every child
+        of ``module_actions``. The release controls must therefore live in a
+        sibling container so routing to MODEL cannot destroy their widgets.
+        """
         panel = getattr(self, "module_actions", None)
-        if panel is None:
-            raise RuntimeError("Release action bar is missing")
-        self.release_entry = ttk.LabelFrame(panel, text="LAT-CES — Referentna kuća / uređivanje objekta", padding=(8, 6))
-        self.release_entry.pack(fill="x", pady=(4, 0))
+        shell = getattr(self, "shell_body", None)
+        if panel is None or shell is None:
+            raise RuntimeError("Canonical LAT-CES release shell is missing")
+
+        parent = panel.master
+        self.release_entry = ttk.LabelFrame(
+            parent,
+            text="LAT-CES — Referentna kuća / uređivanje objekta",
+            padding=(8, 6),
+        )
+        self.release_entry.pack(fill="x", before=shell, padx=0, pady=(0, 4))
         ttk.Label(
             self.release_entry,
             text="Početni model je Referentna kuća. Otvori tlocrt i unesi/uredi geometriju direktno u BuildingModel.",
         ).pack(anchor="w", pady=(0, 5))
         buttons = ttk.Frame(self.release_entry)
         buttons.pack(fill="x")
-        ttk.Button(buttons, text="Referentna kuća", command=self.load_reference_house).pack(side="left", padx=2)
-        ttk.Button(buttons, text="Otvori tlocrt", command=self._open_floor_plan).pack(side="left", padx=2)
-        ttk.Button(buttons, text="＋ Prostorija", command=lambda: self._activate_editor("room")).pack(side="left", padx=2)
-        ttk.Button(buttons, text="＋ Pregradni zid", command=lambda: self._activate_editor("partition")).pack(side="left", padx=2)
-        ttk.Button(buttons, text="Vrata", command=lambda: self._activate_editor("door")).pack(side="left", padx=2)
-        ttk.Button(buttons, text="Prozor", command=lambda: self._activate_editor("window")).pack(side="left", padx=2)
+        ttk.Button(
+            buttons, text="Referentna kuća", command=self.load_reference_house
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            buttons, text="Otvori tlocrt", command=self._open_floor_plan
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            buttons, text="＋ Prostorija", command=lambda: self._activate_editor("room")
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            buttons, text="＋ Pregradni zid", command=lambda: self._activate_editor("partition")
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            buttons, text="Vrata", command=lambda: self._activate_editor("door")
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            buttons, text="Prozor", command=lambda: self._activate_editor("window")
+        ).pack(side="left", padx=2)
         self.reference_house_status = ttk.Label(self.release_entry, anchor="w")
         self.reference_house_status.pack(fill="x", pady=(5, 0))
         self._update_reference_house_status()
 
     def _update_reference_house_status(self) -> None:
         status = getattr(self, "reference_house_status", None)
-        if status is None:
+        if status is None or not status.winfo_exists():
             return
         house = self.reference_house
         model = getattr(getattr(self, "workflow", None), "model", None)
@@ -52,7 +76,10 @@ class ReleaseLATCESApp(FunctionalLATCESApp):
         levels = len(model.levels)
         rooms = sum(len(level.rooms) for level in model.levels.values())
         status.configure(
-            text=f"Referentna kuća: {house.data['name']}  |  etaže: {levels}  |  prostorije: {rooms}  |  BuildingModel: AKTIVAN"
+            text=(
+                f"Referentna kuća: {house.data['name']}  |  etaže: {levels}  |  "
+                f"prostorije: {rooms}  |  BuildingModel: AKTIVAN"
+            )
         )
 
     def load_reference_house(self) -> None:
@@ -109,6 +136,10 @@ def main() -> None:
                 raise RuntimeError("Release GUI did not route to MODEL")
             if app.view_step.get() != 3:
                 raise RuntimeError("Release GUI did not open Tlocrt")
+            if not app.release_entry.winfo_exists():
+                raise RuntimeError("Release entry panel was destroyed during MODEL routing")
+            if not app.reference_house_status.winfo_exists():
+                raise RuntimeError("Reference House status widget was destroyed during MODEL routing")
             print("Release GUI first-use path OK: Reference House -> Tlocrt")
         finally:
             app.destroy()
