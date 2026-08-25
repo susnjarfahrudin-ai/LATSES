@@ -40,12 +40,15 @@ jobs:
         shell: pwsh
         run: |
           python -c "from lat_ces.gui_complete import CompleteBuildingWorkspaceApp; print('LAT-CES complete Building workspace import OK')"
+          python -c "from lat_ces.reference_house_workflow import build_reference_house_workflow; w=build_reference_house_workflow(); assert len(w.model.levels)==4; assert all(l.floor_plan and l.floor_plan.wall_count==4 for l in w.model.levels.values()); print('Reference House workflow load OK')"
           pytest -q
 
       - name: Build GUI executable
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name LATSES lat_ces/gui_complete.py
+          pyinstaller --noconfirm --clean --onefile --windowed --name LATSES `
+            --add-data "lat_ces/reference_house_model.json;lat_ces" `
+            lat_ces/gui_complete.py
           if (!(Test-Path '.\dist\LATSES.exe')) { throw 'LATSES.exe was not created' }
           if ((Get-Item '.\dist\LATSES.exe').Length -lt 1000000) { throw 'LATSES.exe is unexpectedly small' }
 
@@ -98,9 +101,8 @@ jobs:
           Get-FileHash '.\installer-output\LAT-CES-Setup.exe' -Algorithm SHA256 | Format-List
 
       - name: Upload standard installer
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
         with:
           name: LAT-CES-Windows-Installer
           path: installer-output/LAT-CES-Setup.exe
           if-no-files-found: error
-          retention-days: 30
