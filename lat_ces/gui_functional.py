@@ -149,7 +149,7 @@ class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
         model = BuildingModel(name=data["name"])
         model.set_orientation(BuildingOrientation(north_azimuth_deg=0.0))
 
-        for level_index, level_data in enumerate(data["levels"]):
+        for level_data in data["levels"]:
             level = Level(
                 name=level_data["name"],
                 elevation=0.0,
@@ -163,36 +163,30 @@ class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
                 interior_plaster_thickness_m=data["envelope"]["exterior_wall"]["interior_finish_thickness_m"],
                 dead_load_kpa=level_data["loads"]["dead_kpa"],
                 live_load_kpa=level_data["loads"]["live_kpa"],
-                floor_plan=make_envelope_floor_plan(
-                    level_data["name"],
-                    dimensions["length_m"],
-                    dimensions["width_m"],
-                    0.20,
-                ),
+                floor_plan=make_envelope_floor_plan(level_data["name"], dimensions["length_m"], dimensions["width_m"], 0.20),
             )
             previous = list(model.levels.values())[-1] if model.levels else None
             level.elevation = previous.top_elevation if previous else 0.0
 
-            for room_data in level_data["rooms"]:
+            for room_index, room_data in enumerate(level_data["rooms"]):
                 if room_data["height_m"] <= 0:
                     continue
                 room_area = float(room_data["area_m2"])
                 room_length = math.sqrt(room_area * 1.25)
                 room_width = room_area / room_length
-                room_index = len(level.rooms)
                 room_x = 0.5 + (room_index % 3) * 3.8
                 room_y = 0.5 + (room_index // 3) * 3.1
-                room = Room(
-                    name=room_data["name"],
-                    footprint=Box3D(
-                        Point3D(room_x, room_y, 0.0),
-                        room_length,
-                        room_width,
-                        room_data["height_m"],
-                    ),
+                level.add_room(
+                    Room(
+                        name=room_data["name"],
+                        footprint=Box3D(
+                            Point3D(room_x, room_y, 0.0),
+                            room_length,
+                            room_width,
+                            room_data["height_m"],
+                        ),
+                    )
                 )
-                level.add_room(room)
-
             model.add_level(level)
 
         roof = data["roof"]
@@ -237,6 +231,8 @@ class FunctionalLATCESApp(CompleteBuildingWorkspaceApp):
 def _run_gui_identity_smoke() -> None:
     app = FunctionalLATCESApp()
     try:
+        # Make the smoke deterministic; production startup still uses after_idle.
+        app._install_functional_layer()
         app.update_idletasks()
         expected = tuple(FunctionalLATCESApp.MODULES.keys())
         actual = tuple(
@@ -262,15 +258,6 @@ def _run_gui_identity_smoke() -> None:
             app._route_module(key)
             if not app.module_action_commands:
                 raise RuntimeError(f"No functional actions registered for module: {key}")
-
-        # Exercise representative actions without launching blocking editors.
-        app._route_module("object")
-        app._route_module("model")
-        app._route_module("analysis")
-        app._route_module("systems")
-        app._route_module("energy")
-        app._route_module("service")
-        app._route_module("ai")
 
         print(
             "GUI functional identity OK: "
