@@ -1,0 +1,33 @@
+name: One-shot Reference House room placement v2
+
+on:
+  push:
+    branches:
+      - fix/reference-house-room-editing
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Apply room placement v2 patch
+        run: python tools/apply_room_placement_v2.py
+      - name: Verify syntax and focused tests
+        run: |
+          python -m pip install -q pytest
+          python -m pip install -e .
+          python -m py_compile lat_ces/gui.py lat_ces/gui_enhanced.py
+          pytest -q tests/test_building_model_foundation.py tests/test_building_editor_dimensions.py
+      - name: Commit patch and remove one-shot files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lat_ces/gui.py lat_ces/gui_enhanced.py
+          git rm .github/workflows/oneshot-room-placement-v2.yml tools/apply_room_placement_v2.py
+          git commit -m "fix(gui): simplify room placement and derive orthogonal interior walls"
+          git push origin HEAD:fix/reference-house-room-editing
