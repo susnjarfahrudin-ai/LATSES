@@ -104,6 +104,7 @@ class ProductEngineeringWorkspaceApp(ProductBuildingWorkspaceApp):
         assert record.conductive_resistance_m2kw is not None and record.conductive_resistance_m2kw > 0.0
         missing_product_id = products_for_category("Zidovi")[1].product_id
         ensure_product_binding_registry(model).bind(wall_id, "wall", missing_product_id)
+        wall.material_id = None
         missing_report = build_product_engineering_report(model)
         missing = next(item for item in missing_report.records if item.target_id == wall_id)
         assert missing.verification_status == "MISSING"
@@ -115,6 +116,7 @@ class ProductEngineeringWorkspaceApp(ProductBuildingWorkspaceApp):
 def run_product_engineering_acceptance() -> None:
     app = ProductEngineeringWorkspaceApp()
     try:
+        app.withdraw()
         app.update_idletasks()
         app.open_reference_house()
         app.update_idletasks()
@@ -124,13 +126,16 @@ def run_product_engineering_acceptance() -> None:
             assert marker in text, f"Engineering summary missing {marker}"
         print("GUI PRODUCT ENGINEERING GREEN")
     finally:
-        app.destroy()
+        try:
+            app.quit()
+        finally:
+            app.destroy()
 
 
 def main() -> None:
     if os.environ.get("LATCES_GUI_ACCEPTANCE") == "1":
         run_product_engineering_acceptance()
-        return
+        raise SystemExit(0)
     ProductEngineeringWorkspaceApp().mainloop()
 
 
