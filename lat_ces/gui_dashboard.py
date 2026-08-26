@@ -1,7 +1,7 @@
 """Project overview entrypoint layered on the canonical LAT-CES GUI.
 
 The dashboard is a navigation/summary layer only. It never creates a second
-BuildingModel; all actions route back into CompleteBuildingWorkspaceApp.
+BuildingModel; the product catalog is a shared selection/data layer.
 """
 from __future__ import annotations
 
@@ -10,7 +10,9 @@ import tkinter as tk
 from tkinter import ttk
 
 from lat_ces.building.mep import ensure_mep_registry
+from lat_ces.building.model import Material
 from lat_ces.building_model.quantities import to_quantity_view
+from lat_ces.catalog.product_catalog import all_products, categories, products_for_category
 from lat_ces.gui_launcher import CompleteBuildingWorkspaceApp
 
 
@@ -20,6 +22,7 @@ class ProjectOverviewApp(CompleteBuildingWorkspaceApp):
     def __init__(self) -> None:
         super().__init__()
         self._install_project_overview()
+        self._install_catalog_tab()
         self._refresh_project_overview()
         self._select_overview_tab()
 
@@ -60,8 +63,9 @@ class ProjectOverviewApp(CompleteBuildingWorkspaceApp):
             ("4", "3D", "Model / Pogledi"),
             ("5", "Provjera", "Proračuni"),
             ("6", "Izvještaj", "Engineering Summary"),
-            ("7", "Materijali", "Konstrukcija / Statika"),
-            ("8", "MEP", "MEP"),
+            ("7", "Katalog proizvoda", "Katalog proizvoda"),
+            ("8", "Materijali", "Konstrukcija / Statika"),
+            ("9", "MEP", "MEP"),
         )
         for row, (number, label, tab_name) in enumerate(steps):
             card = ttk.Frame(left, padding=5)
@@ -70,7 +74,7 @@ class ProjectOverviewApp(CompleteBuildingWorkspaceApp):
             ttk.Label(card, text=label, font=("Segoe UI", 10, "bold")).pack(side="left", padx=(6, 10))
             ttk.Button(card, text="Otvori", command=lambda title=tab_name: self._select_tab(title)).pack(side="right")
 
-        hint = ttk.Label(left, text="Svi prikazi čitaju isti canonical BuildingModel. Nema zasebnog GUI modela.", wraplength=620)
+        hint = ttk.Label(left, text="Svi prikazi čitaju isti canonical BuildingModel. Katalog je zajednički Product/Material sloj, ne drugi model.", wraplength=620)
         hint.grid(row=len(steps), column=0, sticky="w", pady=(10, 0))
 
         right = ttk.LabelFrame(frame, text="Trenutni model", padding=12)
@@ -87,8 +91,134 @@ class ProjectOverviewApp(CompleteBuildingWorkspaceApp):
         footer = ttk.Frame(frame)
         footer.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 0))
         ttk.Button(footer, text="Otvori tlocrt", command=lambda: self._select_tab("Model / Pogledi")).pack(side="left")
+        ttk.Button(footer, text="Katalog", command=lambda: self._select_tab("Katalog proizvoda")).pack(side="left", padx=6)
         ttk.Button(footer, text="Provjeri model", command=self.validate_model).pack(side="left", padx=6)
         ttk.Button(footer, text="Model Inspector", command=self.show_canonical_model_inspector).pack(side="left")
+
+    def _install_catalog_tab(self) -> None:
+        frame = ttk.Frame(self.complete_tabs, padding=12)
+        self.complete_tabs.add(frame, text="Katalog proizvoda")
+        frame.columnconfigure(0, weight=3)
+        frame.columnconfigure(1, weight=2)
+        frame.rowconfigure(1, weight=1)
+
+        header = ttk.Frame(frame)
+        header.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 8))
+        ttk.Label(header, text="Katalog proizvoda i materijala", font=("Segoe UI", 13, "bold")).pack(side="left")
+        ttk.Label(header, text="  Verified / Reference / Missing", foreground="#475569").pack(side="left", padx=8)
+
+        self.catalog_category_var = tk.StringVar(value=categories()[0])
+        ttk.Label(header, text="Kategorija:").pack(side="right")
+        category_combo = ttk.Combobox(header, textvariable=self.catalog_category_var, state="readonly", values=categories(), width=24)
+        category_combo.pack(side="right", padx=(6, 12))
+        category_combo.bind("<<ComboboxSelected>>", lambda _event: self._refresh_catalog_products())
+
+        left = ttk.Frame(frame)
+        left.grid(row=1, column=0, sticky="nsew", padx=(0, 8))
+        left.columnconfigure(0, weight=1)
+        left.rowconfigure(0, weight=1)
+        columns = ("name", "manufacturer", "dimensions", "status")
+        self.catalog_tree = ttk.Treeview(left, columns=columns, show="headings", selectmode="browse")
+        headings = {"name": "Proizvod", "manufacturer": "Proizvođač", "dimensions": "Dimenzije", "status": "Podaci"}
+        widths = {"name": 280, "manufacturer": 150, "dimensions": 150, "status": 110}
+        for column in columns:
+            self.catalog_tree.heading(column, text=headings[column])
+            self.catalog_tree.column(column, width=widths[column], anchor="w")
+        self.catalog_tree.grid(row=0, column=0, sticky="nsew")
+        scrollbar = ttk.Scrollbar(left, orient="vertical", command=self.catalog_tree.yview)
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        self.catalog_tree.configure(yscrollcommand=scrollbar.set)
+        self.catalog_tree.bind("<<TreeviewSelect>>", lambda _event: self._show_selected_product())
+
+        right = ttk.LabelFrame(frame, text="Odabrani proizvod", padding=12)
+        right.grid(row=1, column=1, sticky="nsew")
+        right.columnconfigure(0, weight=1)
+        right.rowconfigure(1, weight=1)
+        self.catalog_detail_title = ttk.Label(right, font=("Segoe UI", 12, "bold"), wraplength=360)
+        self.catalog_detail_title.grid(row=0, column=0, sticky="w")
+        self.catalog_detail = tk.Text(right, height=16, width=44, wrap="word")
+        self.catalog_detail.grid(row=1, column=0, sticky="nsew", pady=(8, 8))
+        self.catalog_detail.configure(state="disabled")
+        self.catalog_add_button = ttk.Button(right, text="Dodaj u BuildingModel materijale", command=self._add_selected_catalog_material)
+        self.catalog_add_button.grid(row=2, column=0, sticky="ew")
+        ttk.Label(
+            right,
+            text="Nedostajući podaci ostaju N/A. Katalog ih ne izmišlja; kasnije se mogu popuniti iz proizvođačkog izvora, bSDD ili EPD adaptera.",
+            wraplength=360,
+            foreground="#92400e",
+        ).grid(row=3, column=0, sticky="w", pady=(8, 0))
+        self._refresh_catalog_products()
+
+    def _refresh_catalog_products(self) -> None:
+        if not hasattr(self, "catalog_tree"):
+            return
+        for item in self.catalog_tree.get_children():
+            self.catalog_tree.delete(item)
+        for product in products_for_category(self.catalog_category_var.get()):
+            self.catalog_tree.insert(
+                "",
+                "end",
+                iid=product.product_id,
+                values=(product.name, product.manufacturer or "—", product.dimensions or "—", product.status),
+            )
+        items = self.catalog_tree.get_children()
+        if items:
+            self.catalog_tree.selection_set(items[0])
+            self.catalog_tree.focus(items[0])
+            self._show_selected_product()
+
+    def _selected_catalog_product(self):
+        selection = self.catalog_tree.selection() if hasattr(self, "catalog_tree") else ()
+        if not selection:
+            return None
+        product_id = selection[0]
+        return next((product for product in all_products() if product.product_id == product_id), None)
+
+    def _show_selected_product(self) -> None:
+        product = self._selected_catalog_product()
+        if product is None:
+            return
+        self.catalog_detail_title.configure(text=product.engineering_summary)
+        values = [
+            f"Kategorija: {product.category}",
+            f"Proizvođač: {product.manufacturer or 'Nije naveden'}",
+            f"Dimenzije: {product.dimensions or 'Nije navedeno'}",
+            f"Status podataka: {product.status}",
+            f"Gustina: {product.density_kg_m3 if product.density_kg_m3 is not None else 'N/A'} kg/m³",
+            f"E: {product.youngs_modulus_pa if product.youngs_modulus_pa is not None else 'N/A'} Pa",
+            f"λ: {product.thermal_conductivity_w_mk if product.thermal_conductivity_w_mk is not None else 'N/A'} W/mK",
+            f"Čvrstoća: {product.compressive_strength_mpa if product.compressive_strength_mpa is not None else 'N/A'} MPa",
+            f"Izvor: {product.source or 'Nije naveden'}",
+        ]
+        self.catalog_detail.configure(state="normal")
+        self.catalog_detail.delete("1.0", "end")
+        self.catalog_detail.insert("1.0", "\n".join(values))
+        self.catalog_detail.configure(state="disabled")
+        material_categories = {"Zidovi", "Beton", "Izolacija"}
+        self.catalog_add_button.configure(state="normal" if product.category in material_categories else "disabled")
+
+    def _add_selected_catalog_material(self) -> None:
+        product = self._selected_catalog_product()
+        if product is None or product.category not in {"Zidovi", "Beton", "Izolacija"}:
+            return
+        material = Material(
+            name=product.name,
+            density=product.density_kg_m3,
+            youngs_modulus=product.youngs_modulus_pa,
+            thermal_conductivity=product.thermal_conductivity_w_mk,
+            compressive_strength_mpa=product.compressive_strength_mpa,
+            product_id=product.product_id,
+            manufacturer=product.manufacturer,
+            category=product.category,
+        )
+        existing = next((item for item in self.workflow.model.materials.values() if item.product_id == product.product_id), None)
+        if existing is None:
+            self.workflow.model.add_material(material)
+            self.status_var.set(f"Katalog: dodat materijal {product.name}")
+        else:
+            self.status_var.set(f"Katalog: materijal već postoji — {product.name}")
+        self._refresh_complete_tabs()
+        self._refresh_project_overview()
 
     def _refresh_project_overview(self) -> None:
         if not hasattr(self, "overview_identity"):
@@ -135,11 +265,14 @@ def run_dashboard_acceptance() -> None:
     try:
         tabs = [app.complete_tabs.tab(i, "text") for i in range(app.complete_tabs.index("end"))]
         assert tabs[0] == "Pregled projekta", f"Dashboard not first tab: {tabs}"
+        assert "Katalog proizvoda" in tabs
         assert app.workflow.model.levels, "Reference House is not loaded"
         assert "Model / Pogledi" in tabs
         assert "Proračuni" in tabs
         assert "Konstrukcija / Statika" in tabs
         assert "MEP" in tabs
+        catalog_items = sum(len(products_for_category(category)) for category in categories())
+        assert catalog_items >= 10, f"Catalog too small: {catalog_items}"
         for step, title in ((3, "Tlocrt"), (4, "Presjek"), (5, "3D")):
             app.view_step.set(step)
             app.goto_step()
@@ -155,7 +288,7 @@ def run_dashboard_acceptance() -> None:
         for marker in ("STATIKA", "TERMIKA", "KOLIČINE", "MEP"):
             assert marker in summary, f"Engineering Summary missing {marker}"
         assert app.workflow.model.materials, "Material registry is empty"
-        print("GUI DASHBOARD GREEN: overview + Reference House + Tlocrt + Presjek + 3D + Provjera + Izvještaj + Materijali + MEP")
+        print("GUI DASHBOARD GREEN: overview + catalog + Reference House + Tlocrt + Presjek + 3D + Provjera + Izvještaj + Materijali + MEP")
     finally:
         app.destroy()
 
