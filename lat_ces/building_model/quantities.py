@@ -5,6 +5,14 @@ from dataclasses import dataclass
 from typing import Any
 
 
+_QUANTITY_DIGITS = 12
+
+
+def _q(value: float) -> float:
+    """Return deterministic decimal presentation for engineering quantities."""
+    return round(value, _QUANTITY_DIGITS)
+
+
 @dataclass(frozen=True)
 class RoomQuantityView:
     room_id: str
@@ -64,8 +72,9 @@ def to_quantity_view(model: Any) -> BuildingQuantityView:
     for level in model.levels.values():
         for room in level.rooms.values():
             height = room.resolve_height(level.height_m)
+            floor_area = room.length_m * room.width_m
             room_views.append(
-                RoomQuantityView(room.id, room.name, room.length_m * room.width_m, room.length_m * room.width_m * height)
+                RoomQuantityView(room.id, room.name, _q(floor_area), _q(floor_area * height))
             )
         for wall in level.walls.values():
             gross_area = wall.length_m * wall.height_m
@@ -75,24 +84,24 @@ def to_quantity_view(model: Any) -> BuildingQuantityView:
                 WallQuantityView(
                     wall.id,
                     wall.material.product_id if wall.material else None,
-                    gross_area,
-                    opening_area,
-                    net_area,
-                    net_area * wall.thickness_m,
+                    _q(gross_area),
+                    _q(opening_area),
+                    _q(net_area),
+                    _q(net_area * wall.thickness_m),
                 )
             )
             for opening in wall.openings:
                 opening_views.append(
-                    OpeningQuantityView(wall.id, opening.kind, opening.width_m * opening.height_m)
+                    OpeningQuantityView(wall.id, opening.kind, _q(opening.width_m * opening.height_m))
                 )
         for stair in level.stairs.values():
-            stair_views.append(StairQuantityView(stair.id, stair.length_m * stair.width_m, stair.riser_count))
+            stair_views.append(StairQuantityView(stair.id, _q(stair.length_m * stair.width_m), stair.riser_count))
         for terrace in level.terraces.values():
             terrace_views.append(
                 TerraceQuantityView(
                     terrace.id,
                     terrace.material.product_id if terrace.material else None,
-                    terrace.length_m * terrace.width_m,
+                    _q(terrace.length_m * terrace.width_m),
                 )
             )
 
