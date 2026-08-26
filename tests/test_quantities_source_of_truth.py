@@ -1,20 +1,45 @@
-from lat_ces.building_model.core import BuildingModel, Level, Material, Opening, Room, Wall
+from lat_ces.building.floor_plan import FloorPlan, Opening, Point2D, Segment2D, Wall
+from lat_ces.building.geometry import Box3D
+from lat_ces.building.model import BuildingModel, Level, Material, Room
 from lat_ces.building_model.quantities import to_quantity_view
 
 
-def test_quantities_read_canonical_geometry_and_material_identity():
-    product = Material("Thermo Block 25", density_kg_m3=800.0, conductivity_w_mk=0.18, product_id="product:block-25", manufacturer="Example")
-    model = BuildingModel(name="Reference House", load_bearing_mode="exterior_only")
-    level = Level("ground", "Ground", 10.0, 10.0, 2.70)
-    level.add_room(Room("kitchen", "Kuhinja", 3.0, 3.0))
-    wall = Wall("wall-1", 4.0, 0.25, 2.70, material=product, exterior=True, load_bearing=True)
-    wall.add_opening(Opening("window", 1.2, 1.2, position_m=1.0))
-    level.add_wall(wall)
+def _canonical_model():
+    material = Material(
+        "Thermo Block 25",
+        density=800.0,
+        thermal_conductivity=0.18,
+        compressive_strength_mpa=10.0,
+        product_id="product:block-25",
+        manufacturer="Example",
+        dimensions_m=(0.25, 0.25, 0.30),
+    )
+    model = BuildingModel("Reference House")
+    model.add_material(material)
+    level = Level("Ground", 0.0, 2.70, length_m=10.0, width_m=10.0)
+    level.add_room(Room("Kuhinja", Box3D(0.0, 0.0, 0.0, 3.0, 3.0, 2.70), room_id="room-kitchen"))
+    plan = FloorPlan("Ground")
+    wall = Wall(
+        "Exterior kitchen wall",
+        Segment2D(Point2D(0.0, 0.0), Point2D(4.0, 0.0)),
+        thickness=0.25,
+        wall_id="wall-1",
+        material_id=material.material_id,
+        load_bearing=True,
+        exterior=True,
+        room_ids=("room-kitchen",),
+    )
+    wall.add_opening(Opening("window", 1.0, 1.2, height_m=1.2, opening_id="window-1"))
+    plan.add_wall(wall)
+    level.set_floor_plan(plan)
     model.add_level(level)
+    return model
 
-    view = to_quantity_view(model)
 
-    assert view.rooms[0].room_id == "kitchen"
+def test_quantities_read_production_geometry_and_product_identity():
+    view = to_quantity_view(_canonical_model())
+
+    assert view.rooms[0].room_id == "room-kitchen"
     assert view.rooms[0].name == "Kuhinja"
     assert view.rooms[0].floor_area_m2 == 9.0
     assert view.rooms[0].volume_m3 == 24.3
@@ -28,17 +53,11 @@ def test_quantities_read_canonical_geometry_and_material_identity():
 
 
 def test_quantity_views_are_immutable():
-    model = BuildingModel()
-    level = Level("ground", "Ground", 10.0, 10.0, 2.70)
-    level.add_room(Room("room-1", "Soba 1", 3.0, 4.0))
-    model.add_level(level)
-    view = to_quantity_view(model)
-
+    view = to_quantity_view(_canonical_model())
     try:
         view.rooms[0].name = "other"
     except Exception:
         pass
     else:
         raise AssertionError("quantity views must be immutable")
-
-    assert view.rooms[0].room_id == "room-1"
+    assert view.rooms[0].room_id == "room-kitchen"
