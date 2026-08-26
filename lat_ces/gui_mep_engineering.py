@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from lat_ces.gui_mep_workspace_ux import EngineeringMEPWorkspaceApp
-from lat_ces.gui_mep_room_zone_runtime import install as install_room_zone_runtime
+from lat_ces.gui_mep_workspace_ux_runtime import install as install_mep_ux_runtime
 
-install_room_zone_runtime(EngineeringMEPWorkspaceApp)
+install_mep_ux_runtime(EngineeringMEPWorkspaceApp)
 
 __all__ = ["EngineeringMEPWorkspaceApp"]
 
