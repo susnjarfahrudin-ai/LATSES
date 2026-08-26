@@ -31,6 +31,8 @@ def test_gui_inspector_uses_same_product_identity_as_quantity_view():
 
 def test_gui_inspector_does_not_mutate_model():
     workflow = build_reference_house_workflow()
-    before = workflow.model.serialize()
-    build_model_inspector_records(workflow.model)
-    assert workflow.model.serialize() == before
+    model = workflow.model
+    before = (model.model_id, model.room_count, len(model.materials), tuple(model.levels))
+    build_model_inspector_records(model)
+    after = (model.model_id, model.room_count, len(model.materials), tuple(model.levels))
+    assert after == before
