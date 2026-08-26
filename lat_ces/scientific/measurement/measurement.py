@@ -19,8 +19,10 @@ class MeasurementError(ValueError):
 class Measurement:
     """Canonical scientific measurement record.
 
-    ``Quantity`` is the authoritative value/unit carrier. Existing
-    PhysicalQuantity-like objects are accepted only as compatibility inputs.
+    ``Quantity`` is accepted as the canonical implementation, while any
+    quantity-like scientific object exposing the required ``dimension``
+    contract is also valid. This keeps Measurement coupled to the scientific
+    contract rather than to one concrete Python class.
     """
 
     quantity: Any
@@ -38,26 +40,46 @@ class Measurement:
     source: str = ""
 
     def __post_init__(self) -> None:
-        if not isinstance(self.quantity, Quantity) and not all(
-            hasattr(self.quantity, attr) for attr in ("value", "unit", "dimension")
-        ):
-            raise MeasurementError("Measurement requires a Quantity-like scientific object")
+        # Measurement depends on the scientific Quantity contract, not on a
+        # concrete Python implementation. A structural quantity contract must
+        # expose at least a physical dimension; value/unit may either be carried
+        # by the quantity or supplied explicitly by the Measurement record.
+        if not hasattr(self.quantity, "dimension"):
+            raise MeasurementError(
+                "Measurement requires a scientific quantity with a dimension"
+            )
+        if isinstance(self.quantity, Quantity):
+            quantity_value = getattr(self.quantity, "value", None)
+            quantity_unit = getattr(self.quantity, "unit", None)
+        else:
+            quantity_value = getattr(self.quantity, "value", None)
+            quantity_unit = getattr(self.quantity, "unit", None)
+
         if self.revision < 1:
             raise MeasurementError("measurement revision must be >= 1")
         if not self.measurement_id.strip():
             raise MeasurementError("measurement_id must be non-empty")
         if not isinstance(self.timestamp, str) or not self.timestamp.strip():
             raise MeasurementError("timestamp must be non-empty")
-        quantity_value = self.quantity.value
-        quantity_unit = self.quantity.unit
+
         if self.value is None:
+            if quantity_value is None:
+                raise MeasurementError(
+                    "Measurement requires a measured value when quantity does not carry one"
+                )
             object.__setattr__(self, "value", quantity_value)
-        elif self.value != quantity_value:
+        elif quantity_value is not None and self.value != quantity_value:
             raise MeasurementError("measurement.value must match quantity.value")
+
         if self.unit is None:
+            if quantity_unit is None:
+                raise MeasurementError(
+                    "Measurement requires a unit when quantity does not carry one"
+                )
             object.__setattr__(self, "unit", quantity_unit)
-        elif self.unit is not quantity_unit and self.unit != quantity_unit:
+        elif quantity_unit is not None and self.unit is not quantity_unit and self.unit != quantity_unit:
             raise MeasurementError("measurement.unit must match quantity.unit")
+
         if self.uncertainty is not None:
             uncertainty_value = getattr(self.uncertainty, "value", self.uncertainty)
             if uncertainty_value < 0:
