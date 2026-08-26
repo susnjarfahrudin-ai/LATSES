@@ -47,12 +47,14 @@ def _add_internal_partition_walls(level: Level, rooms: list[Room], material_id: 
         return
     for previous, current in zip(rooms, rooms[1:]):
         x = current.footprint.origin.x
+        tributary_width_m = (previous.footprint.length + current.footprint.length) / 2.0
         wall = Wall(
             name=f"Pregrada {previous.name} / {current.name}",
             segment=Segment2D(Point2D(x, 0.0), Point2D(x, ROOM_STRIP_WIDTH_M)),
             thickness=WALL_THICKNESS_M,
             load_bearing=load_bearing,
             material_id=material_id,
+            tributary_width_m=tributary_width_m if load_bearing else 0.0,
             exterior=False,
             room_ids=(previous.room_id, current.room_id),
         )
@@ -108,6 +110,8 @@ def build_reference_house_workflow() -> BuildingWorkflow:
             for wall in level.floor_plan.walls.values():
                 wall.material_id = masonry.material_id
                 wall.load_bearing = model.load_bearing_mode == "all_walls" or wall.exterior
+                if wall.load_bearing and wall.tributary_width_m <= 0.0:
+                    wall.tributary_width_m = width_m / 2.0
             _add_internal_partition_walls(level, rooms, masonry.material_id, model.load_bearing_mode == "all_walls")
             _add_deterministic_openings(level)
         model.add_level(level)
