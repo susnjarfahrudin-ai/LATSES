@@ -1,11 +1,13 @@
-"""Production desktop launcher with a visible canonical BuildingModel inspector."""
+"""Production desktop launcher with visible canonical BuildingModel engineering views."""
 from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk
 
 from lat_ces.building.floor_plan import Point2D
+from lat_ces.building.mep import ensure_mep_registry
 from lat_ces.building.structural import calculate_structural_loads
+from lat_ces.building_model.quantities import to_quantity_view
 from lat_ces.gui_complete import CompleteBuildingWorkspaceApp
 from lat_ces.thermal.building_model_adapter import to_thermal_input
 
@@ -17,11 +19,7 @@ _original_draw_floor_plan = CompleteBuildingWorkspaceApp.draw_floor_plan
 
 def _build_model_tab_with_inspector(self: CompleteBuildingWorkspaceApp, tab: ttk.Frame) -> None:
     _original_build_model_tab(self, tab)
-    ttk.Button(
-        tab,
-        text="Model Inspector",
-        command=self.show_canonical_model_inspector,
-    ).pack(side="left", padx=(10, 2))
+    ttk.Button(tab, text="Model Inspector", command=self.show_canonical_model_inspector).pack(side="left", padx=(10, 2))
 
 
 def _add_record(tree: ttk.Treeview, kind: str, object_id: str, details: str) -> None:
@@ -29,87 +27,50 @@ def _add_record(tree: ttk.Treeview, kind: str, object_id: str, details: str) -> 
 
 
 def show_canonical_model_inspector(self: CompleteBuildingWorkspaceApp) -> None:
-    """Show canonical Room/Wall/Opening/Stair/Terrace/Material records from the same model."""
     window = tk.Toplevel(self)
     window.title("LAT-CES — Canonical Building Model")
     window.geometry("1050x620")
     window.transient(self)
-
-    ttk.Label(
-        window,
-        text="Canonical BuildingModel — jedan fizički model / mnogo stručnih pogleda",
-        font=("Segoe UI", 12, "bold"),
-    ).pack(anchor="w", padx=12, pady=(10, 6))
-
+    ttk.Label(window, text="Canonical BuildingModel — jedan fizički model / mnogo stručnih pogleda", font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=12, pady=(10, 6))
     tree = ttk.Treeview(window, columns=("kind", "id", "details"), show="headings")
-    tree.heading("kind", text="Objekat")
-    tree.heading("id", text="ID")
-    tree.heading("details", text="Podaci")
-    tree.column("kind", width=130, anchor="w")
-    tree.column("id", width=330, anchor="w")
-    tree.column("details", width=550, anchor="w")
+    tree.heading("kind", text="Objekat"); tree.heading("id", text="ID"); tree.heading("details", text="Podaci")
+    tree.column("kind", width=130, anchor="w"); tree.column("id", width=330, anchor="w"); tree.column("details", width=550, anchor="w")
     tree.pack(fill="both", expand=True, padx=12, pady=6)
-
     model = self.workflow.model
     for level in model.levels.values():
         _add_record(tree, "Level", level.level_id, f"{level.name} · {level.length_m:.2f} × {level.width_m:.2f} m · h={level.height:.2f} m")
         for room in level.rooms.values():
             _add_record(tree, "Room", room.room_id, f"{room.name} · {room.floor_area:.2f} m² · V={room.volume:.2f} m³ · h={room.footprint.height:.2f} m")
         for stair in level.stairs.values():
-            material = model.materials.get(stair.material_id) if getattr(stair, "material_id", None) else None
-            product = material.resolved_product_id if material else "N/A"
-            _add_record(
-                tree,
-                "Stair",
-                stair.id,
-                f"{stair.name} · {stair.length_m:.2f} × {stair.width_m:.2f} m · step={stair.riser_count or 'N/A'} · h={stair.riser_height_m or 'N/A'} m · gazište={stair.tread_width_m or 'N/A'} m · landing={'DA' if stair.landing else 'NE'} · ograda={'DA' if stair.railing else 'NE'} · otvor={'DA' if stair.floor_opening else 'NE'} · Product={product}",
-            )
+            _add_record(tree, "Stair", stair.id, f"{stair.name} · {stair.length_m:.2f} × {stair.width_m:.2f} m · {stair.riser_count or 'N/A'} stepenika · h={stair.riser_height_m or 'N/A'} m · gazište={stair.tread_width_m or 'N/A'} m · podest={'DA' if stair.landing else 'NE'} · ograda={'DA' if stair.railing else 'NE'} · otvor={'DA' if stair.floor_opening else 'NE'}")
         for terrace in level.terraces.values():
-            material = model.materials.get(terrace.material_id) if getattr(terrace, "material_id", None) else None
-            product = material.resolved_product_id if material else "N/A"
-            _add_record(tree, "Terrace", terrace.id, f"{terrace.name} · {terrace.length_m:.2f} × {terrace.width_m:.2f} m · konstrukcija={terrace.construction_type} · Product={product}")
+            _add_record(tree, "Terrace", terrace.id, f"{terrace.name} · {terrace.length_m:.2f} × {terrace.width_m:.2f} m · {terrace.construction_type}")
         if level.floor_plan:
             for wall in level.floor_plan.walls.values():
                 product = model.materials.get(wall.material_id) if wall.material_id else None
-                product_name = product.name if product else "N/A"
-                _add_record(tree, "Wall", wall.wall_id, f"{wall.name} · {'vanjski' if wall.exterior else 'unutrašnji'} · {'nosivi' if wall.load_bearing else 'pregradni'} · Product={product_name}")
+                _add_record(tree, "Wall", wall.wall_id, f"{wall.name} · {'vanjski' if wall.exterior else 'unutrašnji'} · {'nosivi' if wall.load_bearing else 'pregradni'} · Product={(product.resolved_product_id if product else 'N/A')}")
                 for opening in wall.openings:
                     _add_record(tree, "Opening", opening.opening_id, f"{opening.kind} · {opening.width:.2f} × {opening.height_m:.2f} m · wall={wall.wall_id}")
     for material in model.materials.values():
-        dimensions = " × ".join(f"{value:.3f}" for value in material.dimensions_m)
-        product_id = material.resolved_product_id
-        density = "N/A" if material.density is None else f"{material.density:.1f} kg/m³"
-        lam = "N/A" if material.thermal_conductivity is None else f"{material.thermal_conductivity:.3f} W/mK"
-        manufacturer = getattr(material, "manufacturer", None) or "N/A"
-        _add_record(tree, "Material/Product", material.material_id, f"{material.name} · Product={product_id} · dim={dimensions} · ρ={density} · λ={lam} · proizvođač={manufacturer}")
+        _add_record(tree, "Material/Product", material.material_id, f"{material.name} · Product={material.resolved_product_id} · λ={material.thermal_conductivity if material.thermal_conductivity is not None else 'N/A'} · ρ={material.density if material.density is not None else 'N/A'} · proizvođač={getattr(material, 'manufacturer', None) or 'N/A'}")
 
 
 def _draw_canonical_elements(self: CompleteBuildingWorkspaceApp) -> None:
-    """Overlay first-class rooms, stair and terrace footprints on the canonical floor plan."""
     level = self.active_level
     for room in level.rooms.values():
-        footprint = room.footprint
-        p1 = self.model_to_canvas(Point2D(footprint.origin.x, footprint.origin.y))
-        p2 = self.model_to_canvas(Point2D(footprint.origin.x + footprint.length, footprint.origin.y))
-        p3 = self.model_to_canvas(Point2D(footprint.origin.x + footprint.length, footprint.origin.y + footprint.width))
-        p4 = self.model_to_canvas(Point2D(footprint.origin.x, footprint.origin.y + footprint.width))
+        fp = room.footprint
+        p1 = self.model_to_canvas(Point2D(fp.origin.x, fp.origin.y)); p3 = self.model_to_canvas(Point2D(fp.origin.x + fp.length, fp.origin.y + fp.width))
         self.canvas.create_rectangle(min(p1[0], p3[0]), min(p1[1], p3[1]), max(p1[0], p3[0]), max(p1[1], p3[1]), outline="#64748b", width=1)
         self.canvas.create_text((p1[0] + p3[0]) / 2, (p1[1] + p3[1]) / 2, text=room.name, fill="#374151", font=("Segoe UI", 9, "bold"))
     for stair in level.stairs.values():
-        footprint = stair.footprint
-        p1 = self.model_to_canvas(Point2D(footprint.origin.x, footprint.origin.y))
-        p2 = self.model_to_canvas(Point2D(footprint.origin.x + footprint.length, footprint.origin.y))
-        p3 = self.model_to_canvas(Point2D(footprint.origin.x + footprint.length, footprint.origin.y + footprint.width))
-        p4 = self.model_to_canvas(Point2D(footprint.origin.x, footprint.origin.y + footprint.width))
-        self.canvas.create_polygon(p1, p2, p3, p4, outline="#2563eb", fill="#dbeafe", width=2, stipple="gray25")
-        self.canvas.create_text((p1[0] + p3[0]) / 2, (p1[1] + p3[1]) / 2, text=f"Stepenište\n{stair.riser_count or ''}".strip(), fill="#1d4ed8")
+        fp = stair.footprint
+        p1 = self.model_to_canvas(Point2D(fp.origin.x, fp.origin.y)); p3 = self.model_to_canvas(Point2D(fp.origin.x + fp.length, fp.origin.y + fp.width))
+        self.canvas.create_rectangle(min(p1[0], p3[0]), min(p1[1], p3[1]), max(p1[0], p3[0]), max(p1[1], p3[1]), outline="#2563eb", fill="#dbeafe", width=2, stipple="gray25")
+        self.canvas.create_text((p1[0] + p3[0]) / 2, (p1[1] + p3[1]) / 2, text=f"Stepenište ({stair.riser_count or '?'})", fill="#1d4ed8")
     for terrace in level.terraces.values():
-        footprint = terrace.footprint
-        p1 = self.model_to_canvas(Point2D(footprint.origin.x, footprint.origin.y))
-        p2 = self.model_to_canvas(Point2D(footprint.origin.x + footprint.length, footprint.origin.y))
-        p3 = self.model_to_canvas(Point2D(footprint.origin.x + footprint.length, footprint.origin.y + footprint.width))
-        p4 = self.model_to_canvas(Point2D(footprint.origin.x, footprint.origin.y + footprint.width))
-        self.canvas.create_polygon(p1, p2, p3, p4, outline="#b45309", fill="#fef3c7", width=2, stipple="gray25")
+        fp = terrace.footprint
+        p1 = self.model_to_canvas(Point2D(fp.origin.x, fp.origin.y)); p3 = self.model_to_canvas(Point2D(fp.origin.x + fp.length, fp.origin.y + fp.width))
+        self.canvas.create_rectangle(min(p1[0], p3[0]), min(p1[1], p3[1]), max(p1[0], p3[0]), max(p1[1], p3[1]), outline="#b45309", fill="#fef3c7", width=2, stipple="gray25")
         self.canvas.create_text((p1[0] + p3[0]) / 2, (p1[1] + p3[1]) / 2, text="Terasa", fill="#92400e")
 
 
@@ -123,12 +84,9 @@ def _install_engineering_summary(self: CompleteBuildingWorkspaceApp) -> None:
         return
     frame = ttk.Frame(self.complete_tabs, padding=10)
     self.complete_tabs.add(frame, text="Engineering Summary")
-    toolbar = ttk.Frame(frame)
-    toolbar.pack(fill="x")
-    ttk.Button(toolbar, text="Osvježi statiku/termiku", command=self.refresh_engineering_summary).pack(side="left")
-    self.engineering_summary = tk.Text(frame, height=18, wrap="word")
-    self.engineering_summary.pack(fill="both", expand=True, pady=(8, 0))
-    self.engineering_summary.configure(state="disabled")
+    ttk.Button(frame, text="Osvježi sve", command=self.refresh_engineering_summary).pack(anchor="w")
+    self.engineering_summary = tk.Text(frame, height=22, wrap="word")
+    self.engineering_summary.pack(fill="both", expand=True, pady=(8, 0)); self.engineering_summary.configure(state="disabled")
     self.refresh_engineering_summary()
 
 
@@ -137,28 +95,26 @@ def refresh_engineering_summary(self: CompleteBuildingWorkspaceApp) -> None:
     if widget is None or not getattr(self, "workflow", None):
         return
     model = self.workflow.model
+    q = to_quantity_view(model)
+    registry = ensure_mep_registry(model)
     lines = ["CANONICAL BUILDING MODEL — ENGINEERING SUMMARY", ""]
+    lines += ["STATIKA"]
     try:
         structural = calculate_structural_loads(model)
-        lines.extend(("STATIKA", f"Status: {structural.status}", f"Ukupno vertikalno linijsko opterećenje: {structural.total_vertical_line_load_kn_m:.3f} kN/m", f"Zidova u izvještaju: {len(structural.walls)}", ""))
+        lines += [f"Status: {structural.status}", f"Vertikalno linijsko opterećenje: {structural.total_vertical_line_load_kn_m:.3f} kN/m", f"Zidovi: {len(structural.walls)}", ""]
     except Exception as exc:
-        lines.extend(("STATIKA", f"Nije dostupno: {exc}", ""))
+        lines += [f"Nije dostupno: {exc}", ""]
+    lines += ["TERMIKA"]
     try:
         thermal = to_thermal_input(model)
-        lines.append("TERMIKA")
-        lines.append(f"Zidova: {len(thermal.walls)}")
-        for wall in thermal.walls:
-            if wall.thermal_conductivity_w_mk and wall.thermal_conductivity_w_mk > 0:
-                resistance = wall.conductive_resistance_m2kw
-                lines.append(f"{wall.wall_id}: λ={wall.thermal_conductivity_w_mk:.3f} W/mK · d={wall.thickness_m:.3f} m · R={resistance:.3f} m²K/W")
-            else:
-                lines.append(f"{wall.wall_id}: λ=N/A · potrebna verificirana materijalna vrijednost")
+        known = sum(1 for wall in thermal.walls if wall.thermal_conductivity_w_mk and wall.thermal_conductivity_w_mk > 0)
+        lines += [f"Zidovi: {len(thermal.walls)}", f"Verificirana λ svojstva: {known}/{len(thermal.walls)}", ""]
     except Exception as exc:
-        lines.extend(("TERMIKA", f"Nije dostupna: {exc}"))
-    widget.configure(state="normal")
-    widget.delete("1.0", "end")
-    widget.insert("1.0", "\n".join(lines))
-    widget.configure(state="disabled")
+        lines += [f"Nije dostupno: {exc}", ""]
+    lines += ["KOLIČINE", f"Prostorije: {len(q.rooms)}", f"Zidovi: {len(q.walls)}", f"Otvori: {len(q.openings)}", f"Stepeništa: {len(q.stairs)}", f"Terase: {len(q.terraces)}", f"Površina prostorija: {sum(r.floor_area_m2 for r in q.rooms):.2f} m²", f"Volumen prostorija: {sum(r.volume_m3 for r in q.rooms):.2f} m³", ""]
+    lines += ["MEP", f"Ventilacija: {len(registry.all_ventilation_openings)}", f"Voda: {len(registry.all_water_branches)}", f"Grijanje: {len(registry.all_heating_zones)}", ""]
+    lines += ["MODEL INTEGRITET", f"Leveli: {len(model.levels)}", f"Materijali/Proizvodi: {len(model.materials)}", "Jedan BuildingModel je source of truth za sve navedene prikaze."]
+    widget.configure(state="normal"); widget.delete("1.0", "end"); widget.insert("1.0", "\n".join(lines)); widget.configure(state="disabled")
 
 
 def _init_with_reference_house(self: CompleteBuildingWorkspaceApp) -> None:
