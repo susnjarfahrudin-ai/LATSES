@@ -1,4 +1,4 @@
-"""Read-only quantity/take-off views over the canonical Building Model."""
+"""Read-only quantity/take-off views over the production BuildingModel."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,7 +9,6 @@ _QUANTITY_DIGITS = 12
 
 
 def _q(value: float) -> float:
-    """Return deterministic decimal presentation for engineering quantities."""
     return round(value, _QUANTITY_DIGITS)
 
 
@@ -61,50 +60,68 @@ class BuildingQuantityView:
     terraces: tuple[TerraceQuantityView, ...]
 
 
+def _product_id(model: Any, material_id: str | None) -> str | None:
+    if not material_id:
+        return None
+    material = model.materials.get(material_id)
+    return material.resolved_product_id if material else None
+
+
 def to_quantity_view(model: Any) -> BuildingQuantityView:
-    """Calculate quantities directly from canonical BuildingModel objects."""
-    room_views: list[RoomQuantityView] = []
-    wall_views: list[WallQuantityView] = []
-    opening_views: list[OpeningQuantityView] = []
-    stair_views: list[StairQuantityView] = []
-    terrace_views: list[TerraceQuantityView] = []
+    """Calculate quantities directly from the production GUI BuildingModel."""
+    rooms: list[RoomQuantityView] = []
+    walls: list[WallQuantityView] = []
+    openings: list[OpeningQuantityView] = []
+    stairs: list[StairQuantityView] = []
+    terraces: list[TerraceQuantityView] = []
 
     for level in model.levels.values():
         for room in level.rooms.values():
-            height = room.resolve_height(level.height_m)
-            floor_area = room.length_m * room.width_m
-            room_views.append(
-                RoomQuantityView(room.id, room.name, _q(floor_area), _q(floor_area * height))
-            )
-        for wall in level.walls.values():
-            gross_area = wall.length_m * wall.height_m
-            opening_area = sum(opening.width_m * opening.height_m for opening in wall.openings)
-            net_area = max(gross_area - opening_area, 0.0)
-            wall_views.append(
-                WallQuantityView(
-                    wall.id,
-                    wall.material.product_id if wall.material else None,
-                    _q(gross_area),
-                    _q(opening_area),
-                    _q(net_area),
-                    _q(net_area * wall.thickness_m),
+            rooms.append(RoomQuantityView(room.room_id, room.name, _q(room.floor_area), _q(room.volume)))
+
+        floor_plan = level.floor_plan
+        if floor_plan is not None:
+            for wall in floor_plan.walls.values():
+                gross_area = wall.segment.length * level.height
+                opening_area = sum(opening.width * opening.height_m for opening in wall.openings)
+                net_area = max(gross_area - opening_area, 0.0)
+                walls.append(
+                    WallQuantityView(
+                        wall.wall_id,
+                        _product_id(model, wall.material_id),
+                        _q(gross_area),
+                        _q(opening_area),
+                        _q(net_area),
+                        _q(net_area * wall.thickness),
+                    )
                 )
-            )
-            for opening in wall.openings:
-                opening_views.append(
-                    OpeningQuantityView(wall.id, opening.kind, _q(opening.width_m * opening.height_m))
-                )
+                for opening in wall.openings:
+                    openings.append(
+                        OpeningQuantityView(
+                            wall.wall_id,
+                            opening.kind,
+                            _q(opening.width * opening.height_m),
+                        )
+                    )
+
         for stair in level.stairs.values():
-            stair_views.append(StairQuantityView(stair.id, _q(stair.length_m * stair.width_m), stair.riser_count))
+            stairs.append(
+                StairQuantityView(
+                    getattr(stair, "id"),
+                    _q(float(getattr(stair, "length_m")) * float(getattr(stair, "width_m"))),
+                    getattr(stair, "riser_count", None),
+                )
+            )
+
         for terrace in level.terraces.values():
-            terrace_views.append(
+            terraces.append(
                 TerraceQuantityView(
-                    terrace.id,
-                    terrace.material.product_id if terrace.material else None,
-                    _q(terrace.length_m * terrace.width_m),
+                    getattr(terrace, "id"),
+                    _product_id(model, getattr(getattr(terrace, "material", None), "material_id", None)),
+                    _q(float(getattr(terrace, "length_m")) * float(getattr(terrace, "width_m"))),
                 )
             )
 
     return BuildingQuantityView(
-        tuple(room_views), tuple(wall_views), tuple(opening_views), tuple(stair_views), tuple(terrace_views)
+        tuple(rooms), tuple(walls), tuple(openings), tuple(stairs), tuple(terraces)
     )
