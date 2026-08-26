@@ -8,9 +8,7 @@ def test_gui_inspector_reads_canonical_reference_house_identity():
     records = build_model_inspector_records(workflow.model)
 
     kinds = {record["kind"] for record in records}
-    assert {"level", "room", "wall", "opening", "material"}.issubset(kinds)
-    assert "stair" not in kinds
-    assert "terrace" not in kinds
+    assert {"level", "room", "wall", "opening", "material", "stair", "terrace"}.issubset(kinds)
 
     level = next(record for record in records if record["kind"] == "level")
     assert level["details"]["ID"] == level["id"]
@@ -23,6 +21,14 @@ def test_gui_inspector_reads_canonical_reference_house_identity():
     opening = next(record for record in records if record["kind"] == "opening")
     assert opening["details"]["ID"] == opening["id"]
     assert opening["details"]["Tip"] in {"door", "window"}
+
+    stair = next(record for record in records if record["kind"] == "stair")
+    assert stair["details"]["ID"] == stair["id"]
+    assert stair["details"]["Broj stepenika"] == 16
+
+    terrace = next(record for record in records if record["kind"] == "terrace")
+    assert terrace["details"]["ID"] == terrace["id"]
+    assert terrace["details"]["Površina"].endswith("m²")
 
 
 def test_gui_inspector_uses_same_product_identity_as_quantity_view():

@@ -1,11 +1,13 @@
 """Canonical Reference House -> production BuildingModel fixture.
 
 The fixture uses the authoritative Reference House JSON for room names,
-areas and heights, then constructs deterministic canonical Room and Opening
-objects owned by the same BuildingModel used by the GUI and scientific views.
+areas and heights, then constructs deterministic canonical Room, Opening,
+Stair and Terrace objects owned by the same BuildingModel used by the GUI
+and scientific views.
 """
 from __future__ import annotations
 
+from lat_ces.building.elements import Stair, Terrace
 from lat_ces.building.model import BuildingModel, Level, Material, Roof, Room
 from lat_ces.building.workflow import BuildingWorkflow, make_envelope_floor_plan
 from lat_ces.building.floor_plan import Opening, Segment2D, Point2D, Wall
@@ -77,6 +79,52 @@ def _add_deterministic_openings(level: Level) -> None:
         window_wall.add_opening(Opening(kind="window", offset=offset, width=window_width, height_m=1.50))
 
 
+def _add_reference_house_stair_and_terrace(level: Level, level_data: dict, material_id: str) -> None:
+    """Promote the fixture's named stair/terrace spaces into first-class elements."""
+    for spec in level_data.get("rooms", []):
+        name = str(spec.get("name", ""))
+        area_m2 = float(spec.get("area_m2", 0.0))
+        if name.lower() == "stepenište" and area_m2 > 0.0 and not level.stairs:
+            width_m = 2.00
+            length_m = area_m2 / width_m
+            footprint = Box3D(
+                origin=Point3D(0.50, 0.50, level.elevation),
+                length=length_m,
+                width=width_m,
+                height=level.height,
+            )
+            level.add_stair(
+                Stair(
+                    name="Stepenište P+3",
+                    footprint=footprint,
+                    riser_count=16,
+                    riser_height_m=0.175,
+                    tread_width_m=0.280,
+                    landing=True,
+                    railing=True,
+                    floor_opening=True,
+                    material_id=material_id,
+                )
+            )
+        if name.lower() == "terasa" and area_m2 > 0.0 and not level.terraces:
+            width_m = 3.00
+            length_m = area_m2 / width_m
+            footprint = Box3D(
+                origin=Point3D(max(0.0, level.length_m - length_m - 0.50), max(0.0, level.width_m - width_m - 0.50), level.elevation),
+                length=length_m,
+                width=width_m,
+                height=0.20,
+            )
+            level.add_terrace(
+                Terrace(
+                    name="Terasa",
+                    footprint=footprint,
+                    construction_type="betonska konstrukcija",
+                    material_id=material_id,
+                )
+            )
+
+
 def build_reference_house_workflow() -> BuildingWorkflow:
     house = ReferenceHouse.default()
     dimensions = house.data["dimensions"]
@@ -106,6 +154,7 @@ def build_reference_house_workflow() -> BuildingWorkflow:
         )
         level.set_floor_plan(make_envelope_floor_plan(level.name, length_m, width_m, WALL_THICKNESS_M))
         rooms = _add_authoritative_rooms(model, level, level_data.get("rooms", []))
+        _add_reference_house_stair_and_terrace(level, level_data, masonry.material_id)
         if level.floor_plan:
             for wall in level.floor_plan.walls.values():
                 wall.material_id = masonry.material_id
