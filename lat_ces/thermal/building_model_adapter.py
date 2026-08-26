@@ -1,4 +1,4 @@
-"""Read-only thermal projection from the canonical Building Model."""
+"""Read-only thermal projection from the canonical production BuildingModel."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,11 +12,11 @@ class ThermalWallInput:
     wall_id: str
     product_id: str
     thickness_m: float
-    thermal_conductivity_w_mk: float
+    thermal_conductivity_w_mk: float | None
 
     @property
     def conductive_resistance_m2kw(self) -> float:
-        if self.thermal_conductivity_w_mk <= 0:
+        if self.thermal_conductivity_w_mk is None or self.thermal_conductivity_w_mk <= 0:
             raise ValueError("thermal conductivity must be positive")
         return self.thickness_m / self.thermal_conductivity_w_mk
 
@@ -27,7 +27,7 @@ class ThermalBuildingInput:
 
 
 def to_thermal_input(model: Any) -> ThermalBuildingInput:
-    """Create immutable thermal inputs from canonical Building Model views."""
+    """Create immutable thermal inputs from the production BuildingModel."""
     views = build_read_only_views(model)
     materials = {view.product_id: view for view in views.material_views}
     return ThermalBuildingInput(
