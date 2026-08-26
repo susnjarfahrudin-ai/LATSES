@@ -4,7 +4,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-from .gui_complete import CompleteBuildingWorkspaceApp
+from lat_ces.gui_complete import CompleteBuildingWorkspaceApp
 
 
 _original_build_model_tab = CompleteBuildingWorkspaceApp._build_model_tab
