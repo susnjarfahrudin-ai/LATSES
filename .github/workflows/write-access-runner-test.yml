@@ -2,6 +2,9 @@ name: Write Access Runner Test
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - agent/chatgpt-write-test-20260826
 
 permissions:
   contents: read
