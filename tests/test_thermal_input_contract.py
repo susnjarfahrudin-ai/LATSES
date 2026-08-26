@@ -1,12 +1,13 @@
+from lat_ces.application import build_actions
 from lat_ces.thermal import (
     CalculationScope,
     InputStatus,
     IndoorConditionInput,
     InternalGainsInput,
     MaterialThermalInput,
+    ThermalBridgeInput,
     ThermalZoneInput,
     WeatherInput,
-    build_actions,
     validate_thermal_inputs,
 )
 
@@ -58,8 +59,6 @@ def test_missing_required_input_blocks_calculation_and_creates_action():
 
 
 def test_thermal_bridge_scope_requires_length_and_psi():
-    from lat_ces.thermal import ThermalBridgeInput
-
     zone = _valid_zone()
     zone = ThermalZoneInput(
         zone_id=zone.zone_id,
