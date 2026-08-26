@@ -36,7 +36,7 @@ def to_thermal_input(model: Any) -> ThermalBuildingInput:
                 wall_id=wall.wall_id,
                 product_id=wall.product_id,
                 thickness_m=wall.thickness_m,
-                thermal_conductivity_w_mk=materials[wall.product_id].thermal_conductivity_w_mk,
+                thermal_conductivity_w_mk=(materials.get(wall.product_id).thermal_conductivity_w_mk if wall.product_id in materials else None),
             )
             for wall in views.wall_views
         )
