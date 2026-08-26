@@ -7,6 +7,7 @@ from tkinter import ttk
 from lat_ces.gui_complete import CompleteBuildingWorkspaceApp
 
 
+_original_init = CompleteBuildingWorkspaceApp.__init__
 _original_build_model_tab = CompleteBuildingWorkspaceApp._build_model_tab
 
 
@@ -96,6 +97,13 @@ def show_canonical_model_inspector(self: CompleteBuildingWorkspaceApp) -> None:
         )
 
 
+def _init_with_reference_house(self: CompleteBuildingWorkspaceApp) -> None:
+    _original_init(self)
+    # Make the canonical Reference House the first visible model in the installed app.
+    self.open_reference_house()
+
+
+CompleteBuildingWorkspaceApp.__init__ = _init_with_reference_house
 CompleteBuildingWorkspaceApp._build_model_tab = _build_model_tab_with_inspector
 CompleteBuildingWorkspaceApp.show_canonical_model_inspector = show_canonical_model_inspector
 
