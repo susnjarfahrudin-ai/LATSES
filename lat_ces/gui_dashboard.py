@@ -146,8 +146,9 @@ def run_dashboard_acceptance() -> None:
             app.update_idletasks()
             if not app.canvas.find_all():
                 raise RuntimeError(f"{title}: canvas has no rendered content")
-        app._select_tab("Proračuni")
-        app.validate_model()
+        findings = app.workflow.validate()
+        if findings:
+            raise RuntimeError("Provjera: " + "; ".join(findings))
         app._select_tab("Engineering Summary")
         app.refresh_engineering_summary()
         summary = app.engineering_summary.get("1.0", "end")
