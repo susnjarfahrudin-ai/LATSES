@@ -9,6 +9,7 @@ from lat_ces.scientific.measurement import (
     Instrument,
     Measurement,
     MeasurementAudit,
+    MeasurementError,
     MeasurementEvidence,
     MeasurementProvenance,
     MeasurementRegistry,
@@ -88,7 +89,7 @@ def test_measurement_identity_is_generated_and_stable() -> None:
 
 
 def test_measurement_requires_canonical_quantity() -> None:
-    with pytest.raises(TypeError):
+    with pytest.raises(MeasurementError, match="scientific quantity with a dimension"):
         Measurement(quantity=23.4)  # type: ignore[arg-type]
 
 
