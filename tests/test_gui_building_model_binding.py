@@ -8,7 +8,8 @@ def test_gui_inspector_reads_canonical_reference_house_identity():
     records = build_model_inspector_records(workflow.model)
 
     kinds = {record["kind"] for record in records}
-    assert {"level", "wall", "opening"}.issubset(kinds)
+    assert {"level", "wall"}.issubset(kinds)
+    assert "opening" not in kinds
     assert "room" not in kinds
     assert "stair" not in kinds
     assert "terrace" not in kinds
@@ -29,7 +30,7 @@ def test_gui_inspector_uses_same_product_identity_as_quantity_view():
 
     for wall in quantities.walls:
         inspector_record = next(record for record in inspector if record["kind"] == "wall" and record["id"] == wall.wall_id)
-        assert inspector_record["details"]["Product ID"] == wall.product_id
+        assert inspector_record["details"]["Product ID"] == (wall.product_id or "N/A")
 
 
 def test_gui_inspector_does_not_mutate_model():
