@@ -8,11 +8,14 @@ def test_gui_inspector_reads_canonical_reference_house_identity():
     records = build_model_inspector_records(workflow.model)
 
     kinds = {record["kind"] for record in records}
-    assert {"level", "room", "wall", "opening", "stair", "terrace"}.issubset(kinds)
+    assert {"level", "wall", "opening"}.issubset(kinds)
+    assert "room" not in kinds
+    assert "stair" not in kinds
+    assert "terrace" not in kinds
 
-    kitchen = next(record for record in records if record["kind"] == "room" and record["name"] == "Kuhinja")
-    assert kitchen["details"]["ID"] == kitchen["id"]
-    assert kitchen["details"]["Površina"].endswith("m²")
+    level = next(record for record in records if record["kind"] == "level")
+    assert level["details"]["ID"] == level["id"]
+    assert level["details"]["Visina"].endswith("m")
 
 
 def test_gui_inspector_uses_same_product_identity_as_quantity_view():
