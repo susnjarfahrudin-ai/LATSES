@@ -7,13 +7,33 @@ import urllib.request
 from pathlib import Path
 
 
+FIXTURE = {
+    "dataset": "LAT-CES POC fixture; not an ÖKOBAUDAT redistribution",
+    "materials": [
+        {
+            "id": "poc-material-001",
+            "name": "POC test wall material",
+            "density_kg_m3": 500,
+            "thermal_conductivity_W_mK": 0.035,
+        }
+    ],
+}
+
+
 def http_get(url: str, accept: str = "application/json") -> tuple[int, bytes]:
     request = urllib.request.Request(
         url,
-        headers={"Accept": accept, "User-Agent": "LAT-CES-Windows-POC/0.1"},
+        headers={"Accept": accept, "User-Agent": "LAT-CES-Windows-POC/0.2"},
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         return response.status, response.read()
+
+
+def runtime_dir() -> Path:
+    # PyInstaller --onefile extracts Python resources below sys._MEIPASS.
+    # Keeping generated/runtime files beside the executable payload avoids
+    # assuming that source-tree files are automatically bundled.
+    return Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 
 
 def main() -> int:
@@ -26,7 +46,7 @@ def main() -> int:
         result["checks"]["ifcopenshell_import"] = True
 
         model = ifcopenshell.file(schema="IFC4")
-        test_ifc = Path(__file__).with_name("generated_test.ifc")
+        test_ifc = runtime_dir() / "generated_test.ifc"
         model.write(str(test_ifc))
         reopened = ifcopenshell.open(str(test_ifc))
         result["ifc_schema"] = reopened.schema
@@ -64,8 +84,10 @@ def main() -> int:
         result["checks"]["oekobaudat_read"] = False
         result["oekobaudat_error"] = repr(exc)
 
-    data = Path(__file__).with_name("test_material.json")
-    payload = json.loads(data.read_text(encoding="utf-8"))
+    # Keep the POC fixture in Python so the one-file EXE has no implicit
+    # source-tree dependency. Real datasets will be handled by a dedicated
+    # data/adapter layer after the licensing audit.
+    payload = FIXTURE
     result["checks"]["fixture_load"] = bool(payload.get("dataset") and payload.get("materials"))
     result["dataset"] = payload.get("dataset")
     result["material_count"] = len(payload.get("materials", []))
