@@ -1,0 +1,16 @@
+name: Write Access Runner Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runner-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Runner reached
+        run: |
+          echo "RUNNER_TEST_OK"
+          echo "ubuntu-latest runner was assigned and executed successfully."
