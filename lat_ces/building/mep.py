@@ -100,12 +100,12 @@ class HeatingZone:
     emitter_type: str
     design_supply_temp_c: float
     design_return_temp_c: float
-    source_type: str = "heat_pump_air_water"
-    source_product_id: str | None = None
-    emitter_product_id: str | None = None
     target_indoor_temp_c: float = 20.0
     room_heat_load_w: float | None = None
     mass_flow_kg_s: float | None = None
+    source_type: str = "heat_pump_air_water"
+    source_product_id: str | None = None
+    emitter_product_id: str | None = None
 
     def __post_init__(self):
         if self.emitter_type not in HEATING_EMITTERS:
@@ -167,14 +167,14 @@ class UnderfloorHeatingSystem:
     screed_thickness_m: float | None = None
     finish_product_id: str | None = None
     finish_thickness_m: float | None = None
-    source_type: str = "heat_pump_air_water"
-    source_product_id: str | None = None
     target_indoor_temp_c: float = 20.0
     design_supply_temp_c: float = 35.0
     design_return_temp_c: float = 30.0
     target_floor_surface_temp_c: float | None = None
     required_heat_w: float | None = None
     heat_output_w_m2: float | None = None
+    source_type: str = "heat_pump_air_water"
+    source_product_id: str | None = None
 
     def __post_init__(self):
         if not self.pipe_product_id.strip():
