@@ -12,6 +12,7 @@ from .project_spec import BuildingProjectSpec, LevelProjectSpec, RoomSpec, WallC
 from .workflow import BuildingWorkflow
 from .mep import ensure_mep_registry
 from lat_ces.building_model.systems import HeatingZone, VentilationOpening, WaterBranch
+from lat_ces.catalog.product_binding import ProductBindingRegistry, ensure_product_binding_registry
 
 
 def _plan_to_dict(plan: FloorPlan) -> dict[str, object]:
@@ -75,10 +76,12 @@ def _mep_from_dict(model: BuildingModel, data):
 def workflow_to_dict(workflow: BuildingWorkflow) -> dict[str, object]:
     project_spec = workflow.project_spec
     if project_spec is not None: project_spec.orientation = workflow.model.orientation
-    return {"schema": "LAT-CES-BUILDING-7", "model": {
+    product_bindings = ensure_product_binding_registry(workflow.model).to_dict()
+    return {"schema": "LAT-CES-BUILDING-8", "model": {
         "name": workflow.model.name, "model_id": workflow.model.model_id,
         "orientation": asdict(workflow.model.orientation), "roof": asdict(workflow.model.roof) if workflow.model.roof else None,
         "materials": [asdict(m) for m in workflow.model.materials.values()],
+        "product_bindings": product_bindings,
         "levels": [{"name": level.name, "level_id": level.level_id, "elevation": level.elevation, "height": level.height, "length_m": level.length_m, "width_m": level.width_m, "wall_construction": level.wall_construction, "insulation": level.insulation, "cladding": level.cladding, "joinery": level.joinery, "facade_finish": level.facade_finish, "insulation_material": level.insulation_material, "insulation_thickness_m": level.insulation_thickness_m, "interior_plaster_material": level.interior_plaster_material, "interior_plaster_thickness_m": level.interior_plaster_thickness_m, "dead_load_kpa": level.dead_load_kpa, "live_load_kpa": level.live_load_kpa, "floor_plan": _plan_to_dict(level.floor_plan) if level.floor_plan else None} for level in workflow.model.levels.values()],
         "mep": _mep_to_dict(workflow.model)}, "project_spec": _spec_to_dict(project_spec), "roof_shape": workflow.roof_shape, "roof_height_m": workflow.roof_height_m, "current_step": workflow.current_step, "active_level_id": workflow.active_level_id}
 
@@ -92,8 +95,8 @@ def load_workflow(path: str | Path) -> BuildingWorkflow:
     model = BuildingModel(name=str(model_data.get("name", "Novi objekat")), orientation=BuildingOrientation(**dict(orientation_data)) if orientation_data else BuildingOrientation())
     roof_data = model_data.get("roof")
     if roof_data: model.set_roof(Roof(**dict(roof_data)))
-    for material_data in model_data.get("materials", []):
-        model.add_material(Material(**dict(material_data)))
+    for material_data in model_data.get("materials", []): model.add_material(Material(**dict(material_data)))
+    ensure_product_binding_registry(model).bindings = ProductBindingRegistry.from_dict(model_data.get("product_bindings")).bindings
     workflow = BuildingWorkflow(model=model, current_step=int(data.get("current_step", 1)))
     workflow.project_spec = _spec_from_dict(data.get("project_spec"), model.name, fallback_orientation=model.orientation); workflow.project_spec.orientation = model.orientation
     workflow.roof_shape = str(data.get("roof_shape", workflow.project_spec.roof_shape)); workflow.roof_height_m = float(data.get("roof_height_m", workflow.project_spec.roof_height_m))
