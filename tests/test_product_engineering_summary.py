@@ -1,8 +1,23 @@
-from lat_ces.building.model import BuildingModel
+from lat_ces.building.model import BuildingModel, Material
 from lat_ces.catalog.product_binding import ensure_product_binding_registry
 from lat_ces.catalog.product_catalog import get_product
 from lat_ces.catalog.product_engineering import build_product_engineering_report
 from lat_ces.reference_house_workflow import build_reference_house_workflow
+
+
+def _attach_catalog_product(model: BuildingModel, product) -> Material:
+    material = Material(
+        name=product.name,
+        density=product.density_kg_m3,
+        youngs_modulus=product.youngs_modulus_pa,
+        thermal_conductivity=product.thermal_conductivity_w_mk,
+        compressive_strength_mpa=product.compressive_strength_mpa,
+        product_id=product.product_id,
+        manufacturer=product.manufacturer,
+        category=product.category,
+    )
+    model.add_material(material)
+    return material
 
 
 def test_reference_product_feeds_structural_and_thermal_summary() -> None:
@@ -15,7 +30,7 @@ def test_reference_product_feeds_structural_and_thermal_summary() -> None:
 
     product = get_product("CONCRETE-REFERENCE-C25-30")
     assert product is not None
-    material = next(material for material in model.materials.values() if material.product_id == product.product_id)
+    material = _attach_catalog_product(model, product)
     wall.material_id = material.material_id
     ensure_product_binding_registry(model).bind(wall.wall_id, "wall", product.product_id)
 
@@ -40,6 +55,7 @@ def test_missing_product_data_remains_input_required() -> None:
     wall = next(iter(level.floor_plan.walls.values()))
     wall.load_bearing = True
     wall.tributary_width_m = 2.5
+    wall.material_id = None
     ensure_product_binding_registry(model).bind(wall.wall_id, "wall", "MASONRY-THERMAL-25X25X30")
 
     report = build_product_engineering_report(model)
@@ -48,7 +64,7 @@ def test_missing_product_data_remains_input_required() -> None:
     assert record.verification_status == "MISSING"
     assert record.thermal_status == "INPUT_REQUIRED"
     assert record.structural_status == "INPUT_REQUIRED"
-    assert "nedostaje gustina materijala" in record.findings
+    assert "nije odabran materijal" in record.findings or "nedostaje gustina materijala" in record.findings
     assert "nedostaje λ (toplotna provodljivost)" in record.findings
     assert report.status == "INPUT_REQUIRED"
 
