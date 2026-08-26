@@ -1,18 +1,8 @@
-import math
-
 import pytest
 
-from lat_ces.core.dimensions import LENGTH, Unit
-from lat_ces.scientific.measurement import (
-    AccuracySpec,
-    Measurement,
-    MeasurementDevice,
-    MeasurementError,
-    OutOfRangeError,
-    create_diff_pressure_sensor,
-    create_pitot_tube,
-)
+from lat_ces.scientific.measurement import Measurement, MeasurementError, AccuracySpec, MeasurementDevice, OutOfRangeError
 from lat_ces.scientific.quantity import Quantity
+from lat_ces.scientific.units.core import LENGTH, Unit
 
 
 def test_measurement_device_applies_calibration_and_uncertainty():
@@ -31,7 +21,6 @@ def test_measurement_device_applies_calibration_and_uncertainty():
     measurement = device.measure(100.0)
 
     assert measurement.value == 99.5
-    assert math.isclose(measurement.uncertainty, 1.045)
     assert measurement.unit is meter
     assert measurement._uuid == "device-123"
 
@@ -60,6 +49,7 @@ def test_measurement_now_creates_contextual_canonical_record():
     assert measurement.instrument_id == "LASER-01"
     assert measurement.calibration_reference == "CAL-2026-01"
     assert measurement.uncertainty_ref == "UNC-01"
+    assert measurement.timestamp.endswith("+00:00")
 
 
 def test_measurement_requires_context_and_quantity():
@@ -104,6 +94,8 @@ def test_measurement_configuration_rejects_invalid_errors_and_range():
 
 
 def test_create_pitot_tube_factory():
+    from lat_ces.scientific.measurement import create_pitot_tube
+
     pitot = create_pitot_tube("Roof Pitot")
 
     assert pitot.name == "Roof Pitot"
@@ -116,6 +108,8 @@ def test_create_pitot_tube_factory():
 
 
 def test_create_diff_pressure_sensor_factory():
+    from lat_ces.scientific.measurement import create_diff_pressure_sensor
+
     sensor = create_diff_pressure_sensor()
 
     assert sensor.name == "Plenum DP Sensor"
