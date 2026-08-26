@@ -1,7 +1,7 @@
 name: LAT-CES Windows Installer
 
 # Persistent operational memory: docs/WORKFLOW-RUNBOOK.md
-# Release rule: exact commit -> verification GREEN -> EXE smoke -> installer smoke -> artifact evidence.
+# Release rule: exact commit -> verification GREEN -> EXE smoke -> GUI acceptance -> installer smoke -> artifact evidence.
 # Never report an EXE/installer as ready from an older commit.
 
 on:
@@ -60,6 +60,21 @@ jobs:
           Start-Sleep -Seconds 3
           if ($p.HasExited -and $p.ExitCode -ne 0) { throw "LATSES.exe exited with code $($p.ExitCode)" }
           if (!$p.HasExited) { Stop-Process -Id $p.Id -Force }
+
+      - name: GUI visual acceptance sequence
+        shell: pwsh
+        run: |
+          $env:LATCES_GUI_ACCEPTANCE = '1'
+          $p = Start-Process -FilePath '.\dist\LATSES.exe' -PassThru -WindowStyle Hidden
+          $deadline = (Get-Date).AddSeconds(45)
+          while (-not $p.HasExited -and (Get-Date) -lt $deadline) {
+            Start-Sleep -Milliseconds 500
+          }
+          if (-not $p.HasExited) {
+            Stop-Process -Id $p.Id -Force
+            throw 'GUI visual acceptance timed out after 45 seconds'
+          }
+          if ($p.ExitCode -ne 0) { throw "GUI visual acceptance failed with exit code $($p.ExitCode)" }
 
       - name: Install Inno Setup
         shell: pwsh
