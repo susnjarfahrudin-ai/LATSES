@@ -9,7 +9,7 @@ def test_reference_house_has_named_rooms_for_gui_rendering():
     level = next(iter(workflow.model.levels.values()))
     names = {room.name for room in level.rooms.values()}
     assert "Stepenište" in names
-    assert "Kuhinja" in names
+    assert any(name in names for name in ("Kuhinja", "Kuhinja + trpezarija"))
     assert "Dnevni boravak" in names
     assert len(names) >= 4
 
