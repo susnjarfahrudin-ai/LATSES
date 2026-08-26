@@ -30,6 +30,33 @@ class Measurement:
     measurement_id: str = field(default_factory=lambda: f"MEAS-{uuid4().hex.upper()}")
     revision: int = 1
 
+    @classmethod
+    def now(cls, quantity, *, method: str, source: str, instrument_id: str | None = None,
+            location: str | None = None, subject: str | None = None,
+            calibration_reference: str | None = None, operator: str | None = None,
+            uncertainty_ref: str | None = None, evidence=None) -> "Measurement":
+        """Create a canonical contextual measurement from a Quantity."""
+        value = getattr(quantity, "value", None)
+        unit = getattr(quantity, "unit", None)
+        if value is None or unit is None:
+            raise MeasurementError("Measurement.now requires a canonical Quantity with value and unit")
+        return cls(
+            quantity=quantity,
+            value=float(value),
+            unit=unit,
+            uncertainty=uncertainty_ref,
+            instrument=instrument_id,
+            calibration=calibration_reference,
+            provenance=MeasurementProvenance(
+                method=method,
+                source=source,
+                location=location,
+                subject=subject,
+                operator=operator,
+            ),
+            evidence=evidence,
+        )
+
     def validate(self) -> "Measurement":
         from .validation import validate_measurement
 
