@@ -142,7 +142,7 @@ def calculate_room_heat_losses(
                 )
                 continue
 
-            if not conductivities or len(conductivities) * 1 < 1 or findings:
+            if findings or not conductivities:
                 results.append(
                     RoomHeatLossResult(
                         room_id=room.room_id,
@@ -161,8 +161,8 @@ def calculate_room_heat_losses(
                 continue
 
             # All currently supported room exterior walls use one canonical
-            # material. Mixed-wall U-values will be handled as area-weighted
-            # assemblies rather than silently averaging lambdas.
+            # opaque assembly. Mixed lambda assemblies are held at the input
+            # gate until an explicit area-weighted assembly model is present.
             if any(abs(value - conductivities[0]) > _TOL for value in conductivities[1:]):
                 results.append(
                     RoomHeatLossResult(
@@ -182,7 +182,8 @@ def calculate_room_heat_losses(
                 continue
 
             conductivity = conductivities[0]
-            resistance = r_si_m2k_w + wall_thickness_for_room(model, level, room) / conductivity + r_se_m2k_w
+            thickness = wall_thickness_for_room(model, level, room)
+            resistance = r_si_m2k_w + thickness / conductivity + r_se_m2k_w
             u_value = 1.0 / resistance
             heat_loss_w = u_value * area_m2 * delta_t
             results.append(
