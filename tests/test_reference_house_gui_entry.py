@@ -12,6 +12,17 @@ def test_reference_house_gui_workflow_loads_canonical_envelope():
     assert all(level.width_m == 10.0 for level in workflow.model.levels.values())
     assert all(level.height == 2.8 for level in workflow.model.levels.values())
     assert all(level.floor_plan is not None for level in workflow.model.levels.values())
-    assert all(level.floor_plan.wall_count == 4 for level in workflow.model.levels.values())
-    # The fixture has room areas but no authoritative room rectangles.
-    assert workflow.model.room_count == 0
+
+    # Four exterior envelope walls remain canonical; internal room partitions
+    # are additional walls owned by the same FloorPlan.
+    assert all(
+        sum(wall.exterior for wall in level.floor_plan.walls.values()) == 4
+        for level in workflow.model.levels.values()
+    )
+    assert all(
+        level.floor_plan.wall_count > 4
+        for level in workflow.model.levels.values()
+    )
+
+    assert workflow.model.room_count > 0
+    assert all(level.rooms for level in workflow.model.levels.values())
