@@ -9,6 +9,7 @@ from lat_ces.gui_complete import CompleteBuildingWorkspaceApp
 
 _original_init = CompleteBuildingWorkspaceApp.__init__
 _original_build_model_tab = CompleteBuildingWorkspaceApp._build_model_tab
+_original_draw_floor_plan = CompleteBuildingWorkspaceApp.draw_floor_plan
 
 
 def _build_model_tab_with_inspector(self: CompleteBuildingWorkspaceApp, tab: ttk.Frame) -> None:
@@ -25,7 +26,7 @@ def _add_record(tree: ttk.Treeview, kind: str, object_id: str, details: str) -> 
 
 
 def show_canonical_model_inspector(self: CompleteBuildingWorkspaceApp) -> None:
-    """Show canonical Room/Wall/Opening/Material records from the same model."""
+    """Show canonical Room/Wall/Opening/Stair/Terrace/Material records from the same model."""
     window = tk.Toplevel(self)
     window.title("LAT-CES — Canonical Building Model")
     window.geometry("1050x620")
@@ -37,17 +38,13 @@ def show_canonical_model_inspector(self: CompleteBuildingWorkspaceApp) -> None:
         font=("Segoe UI", 12, "bold"),
     ).pack(anchor="w", padx=12, pady=(10, 6))
 
-    tree = ttk.Treeview(
-        window,
-        columns=("kind", "id", "details"),
-        show="headings",
-    )
+    tree = ttk.Treeview(window, columns=("kind", "id", "details"), show="headings")
     tree.heading("kind", text="Objekat")
     tree.heading("id", text="ID")
     tree.heading("details", text="Podaci")
-    tree.column("kind", width=110, anchor="w")
+    tree.column("kind", width=130, anchor="w")
     tree.column("id", width=330, anchor="w")
-    tree.column("details", width=560, anchor="w")
+    tree.column("details", width=550, anchor="w")
     tree.pack(fill="both", expand=True, padx=12, pady=6)
 
     model = self.workflow.model
@@ -64,6 +61,28 @@ def show_canonical_model_inspector(self: CompleteBuildingWorkspaceApp) -> None:
                 "Room",
                 room.room_id,
                 f"{room.name} · {room.floor_area:.2f} m² · V={room.volume:.2f} m³ · h={room.footprint.height:.2f} m",
+            )
+        for stair in level.stairs.values():
+            material = model.materials.get(stair.material_id) if getattr(stair, "material_id", None) else None
+            product = material.product_id if material else "N/A"
+            _add_record(
+                tree,
+                "Stair",
+                stair.id,
+                f"{stair.name} · {stair.length_m:.2f} × {stair.width_m:.2f} m · "
+                f"step={stair.riser_count or 'N/A'} · h={stair.riser_height_m or 'N/A'} m · "
+                f"gazište={stair.tread_width_m or 'N/A'} m · landing={'DA' if stair.landing else 'NE'} · "
+                f"ograda={'DA' if stair.railing else 'NE'} · otvor={'DA' if stair.floor_opening else 'NE'} · Product={product}",
+            )
+        for terrace in level.terraces.values():
+            material = model.materials.get(terrace.material_id) if getattr(terrace, "material_id", None) else None
+            product = material.product_id if material else "N/A"
+            _add_record(
+                tree,
+                "Terrace",
+                terrace.id,
+                f"{terrace.name} · {terrace.length_m:.2f} × {terrace.width_m:.2f} m · "
+                f"konstrukcija={terrace.construction_type} · Product={product}",
             )
         if level.floor_plan:
             for wall in level.floor_plan.walls.values():
@@ -97,15 +116,41 @@ def show_canonical_model_inspector(self: CompleteBuildingWorkspaceApp) -> None:
         )
 
 
+def _draw_canonical_elements(self: CompleteBuildingWorkspaceApp) -> None:
+    """Overlay first-class stair and terrace footprints on the canonical floor plan."""
+    level = self.active_level
+    for stair in level.stairs.values():
+        footprint = stair.footprint
+        p1 = self.model_to_canvas(footprint.origin)
+        p2 = self.model_to_canvas(footprint.origin.__class__(footprint.origin.x + footprint.length, footprint.origin.y))
+        p3 = self.model_to_canvas(footprint.origin.__class__(footprint.origin.x + footprint.length, footprint.origin.y + footprint.width))
+        p4 = self.model_to_canvas(footprint.origin.__class__(footprint.origin.x, footprint.origin.y + footprint.width))
+        self.canvas.create_polygon(p1, p2, p3, p4, outline="#2563eb", fill="#dbeafe", width=2, stipple="gray25")
+        self.canvas.create_text((p1[0] + p3[0]) / 2, (p1[1] + p3[1]) / 2, text="Stepenište", fill="#1d4ed8")
+    for terrace in level.terraces.values():
+        footprint = terrace.footprint
+        p1 = self.model_to_canvas(footprint.origin)
+        p2 = self.model_to_canvas(footprint.origin.__class__(footprint.origin.x + footprint.length, footprint.origin.y))
+        p3 = self.model_to_canvas(footprint.origin.__class__(footprint.origin.x + footprint.length, footprint.origin.y + footprint.width))
+        p4 = self.model_to_canvas(footprint.origin.__class__(footprint.origin.x, footprint.origin.y + footprint.width))
+        self.canvas.create_polygon(p1, p2, p3, p4, outline="#b45309", fill="#fef3c7", width=2, stipple="gray25")
+        self.canvas.create_text((p1[0] + p3[0]) / 2, (p1[1] + p3[1]) / 2, text="Terasa", fill="#92400e")
+
+
+def _draw_floor_plan_with_elements(self: CompleteBuildingWorkspaceApp) -> None:
+    _original_draw_floor_plan(self)
+    _draw_canonical_elements(self)
+
+
 def _init_with_reference_house(self: CompleteBuildingWorkspaceApp) -> None:
     _original_init(self)
-    # Make the canonical Reference House the first visible model in the installed app.
     self.open_reference_house()
 
 
 CompleteBuildingWorkspaceApp.__init__ = _init_with_reference_house
 CompleteBuildingWorkspaceApp._build_model_tab = _build_model_tab_with_inspector
 CompleteBuildingWorkspaceApp.show_canonical_model_inspector = show_canonical_model_inspector
+CompleteBuildingWorkspaceApp.draw_floor_plan = _draw_floor_plan_with_elements
 
 
 def main() -> None:
