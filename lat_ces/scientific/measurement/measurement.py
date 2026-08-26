@@ -7,6 +7,10 @@ from uuid import uuid4
 from .provenance import MeasurementProvenance
 
 
+class MeasurementError(ValueError):
+    """Base error for invalid canonical Measurement records."""
+
+
 @dataclass(frozen=True)
 class Measurement:
     """SCI-0046/0047 canonical measurement object.
