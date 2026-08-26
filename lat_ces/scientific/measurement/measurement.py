@@ -34,63 +34,86 @@ class Measurement:
 
     def __init__(
         self,
-        quantity,
-        timestamp: str,
-        method: str,
-        source: str,
+        quantity=None,
+        timestamp: str | None = None,
+        method: str = "",
+        source: str = "",
         *,
+        value: Real | None = None,
+        unit=None,
+        uncertainty: float | None = None,
+        instrument=None,
+        calibration=None,
         instrument_id: str | None = None,
         location: str | None = None,
         subject: str | None = None,
         calibration_reference: str | None = None,
         operator: str | None = None,
         uncertainty_ref: str | None = None,
-        uncertainty: float | None = None,
         provenance=None,
         evidence=None,
         measurement_id: str | None = None,
         revision: int = 1,
     ) -> None:
-        if quantity is None or not hasattr(quantity, "value") or not hasattr(quantity, "unit"):
-            raise TypeError("Measurement requires a canonical Quantity")
-        if not timestamp:
-            raise MeasurementError("Measurement requires a timestamp")
+        if quantity is None and (value is None or unit is None):
+            raise TypeError("Measurement requires Quantity or explicit value and unit")
+
+        if quantity is not None and not hasattr(quantity, "dimension") and not hasattr(quantity, "value"):
+            raise TypeError("Measurement requires a Quantity-like scientific object")
+
+        if timestamp is None:
+            timestamp = datetime.now(timezone.utc).isoformat()
         if not method:
-            raise MeasurementError("Measurement requires a method")
+            method = "unspecified"
         if not source:
-            raise MeasurementError("Measurement requires a source")
+            source = "unspecified"
         if uncertainty is not None and float(uncertainty) < 0:
             raise MeasurementError("Measurement uncertainty cannot be negative")
         if revision < 1:
             raise MeasurementError("Measurement revision must be >= 1")
 
+        resolved_instrument = instrument_id if instrument_id is not None else instrument
+        resolved_calibration = (
+            calibration_reference if calibration_reference is not None else calibration
+        )
+
+        if value is None:
+            value = getattr(quantity, "value", None)
+        if unit is None:
+            unit = getattr(quantity, "unit", None)
+        if value is None or unit is None:
+            raise MeasurementError("Measurement requires a resolvable value and unit")
+
+        quantity_uncertainty = getattr(quantity, "uncertainty", None)
+        quantity_provenance = getattr(quantity, "provenance", None)
+
         object.__setattr__(self, "quantity", quantity)
         object.__setattr__(self, "timestamp", timestamp)
         object.__setattr__(self, "method", method)
         object.__setattr__(self, "source", source)
-        object.__setattr__(self, "instrument_id", instrument_id)
+        object.__setattr__(self, "instrument_id", resolved_instrument)
         object.__setattr__(self, "location", location)
         object.__setattr__(self, "subject", subject)
-        object.__setattr__(self, "calibration_reference", calibration_reference)
+        object.__setattr__(self, "calibration_reference", resolved_calibration)
         object.__setattr__(self, "operator", operator)
         object.__setattr__(self, "uncertainty_ref", uncertainty_ref)
-        object.__setattr__(self, "value", quantity.value)
-        object.__setattr__(self, "unit", quantity.unit)
+        object.__setattr__(self, "value", value)
+        object.__setattr__(self, "unit", unit)
         object.__setattr__(
             self,
             "uncertainty",
-            float(uncertainty) if uncertainty is not None else getattr(quantity, "uncertainty", None),
+            float(uncertainty) if uncertainty is not None else quantity_uncertainty,
         )
         object.__setattr__(
             self,
             "provenance",
-            provenance if provenance is not None else getattr(quantity, "provenance", None),
+            provenance if provenance is not None else quantity_provenance,
         )
         object.__setattr__(self, "evidence", evidence)
         object.__setattr__(
             self,
             "measurement_id",
-            measurement_id or f"LAT-MEAS-{uuid4().hex.upper()}",
+            measurement_id or f"MEAS-{uuid4().hex.upper()}",
         )
         object.__setattr__(self, "revision", revision)
 
