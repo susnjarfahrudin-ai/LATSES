@@ -7,7 +7,9 @@ registry owned by that model.
 from __future__ import annotations
 
 from lat_ces.gui_mep_system_workspace import EngineeringMEPWorkspaceApp
+from lat_ces.gui_mep_room_zone_runtime import install as install_room_zone_runtime
 
+install_room_zone_runtime(EngineeringMEPWorkspaceApp)
 
 __all__ = ["EngineeringMEPWorkspaceApp"]
 
