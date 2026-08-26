@@ -1,8 +1,8 @@
 """Canonical Building Model Foundation.
 
-The model is topology-first: building, levels, rooms, floor plans and generic
-physical elements are represented before structural, fluid, thermal, acoustic
-or electrical solvers are attached. Scalar geometric/material inputs are SI.
+This is the single physical BuildingModel used by the GUI and scientific
+adapters. Geometry lives in Level/FloorPlan; material/product identity lives
+in shared Material records; downstream modules consume read-only views.
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def _positive(name: str, value: float) -> float:
 
 @dataclass(frozen=True)
 class Material:
-    """Shared physical material record for future domain solvers."""
+    """Shared physical/product material record used by GUI and solvers."""
 
     name: str
     density: float | None = None
@@ -36,6 +36,11 @@ class Material:
     poisson_ratio: float | None = None
     thermal_conductivity: float | None = None
     material_id: str = field(default_factory=lambda: _id("MAT"))
+    product_id: str | None = None
+    manufacturer: str | None = None
+    dimensions_m: tuple[float, ...] = ()
+    compressive_strength_mpa: float | None = None
+    category: str | None = None
 
     def __post_init__(self) -> None:
         if not self.name.strip():
@@ -48,6 +53,14 @@ class Material:
             raise ValueError("Material.thermal_conductivity must be > 0")
         if self.poisson_ratio is not None and not (-1.0 < self.poisson_ratio < 0.5):
             raise ValueError("Material.poisson_ratio must be between -1 and 0.5")
+        if any(value <= 0 for value in self.dimensions_m):
+            raise ValueError("Material dimensions must be positive")
+        if self.compressive_strength_mpa is not None and self.compressive_strength_mpa <= 0:
+            raise ValueError("Material.compressive_strength_mpa must be > 0")
+
+    @property
+    def resolved_product_id(self) -> str:
+        return self.product_id or self.material_id
 
 
 @dataclass
@@ -149,6 +162,8 @@ class Level:
     live_load_kpa: float = 0.0
     rooms: dict[str, Room] = field(default_factory=dict)
     floor_plan: FloorPlan | None = None
+    stairs: dict[str, object] = field(default_factory=dict)
+    terraces: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.height = _positive("Level.height", self.height)
@@ -192,10 +207,24 @@ class Level:
         self.floor_plan = floor_plan
         return floor_plan
 
+    def add_stair(self, stair: object) -> object:
+        stair_id = getattr(stair, "id")
+        if stair_id in self.stairs:
+            raise ValueError(f"Duplicate stair id: {stair_id}")
+        self.stairs[stair_id] = stair
+        return stair
+
+    def add_terrace(self, terrace: object) -> object:
+        terrace_id = getattr(terrace, "id")
+        if terrace_id in self.terraces:
+            raise ValueError(f"Duplicate terrace id: {terrace_id}")
+        self.terraces[terrace_id] = terrace
+        return terrace
+
 
 @dataclass
 class BuildingModel:
-    """Topological source of truth for a building before domain solvers."""
+    """Single physical source of truth used by the production GUI."""
 
     name: str
     model_id: str = field(default_factory=lambda: _id("BLDG"))
@@ -203,10 +232,13 @@ class BuildingModel:
     materials: dict[str, Material] = field(default_factory=dict)
     roof: Roof | None = None
     orientation: BuildingOrientation = field(default_factory=BuildingOrientation)
+    load_bearing_mode: str = "all_walls"
 
     def __post_init__(self) -> None:
         if not self.name.strip():
             raise ValueError("BuildingModel.name must not be empty")
+        if self.load_bearing_mode not in {"all_walls", "exterior_only"}:
+            raise ValueError("load_bearing_mode must be 'all_walls' or 'exterior_only'")
 
     def add_level(self, level: Level) -> Level:
         if level.level_id in self.levels:
