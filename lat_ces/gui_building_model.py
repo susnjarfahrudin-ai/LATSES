@@ -94,9 +94,22 @@ def build_model_inspector_records(model: BuildingModel) -> tuple[dict[str, objec
                 {
                     "kind": "stair",
                     "id": str(stair_id),
-                    "name": "Stepenice",
+                    "name": stair.name,
                     "parent_id": level.level_id,
-                    "details": {"Tip": "Stepenice", "ID": str(stair_id)},
+                    "details": {
+                        "Tip": "Stepenice",
+                        "ID": str(stair_id),
+                        "Dužina": f"{stair.length_m:.3f} m",
+                        "Širina": f"{stair.width_m:.3f} m",
+                        "Površina": f"{stair.plan_area_m2:.3f} m²",
+                        "Broj stepenika": stair.riser_count if stair.riser_count is not None else "N/A",
+                        "Visina stepenika": f"{stair.riser_height_m:.3f} m" if stair.riser_height_m is not None else "N/A",
+                        "Širina gazišta": f"{stair.tread_width_m:.3f} m" if stair.tread_width_m is not None else "N/A",
+                        "Međupodest": "DA" if stair.landing else "NE",
+                        "Ograda": "DA" if stair.railing else "NE",
+                        "Otvor u međuspratnoj konstrukciji": "DA" if stair.floor_opening else "NE",
+                        "Product ID": model.materials.get(stair.material_id).resolved_product_id if stair.material_id and stair.material_id in model.materials else "N/A",
+                    },
                 }
             )
         for terrace_id, terrace in level.terraces.items():
@@ -104,9 +117,17 @@ def build_model_inspector_records(model: BuildingModel) -> tuple[dict[str, objec
                 {
                     "kind": "terrace",
                     "id": str(terrace_id),
-                    "name": "Terasa",
+                    "name": terrace.name,
                     "parent_id": level.level_id,
-                    "details": {"Tip": "Terasa", "ID": str(terrace_id)},
+                    "details": {
+                        "Tip": "Terasa",
+                        "ID": str(terrace_id),
+                        "Dužina": f"{terrace.length_m:.3f} m",
+                        "Širina": f"{terrace.width_m:.3f} m",
+                        "Površina": f"{terrace.plan_area_m2:.3f} m²",
+                        "Konstrukcija": terrace.construction_type,
+                        "Product ID": model.materials.get(terrace.material_id).resolved_product_id if terrace.material_id and terrace.material_id in model.materials else "N/A",
+                    },
                 }
             )
     for material in model.materials.values():
