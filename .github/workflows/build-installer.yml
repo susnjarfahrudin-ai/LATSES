@@ -40,6 +40,7 @@ jobs:
         shell: pwsh
         run: |
           python -c "from lat_ces.gui_complete import CompleteBuildingWorkspaceApp; print('LAT-CES complete Building workspace import OK')"
+          python -c "from lat_ces.gui_launcher import CompleteBuildingWorkspaceApp; print('LAT-CES GUI launcher import OK')"
           python -c "from lat_ces.reference_house_workflow import build_reference_house_workflow; w=build_reference_house_workflow(); assert len(w.model.levels)==4; assert all(l.floor_plan and l.floor_plan.wall_count>4 for l in w.model.levels.values()); assert all(sum(wall.exterior for wall in l.floor_plan.walls.values())==4 for l in w.model.levels.values()); print('Reference House workflow load OK')"
           pytest -q
 
@@ -48,7 +49,7 @@ jobs:
         run: |
           pyinstaller --noconfirm --clean --onefile --windowed --name LATSES `
             --add-data "lat_ces/reference_house_model.json;lat_ces" `
-            lat_ces/gui_complete.py
+            lat_ces/gui_launcher.py
           if (!(Test-Path '.\dist\LATSES.exe')) { throw 'LATSES.exe was not created' }
           if ((Get-Item '.\dist\LATSES.exe').Length -lt 1000000) { throw 'LATSES.exe is unexpectedly small' }
 
