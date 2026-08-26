@@ -35,8 +35,8 @@ def to_static_input(model: Any) -> StaticBuildingInput:
                 room_ids=wall.room_ids,
                 thickness_m=wall.thickness_m,
                 load_bearing=wall.load_bearing,
-                density_kg_m3=materials[wall.product_id].density_kg_m3,
-                compressive_strength_mpa=materials[wall.product_id].compressive_strength_mpa,
+                density_kg_m3=(materials.get(wall.product_id).density_kg_m3 if wall.product_id in materials else None),
+                compressive_strength_mpa=(materials.get(wall.product_id).compressive_strength_mpa if wall.product_id in materials else None),
             )
             for wall in views.wall_views
         )
