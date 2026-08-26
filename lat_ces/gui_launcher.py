@@ -1,6 +1,7 @@
 """Production desktop launcher with visible canonical BuildingModel engineering views."""
 from __future__ import annotations
 
+import os
 import tkinter as tk
 from tkinter import ttk
 
@@ -123,6 +124,33 @@ def _init_with_reference_house(self: CompleteBuildingWorkspaceApp) -> None:
     _install_engineering_summary(self)
 
 
+def run_gui_acceptance() -> None:
+    """Run the deterministic visual acceptance path inside the packaged EXE."""
+    app = CompleteBuildingWorkspaceApp()
+    try:
+        app.open_reference_house()
+        assert app.workflow.model.levels, "Reference House: no levels"
+        for step, label in ((3, "Tlocrt"), (4, "Presjek"), (5, "3D")):
+            app.view_step.set(step)
+            app.goto_step()
+            app.update_idletasks()
+            if not app.canvas.find_all():
+                raise RuntimeError(f"{label}: canvas has no rendered content")
+        findings = app.workflow.validate()
+        if findings:
+            raise RuntimeError("Provjera: " + "; ".join(findings))
+        app.refresh_engineering_summary()
+        summary = app.engineering_summary.get("1.0", "end").strip()
+        for marker in ("STATIKA", "TERMIKA", "KOLIČINE", "MEP"):
+            if marker not in summary:
+                raise RuntimeError(f"Izvještaj: missing {marker}")
+        if not app.workflow.model.materials:
+            raise RuntimeError("Materijali: canonical Material/Product registry is empty")
+        print("GUI ACCEPTANCE GREEN: Reference House -> Tlocrt -> Presjek -> 3D -> Provjera -> Izvještaj -> Materijali")
+    finally:
+        app.destroy()
+
+
 CompleteBuildingWorkspaceApp.__init__ = _init_with_reference_house
 CompleteBuildingWorkspaceApp._build_model_tab = _build_model_tab_with_inspector
 CompleteBuildingWorkspaceApp.show_canonical_model_inspector = show_canonical_model_inspector
@@ -131,6 +159,9 @@ CompleteBuildingWorkspaceApp.refresh_engineering_summary = refresh_engineering_s
 
 
 def main() -> None:
+    if os.environ.get("LATCES_GUI_ACCEPTANCE") == "1":
+        run_gui_acceptance()
+        return
     CompleteBuildingWorkspaceApp().mainloop()
 
 
