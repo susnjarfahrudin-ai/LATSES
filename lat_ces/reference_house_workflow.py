@@ -12,11 +12,13 @@ from lat_ces.building.model import BuildingModel, Level, Material, Roof, Room
 from lat_ces.building.workflow import BuildingWorkflow, make_envelope_floor_plan
 from lat_ces.building.floor_plan import Opening, Segment2D, Point2D, Wall
 from lat_ces.building.geometry import Box3D, Point3D
+from lat_ces.catalog.product_binding import ensure_product_binding_registry
 from lat_ces.reference_house import ReferenceHouse
 
 
 ROOM_STRIP_WIDTH_M = 10.0
 WALL_THICKNESS_M = 0.25
+REFERENCE_MASONRY_PRODUCT_ID = "MASONRY-THERMAL-25X25X30"
 
 
 def _add_authoritative_rooms(model: BuildingModel, level: Level, room_specs: list[dict]) -> list[Room]:
@@ -136,10 +138,11 @@ def build_reference_house_workflow() -> BuildingWorkflow:
     masonry = Material(
         name=str(house.data["envelope"]["exterior_wall"]["masonry_block"]),
         dimensions_m=(0.25, 0.20, 0.25),
-        product_id="CATALOG:masonry_block:250x200x250",
+        product_id=REFERENCE_MASONRY_PRODUCT_ID,
         category="masonry_block",
     )
     model.add_material(masonry)
+    product_bindings = ensure_product_binding_registry(model)
 
     for index, level_data in enumerate(house.levels):
         loads = level_data.get("loads", {})
@@ -163,6 +166,8 @@ def build_reference_house_workflow() -> BuildingWorkflow:
                     wall.tributary_width_m = width_m / 2.0
             _add_internal_partition_walls(level, rooms, masonry.material_id, model.load_bearing_mode == "all_walls")
             _add_deterministic_openings(level)
+            for wall in level.floor_plan.walls.values():
+                product_bindings.bind(wall.wall_id, "wall", REFERENCE_MASONRY_PRODUCT_ID)
         model.add_level(level)
 
     roof_data = house.data.get("roof", {})
