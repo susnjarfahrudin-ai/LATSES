@@ -65,6 +65,47 @@ def _add_internal_partition_walls(level: Level, rooms: list[Room], material_id: 
         level.floor_plan.add_wall(wall)
 
 
+def _assign_exterior_wall_room_adjacency(level: Level, rooms: list[Room]) -> None:
+    """Derive canonical exterior-wall -> room adjacency from actual geometry."""
+    if not level.floor_plan or not rooms:
+        return
+    tolerance = 1e-6
+    for wall in level.floor_plan.walls.values():
+        if not wall.exterior or wall.room_ids:
+            continue
+        x1, y1 = wall.segment.start.x, wall.segment.start.y
+        x2, y2 = wall.segment.end.x, wall.segment.end.y
+        adjacent_ids: list[str] = []
+
+        if abs(y1 - y2) <= tolerance:
+            wall_y = y1
+            seg_min_x, seg_max_x = sorted((x1, x2))
+            for room in rooms:
+                rx0 = room.footprint.origin.x
+                rx1 = rx0 + room.footprint.length
+                ry0 = room.footprint.origin.y
+                ry1 = ry0 + room.footprint.width
+                touches_boundary = abs(wall_y - ry0) <= tolerance or abs(wall_y - ry1) <= tolerance
+                overlaps_x = min(seg_max_x, rx1) - max(seg_min_x, rx0) > tolerance
+                if touches_boundary and overlaps_x:
+                    adjacent_ids.append(room.room_id)
+        elif abs(x1 - x2) <= tolerance:
+            wall_x = x1
+            seg_min_y, seg_max_y = sorted((y1, y2))
+            for room in rooms:
+                rx0 = room.footprint.origin.x
+                rx1 = rx0 + room.footprint.length
+                ry0 = room.footprint.origin.y
+                ry1 = ry0 + room.footprint.width
+                touches_boundary = abs(wall_x - rx0) <= tolerance or abs(wall_x - rx1) <= tolerance
+                overlaps_y = min(seg_max_y, ry1) - max(seg_min_y, ry0) > tolerance
+                if touches_boundary and overlaps_y:
+                    adjacent_ids.append(room.room_id)
+
+        if adjacent_ids:
+            wall.room_ids = tuple(dict.fromkeys(adjacent_ids))
+
+
 def _add_deterministic_openings(level: Level) -> None:
     if not level.floor_plan:
         return
@@ -165,6 +206,7 @@ def build_reference_house_workflow() -> BuildingWorkflow:
                 if wall.load_bearing and wall.tributary_width_m <= 0.0:
                     wall.tributary_width_m = width_m / 2.0
             _add_internal_partition_walls(level, rooms, masonry.material_id, model.load_bearing_mode == "all_walls")
+            _assign_exterior_wall_room_adjacency(level, rooms)
             _add_deterministic_openings(level)
             for wall in level.floor_plan.walls.values():
                 product_bindings.bind(wall.wall_id, "wall", REFERENCE_MASONRY_PRODUCT_ID)
