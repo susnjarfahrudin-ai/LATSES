@@ -1,5 +1,5 @@
 from lat_ces.building.floor_plan import FloorPlan, Point2D, Segment2D, Wall
-from lat_ces.building.geometry import Box3D
+from lat_ces.building.geometry import Box3D, Point3D
 from lat_ces.building.model import BuildingModel, Level, Material, Room
 from lat_ces.building_model.source_of_truth import build_read_only_views
 
@@ -9,7 +9,7 @@ def _model():
     model = BuildingModel("Reference House")
     model.add_material(product)
     level = Level("Ground", 0.0, 2.70, length_m=10.0, width_m=10.0)
-    level.add_room(Room("Kuhinja", Box3D(0, 0, 0, 3, 3, 2.7), room_id="room-kitchen"))
+    level.add_room(Room("Kuhinja", Box3D(Point3D(0, 0, 0), 3, 3, 2.7), room_id="room-kitchen"))
     plan = FloorPlan("Ground")
     plan.add_wall(Wall("Kitchen wall", Segment2D(Point2D(0, 0), Point2D(4, 0)), .25, "wall-001", material_id=product.material_id, exterior=True, room_ids=("room-kitchen",)))
     level.set_floor_plan(plan)
