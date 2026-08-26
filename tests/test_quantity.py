@@ -1,33 +1,45 @@
 import pytest
-import math
-from lat_ces.core.dimensions import LENGTH, TIME, VELOCITY
-from lat_ces.scientific.quantity import PhysicalQuantity
 
-def test_quantity_creation():
-    d = PhysicalQuantity(value=10.0, dimension=LENGTH, uncertainty=0.1)
-    assert d.value == 10.0
-    assert d.dimension == LENGTH
-    assert d.uncertainty == 0.1
+from lat_ces.scientific.quantity import Quantity, QuantityError
+from lat_ces.scientific.units.core import centimeter, kilogram, meter, second
 
-def test_quantity_addition_success():
-    d1 = PhysicalQuantity(10.0, LENGTH, 0.3)
-    d2 = PhysicalQuantity(5.0, LENGTH, 0.4)
-    res = d1 + d2
-    assert res.value == 15.0
-    assert res.dimension == LENGTH
-    assert math.isclose(res.uncertainty, 0.5)
 
-def test_quantity_addition_dimension_mismatch():
-    d = PhysicalQuantity(10.0, LENGTH, 0.1)
-    t = PhysicalQuantity(2.0, TIME, 0.05)
-    with pytest.raises(ValueError):
-        _ = d + t
+def test_quantity_converts_and_adds_compatible_units():
+    length = Quantity(1.0, meter)
+    two_centimeters = Quantity(2.0, centimeter)
 
-def test_quantity_division_velocity():
-    d = PhysicalQuantity(100.0, LENGTH, 2.0)
-    t = PhysicalQuantity(10.0, TIME, 0.1)
-    v = d / t
-    assert v.value == 10.0
-    assert v.dimension == VELOCITY
-    expected_u = 10.0 * math.sqrt((2.0/100.0)**2 + (0.1/10.0)**2)
-    assert math.isclose(v.uncertainty, expected_u)
+    result = length + two_centimeters
+
+    assert result.unit == meter
+    assert result.value == pytest.approx(1.02)
+
+
+def test_quantity_rejects_dimension_mismatch():
+    with pytest.raises(QuantityError):
+        _ = Quantity(1.0, meter) + Quantity(1.0, kilogram)
+
+
+def test_quantity_multiplication_builds_composite_dimension():
+    result = Quantity(5.0, meter) * Quantity(2.0, second)
+
+    assert result.value == pytest.approx(10.0)
+    assert result.dimension == meter.dimension * second.dimension
+
+
+def test_quantity_division_builds_composite_dimension():
+    result = Quantity(10.0, meter) / Quantity(2.0, second)
+
+    assert result.value == pytest.approx(5.0)
+    assert result.dimension == meter.dimension / second.dimension
+
+
+def test_quantity_preserves_provenance_and_uncertainty_reference():
+    result = Quantity(21.0, meter, provenance="model-room-01", uncertainty_ref="U-01")
+
+    assert result.provenance == "model-room-01"
+    assert result.uncertainty_ref == "U-01"
+
+
+def test_quantity_rejects_zero_divisor():
+    with pytest.raises(ZeroDivisionError):
+        _ = Quantity(1.0, meter) / Quantity(0.0, second)
