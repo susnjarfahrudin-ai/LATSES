@@ -75,10 +75,10 @@ def test_room_heat_loss_calculates_from_canonical_wall_geometry() -> None:
     assert [result.room_name for result in results] == ["Dnevna soba", "Kuhinja"]
     assert all(result.status == "CALCULATED" for result in results)
     assert all(result.exterior_wall_area_m2 == pytest.approx(28.0) for result in results)
-    assert all(result.u_value_w_m2k == pytest.approx(1.130841, rel=1e-5) for result in results)
+    assert all(result.u_value_w_m2k == pytest.approx(1.130856, rel=1e-6) for result in results)
     assert all(result.design_delta_t_k == pytest.approx(30.0) for result in results)
-    assert all(result.heat_loss_w == pytest.approx(949.579, rel=1e-4) for result in results)
-    assert all(result.heat_loss_w_m2 == pytest.approx(79.132, rel=1e-4) for result in results)
+    assert all(result.heat_loss_w == pytest.approx(949.919, rel=1e-6) for result in results)
+    assert all(result.heat_loss_w_m2 == pytest.approx(79.160, rel=1e-6) for result in results)
 
 
 def test_missing_lambda_is_explicit_input_required() -> None:
