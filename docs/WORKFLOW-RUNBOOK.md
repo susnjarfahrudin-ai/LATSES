@@ -1,346 +1,56 @@
 # LAT-CES CI / Release Runbook — persistent workflow memory
 
-This document is the persistent operational memory for CI, EXE and Windows Installer repair/release cycles.
+## Current validated engineering-GUI checkpoint — 2026-08-26
 
-## Canonical repository
+PR #188 completed the visible Engineering Summary on the canonical `BuildingModel`.
 
-- Repository: `susnjarfahrudin-ai/LATSES`
-- Use this repository for the release workflow.
-- Never substitute evidence from another repository, branch or older commit.
+Exact source SHA: `a7af57126ff26820745a516314c301378b87d878`
 
-## Canonical Verification workflow
+Evidence:
 
-- **Verification:** `.github/workflows/ci.yml`
-- **Core job:** `verify-core`
-- An empty/non-functional workflow file must not be treated as Verification evidence.
-- A workflow run with zero executable jobs is infrastructure/configuration noise, not an application test result.
+- Verification #1016: **SUCCESS**
+- Windows Installer #836: **SUCCESS**
+- CodeQL #239: **SUCCESS**
+- Installer artifact: `LAT-CES-Windows-Installer`
+- Artifact ID: `9590321023`
+- Artifact size: `11,023,789 bytes`
+- Artifact ZIP SHA-256: `eeedb03110036ef835d2131b8552a5fe030c3c27cc2bc45d22c353baaf7c1fcb`
+- PR merge commit: `c0fee67a16b4948fa158cc7a698fccbaa722975a`
 
-## SCI development order
+PR #188 extends the visible GUI summary with structural load results, thermal wall inputs, room/wall/opening/stair/terrace quantities and MEP registry counts, while preserving one canonical `BuildingModel` and read-only engineering projections.
 
-`SCI 1–145 → gap map → canonical scientific contract → consolidate duplicates → Unit/Dimension/Quantity/Measurement/Uncertainty/Provenance → Validation Gate → BuildingModel integration → SCI verification tests → CI Gate → EXE → Installer → GUI final evaluation`
+## Repair history for the current GUI chain
 
-GUI remains downstream of the scientific contract.
+### PR #185
 
-## Safe repair loop
+`280f0d4…` → Verification #1007 GREEN → Installer #827 GREEN → CodeQL #230 GREEN → merge `36a4484…`.
 
-1. Identify the exact `main` SHA under test.
-2. Run the canonical Verification workflow for that exact SHA.
-3. Require Verification to be GREEN before packaging evidence is accepted.
-4. If a downstream EXE/Installer workflow fails, inspect the first real failing step.
-5. Fix only the demonstrated root cause and keep the change minimal.
-6. Commit the fix.
-7. Re-run Verification for the new exact SHA.
-8. Require Verification GREEN again.
-9. Run EXE/Installer for that same SHA.
-10. Repeat until the complete release chain is GREEN.
-11. Do not report an artifact as release-ready until its exact source SHA, artifact name, size and SHA-256 are known.
+### PR #186
 
-## Evidence-first release sequence
+`51299686…` → Verification #1011 GREEN → Installer #831 GREEN → CodeQL #234 GREEN → merge `0c5dbe36b76b3f6d9584ecb57e6f0ffb83780a78`.
 
-`exact main SHA → Verification GREEN → EXE build → packaged EXE smoke → GUI identity smoke → Inno Setup → installer build → installer smoke → artifact upload → artifact evidence`
+First-class Stair/Terrace elements were exposed in the canonical model and visible inspector.
 
-Evidence rules:
+### PR #187
 
-1. A green workflow from another SHA does not transfer to the current release SHA.
-2. A historical Installer or EXE success is not evidence for the current release SHA.
-3. An Installer failure after Verification GREEN is a packaging/release failure unless logs prove otherwise.
-4. Use the first real failing step, not secondary skipped steps or warnings.
-5. Node.js deprecation warnings are warnings, not the root cause of a failing build unless the workflow proves they caused the failure.
-6. No artifact means no release evidence.
-7. A `total_count: 0` workflow failure is not application verification evidence.
+`d517009fec57275c5da123f2ad269f2751a07f0e` → Verification #1014 GREEN → Installer #834 GREEN → CodeQL #237 GREEN → merge `3579f74e278da2da0188d974e10a63d1e2a59b96`.
 
-## ReferenceHouse historical checkpoint
+Room labels were rendered on the floor plan and the Engineering Summary began reading Statics/Thermal data from the same model. The only failed cycle was a test naming mismatch (`Kuhinja` vs the fixture's canonical `Kuhinja + trpezarija`), repaired without weakening the model contract.
 
-The ReferenceHouse repair established a case-insensitive bedroom classification fix. Historical Verification evidence is not reusable for later commits.
+### PR #188
 
-Original repair commit:
+`a7af57126ff26820745a516314c301378b87d878` → Verification #1016 GREEN → Installer #836 GREEN → CodeQL #239 GREEN → merge `c0fee67a16b4948fa158cc7a698fccbaa722975a`.
 
-`f03cf71df148261da159e0635d683635aa920530`
+The automated chain is GREEN through the full engineering summary. The remaining release acceptance is visual/interactive Windows confirmation of the installed GUI sequence:
 
-Observed original failure:
+`Reference House → Tlocrt → Presjek → 3D → Provjera → Izvještaj → Materijali`
 
-- Obtained lighting: `801.6 W`
-- Expected lighting: `792.0 W`
-- Difference: `9.6 W`
+with wall/room/stair/terrace/statics/thermal/MEP/quantity content visible and coherent.
 
-The fix used `casefold()` in `ReferenceHouse.lighting_w()` and was limited to `lat_ces/reference_house.py`.
+## Release evidence rule
 
-## Installer repair cycle — 2026-08-25
+The release record must always bind the exact source SHA to Verification, Installer, artifact name, artifact size and artifact SHA-256. Historical evidence from another SHA is not reusable.
 
-### First real Installer failure — #658
+## Architectural rule
 
-The first downstream Installer failure occurred in `GUI identity smoke test` after these stages succeeded:
-
-- desktop import
-- pytest
-- PyInstaller GUI build
-- packaged EXE smoke
-
-Root cause: runner-side Windows UI Automation could not reliably obtain the packaged Tk window.
-
-### Repair — #683993ac
-
-`683993ac761ce1c670829f8b271d4dc36fca4238`
-
-`fix: make packaged GUI identity smoke test robust`
-
-This changed only `.github/workflows/build-installer.yml` and replaced the `MainWindowHandle` lookup with a process/window AutomationElement search.
-
-Verification #819 for this SHA: `SUCCESS`.
-
-Installer #659 for this SHA: `FAILURE`, again at GUI identity smoke.
-
-### Second downstream failure — #659
-
-Exact reported failure:
-
-`GUI identity smoke test timed out waiting for a Window AutomationElement for LATSES.exe (PID 1304)`
-
-Conclusion: UIAutomation was unreliable for this packaged Tk application on the runner.
-
-### Canonical application-level GUI identity hook
-
-`lat_ces/gui_complete.py` already exposes `LATCES_GUI_SMOKE=1`. The hook instantiates the real `CompleteBuildingWorkspaceApp`, checks the concrete class and required notebook tabs, then destroys the app and exits non-zero on mismatch.
-
-Expected GUI surface:
-
-- `Model / Pogledi`
-- `Konstrukcija / Statika`
-- `MEP`
-- `Fasade`
-
-### Repair — #25e6a6ec
-
-`25e6a6ece9895012353b915a6a06cdc6aa246463`
-
-`fix: use packaged GUI identity smoke hook on Windows runner`
-
-The Installer workflow switched to `LATCES_GUI_SMOKE=1` and `Start-Process -Wait`.
-
-Problem discovered later: `Start-Process -Wait` had no explicit timeout, so a non-exiting packaged Tk process could leave the GitHub job stuck indefinitely.
-
-### Repair — #126e8266
-
-`126e82660517f970d957cac8ff5e0abc6d95fe12`
-
-`fix: bound packaged GUI identity smoke test`
-
-The Installer GUI identity step now:
-
-- starts the packaged EXE without `-Wait`
-- polls for process exit
-- allows a maximum of 45 seconds
-- fails with an explicit timeout message if the EXE does not exit
-- forcibly terminates the process in timeout/finalization cleanup
-
-This prevents an indefinitely hung Installer run.
-
-### Verification/configuration incident on #126e8266
-
-After `126e8266`, `.github/workflows/main.yml` produced run **#272** with `failure` and **zero jobs**. Investigation showed `.github/workflows/main.yml` was an empty file. It was not the real Verification workflow.
-
-The actual Verification workflow is `.github/workflows/ci.yml`, whose `verify-core` job is valid.
-
-### Cleanup — #702d0996
-
-`702d09964a47bb49fc6fbf73c3a14e3215822ef6`
-
-`chore: remove empty non-functional main workflow`
-
-The empty `.github/workflows/main.yml` was deleted so that the invalid 0-job workflow cannot be mistaken for release evidence.
-
-A fresh Windows Installer run **#663** was automatically queued for this exact SHA.
-
-## Final verified release checkpoint — 2026-08-25
-
-The validated release checkpoint is:
-
-`36ede3d8fcfa3e7d15ac10d338e592ea289f432d`
-
-Commit message:
-
-`fix: run GUI identity smoke in UTF-8 mode`
-
-### Canonical Verification
-
-- Workflow: `LAT-CES Verification Pipeline`
-- Job: `verify-core`
-- Run: **#829**
-- Exact SHA: `36ede3d8fcfa3e7d15ac10d338e592ea289f432d`
-- Result: **SUCCESS**
-- Wheel/package discovery: **SUCCESS**
-- Full verification test suite: **SUCCESS**
-
-### Windows Installer
-
-- Workflow: `LAT-CES Windows Installer`
-- Run: **#673**
-- Exact SHA: `36ede3d8fcfa3e7d15ac10d338e592ea289f432d`
-- Result: **SUCCESS**
-- Desktop import + pytest: **SUCCESS**
-- PyInstaller GUI executable build: **SUCCESS**
-- Packaged EXE smoke: **SUCCESS**
-- Canonical GUI identity smoke: **SUCCESS**
-- Inno Setup installation: **SUCCESS**
-- Inno Setup compile: **SUCCESS**
-- Installer artifact smoke: **SUCCESS**
-- Artifact upload: **SUCCESS**
-
-The successful GUI identity log explicitly confirmed:
-
-`GUI identity OK: CompleteBuildingWorkspaceApp; tabs=('Model / Pogledi', 'Omotač / Fasada', 'Konstrukcija / Statika', 'Proračuni', 'MEP', 'Fasade')`
-
-The Installer artifact was produced as:
-
-- Artifact name: `LAT-CES-Windows-Installer`
-- Artifact ID: `9542719493`
-- Artifact size: `10,997,835 bytes`
-- Artifact ZIP SHA-256: `cc52ebe857c19fda2b98061f17dfe1778133c67a0148205fa90d824e766c59b6`
-- Retention: until `2026-09-23T23:32:39Z`
-
-The installer executable itself was verified during the smoke step:
-
-- File: `LAT-CES-Setup.exe`
-- SHA-256: `4C901777909F5F1D26D90C31125E0E9DEA6F4539220FA1CA115ED37AF320E3F2`
-
-This is the first complete evidence chain in this repair cycle where Verification, EXE build/smoke, GUI identity, Inno Setup, installer smoke and artifact upload are all successful for the same exact `main` SHA.
-
-### Evidence links
-
-- Verification #829: `https://github.com/susnjarfahrudin-ai/LATSES/actions/runs/32789740054`
-- Installer #673: `https://github.com/susnjarfahrudin-ai/LATSES/actions/runs/32789740148`
-- Artifact: `https://github.com/susnjarfahrudin-ai/LATSES/actions/runs/32789740148/artifacts/9542719493`
-- Source commit: `https://github.com/susnjarfahrudin-ai/LATSES/commit/36ede3d8fcfa3e7d15ac10d338e592ea289f432d`
-
-## Functional GUI shell checkpoint — 2026-08-25
-
-The next GUI phase introduced a canonical engineering navigation shell and then replaced the shell-only smoke with functional checks.
-
-### GUI navigation shell
-
-Initial GUI shell commit:
-
-`caea929fe4b425d6bfdddca69c7adf4e36ad4697`
-
-`feat: implement canonical LAT-CES engineering navigation shell`
-
-Canonical navigation groups:
-
-`OBJECT → MODEL → ANALYSIS → SYSTEMS → ENERGY → SERVICE → AI`
-
-The initial shell passed Verification #831, but the first Installer attempt exposed a lifecycle regression (`StringVar` before Tk root). That was fixed in:
-
-`462655e232c5d3c41d986d0488fb5e2e7f190b44`
-
-`fix: initialize GUI navigation variables after Tk root`
-
-Verification #833: **SUCCESS**.
-
-Installer #676: **SUCCESS**.
-
-### Functional GUI entrypoint
-
-A dedicated packaged entrypoint was introduced:
-
-`lat_ces/gui_functional.py`
-
-The functional entrypoint extends `CompleteBuildingWorkspaceApp` and adds real module routing, ReferenceHouse loading and action groups for the seven canonical navigation areas.
-
-The Installer workflow was updated to build:
-
-`pyinstaller --noconfirm --clean --onefile --windowed --name LATSES lat_ces/gui_functional.py`
-
-and to run the functional smoke using:
-
-`LATCES_GUI_SMOKE=1`
-
-The smoke now verifies, for the actual GUI class:
-
-- all seven canonical navigation groups exist
-- the ReferenceHouse identity matches the canonical ReferenceHouse data
-- the ReferenceHouse loads into the canonical `BuildingModel`
-- the expected number of levels is present
-- the model contains mapped rooms (not only envelope geometry)
-- every navigation group registers functional actions
-- representative module routing is exercised deterministically without blocking editors
-
-Functional test commit:
-
-`f349470ff456100905e2aab414a13b2e2c0af1b1`
-
-`test: exercise functional GUI actions deterministically`
-
-### Verification — #838
-
-- Workflow: `LAT-CES Verification Pipeline`
-- Job: `verify-core`
-- Run: **#838**
-- Exact SHA: `f349470ff456100905e2aab414a13b2e2c0af1b1`
-- Result: **SUCCESS**
-
-### Windows EXE — #379
-
-- Workflow: `LATSES Windows Executable`
-- Run: **#379`
-- Exact SHA: `f349470ff456100905e2aab414a13b2e2c0af1b1`
-- Result: **SUCCESS**
-- Artifact name: `LATSES-Windows-x64`
-- Artifact ID: `9543457546`
-- Artifact size: `6,420,243 bytes`
-- Artifact ZIP SHA-256: `0c631a903bf37e2ab1c37aca22ee3b60416d669e90522b7eb1f98ff6d235d9f0`
-
-### Windows Installer — #680
-
-- Workflow: `LAT-CES Windows Installer`
-- Run: **#680**
-- Exact SHA: `f349470ff456100905e2aab414a13b2e2c0af1b1`
-- Result: **SUCCESS**
-- Desktop import + pytest: **SUCCESS**
-- PyInstaller GUI executable build: **SUCCESS**
-- Packaged EXE smoke: **SUCCESS**
-- GUI functional identity smoke: **SUCCESS**
-- Inno Setup installation: **SUCCESS**
-- Inno Setup compile: **SUCCESS**
-- Installer artifact smoke: **SUCCESS**
-- Artifact upload: **SUCCESS**
-- Artifact name: `LAT-CES-Windows-Installer`
-- Artifact ID: `9543463818`
-- Artifact size: `11,009,753 bytes`
-- Artifact ZIP SHA-256: `d76012df843ffd8fc6d832e48d083eaf1daca4c87e11b892f98f5db1df1549cd`
-
-### Functional GUI acceptance rule
-
-The `f349470f…` artifact is the first artifact in this GUI phase whose smoke test proves more than button presence. It proves canonical navigation, functional action registration, ReferenceHouse loading and `BuildingModel` room mapping.
-
-However, visual/interactive Windows acceptance is still a separate human check: CI proves the wired behaviors above, while the user must confirm the actual installed screen and interactive usability on Windows.
-
-## Release gate
-
-All of the following must be GREEN for release readiness:
-
-- exact `main` SHA identified
-- canonical LAT-CES Verification Pipeline / `verify-core`: SUCCESS
-- CodeQL: SUCCESS
-- wheel/package discovery: SUCCESS
-- full pytest suite: SUCCESS
-- complete desktop application import: SUCCESS
-- PyInstaller GUI EXE build: SUCCESS
-- packaged EXE smoke test: SUCCESS
-- canonical GUI identity smoke test: SUCCESS
-- Inno Setup compilation: SUCCESS
-- installer artifact smoke test: SUCCESS
-- artifact upload: SUCCESS
-
-## Artifact reporting rule
-
-Never report “release-ready” from a workflow that has no artifact. Never reuse an artifact from a different SHA. The final evidence record must include:
-
-`SHA → Verification run → Installer run → artifact name → artifact size → SHA-256`
-
-## Architectural rules
-
-- One canonical scientific implementation per concept.
-- Compatibility facades may re-export but must not create competing semantics.
-- BuildingModel is the source of truth for the GUI.
-- GUI does not become the source of scientific truth.
-- EXE/Installer packaging is a release verification stage, not a substitute for scientific verification.
+`BuildingModel` is the source of truth. GUI, structural, thermal, MEP and quantity views are downstream read-only projections and must not create competing physical models.
