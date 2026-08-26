@@ -1,4 +1,4 @@
-"""Structural read-only projection from the canonical Building Model."""
+"""Structural read-only projection from the canonical production BuildingModel."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,8 +14,8 @@ class StaticWallInput:
     room_ids: tuple[str, ...]
     thickness_m: float
     load_bearing: bool
-    density_kg_m3: float
-    compressive_strength_mpa: float
+    density_kg_m3: float | None
+    compressive_strength_mpa: float | None
 
 
 @dataclass(frozen=True)
@@ -24,7 +24,7 @@ class StaticBuildingInput:
 
 
 def to_static_input(model: Any) -> StaticBuildingInput:
-    """Create immutable structural inputs from canonical Building Model views."""
+    """Create immutable structural inputs from the production BuildingModel."""
     views = build_read_only_views(model)
     materials = {view.product_id: view for view in views.material_views}
     return StaticBuildingInput(
