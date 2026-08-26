@@ -57,12 +57,12 @@ class Measurement:
     ) -> None:
         if quantity is None and (value is None or unit is None):
             raise TypeError("Measurement requires Quantity or explicit value and unit")
-
         if quantity is not None and not hasattr(quantity, "dimension") and not hasattr(quantity, "value"):
             raise TypeError("Measurement requires a Quantity-like scientific object")
-
         if timestamp is None:
             timestamp = datetime.now(timezone.utc).isoformat()
+        if not isinstance(timestamp, str) or not timestamp.strip():
+            raise MeasurementError("Measurement timestamp must be a non-empty string")
         if not method:
             method = "unspecified"
         if not source:
@@ -73,9 +73,7 @@ class Measurement:
             raise MeasurementError("Measurement revision must be >= 1")
 
         resolved_instrument = instrument_id if instrument_id is not None else instrument
-        resolved_calibration = (
-            calibration_reference if calibration_reference is not None else calibration
-        )
+        resolved_calibration = calibration_reference if calibration_reference is not None else calibration
 
         if value is None:
             value = getattr(quantity, "value", None)
@@ -99,22 +97,10 @@ class Measurement:
         object.__setattr__(self, "uncertainty_ref", uncertainty_ref)
         object.__setattr__(self, "value", value)
         object.__setattr__(self, "unit", unit)
-        object.__setattr__(
-            self,
-            "uncertainty",
-            float(uncertainty) if uncertainty is not None else quantity_uncertainty,
-        )
-        object.__setattr__(
-            self,
-            "provenance",
-            provenance if provenance is not None else quantity_provenance,
-        )
+        object.__setattr__(self, "uncertainty", float(uncertainty) if uncertainty is not None else quantity_uncertainty)
+        object.__setattr__(self, "provenance", provenance if provenance is not None else quantity_provenance)
         object.__setattr__(self, "evidence", evidence)
-        object.__setattr__(
-            self,
-            "measurement_id",
-            measurement_id or f"MEAS-{uuid4().hex.upper()}",
-        )
+        object.__setattr__(self, "measurement_id", measurement_id or f"MEAS-{uuid4().hex.upper()}")
         object.__setattr__(self, "revision", revision)
 
     @classmethod
@@ -145,6 +131,7 @@ class Measurement:
             operator=operator,
             uncertainty_ref=uncertainty_ref,
             evidence=evidence,
+            measurement_id=f"LAT-MEAS-{uuid4().hex.upper()}",
         )
 
     @property
