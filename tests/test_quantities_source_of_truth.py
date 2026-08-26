@@ -1,5 +1,5 @@
 from lat_ces.building.floor_plan import FloorPlan, Opening, Point2D, Segment2D, Wall
-from lat_ces.building.geometry import Box3D
+from lat_ces.building.geometry import Box3D, Point3D
 from lat_ces.building.model import BuildingModel, Level, Material, Room
 from lat_ces.building_model.quantities import to_quantity_view
 
@@ -17,7 +17,7 @@ def _canonical_model():
     model = BuildingModel("Reference House")
     model.add_material(material)
     level = Level("Ground", 0.0, 2.70, length_m=10.0, width_m=10.0)
-    level.add_room(Room("Kuhinja", Box3D(0.0, 0.0, 0.0, 3.0, 3.0, 2.70), room_id="room-kitchen"))
+    level.add_room(Room("Kuhinja", Box3D(Point3D(0.0, 0.0, 0.0), 3.0, 3.0, 2.70), room_id="room-kitchen"))
     plan = FloorPlan("Ground")
     wall = Wall(
         "Exterior kitchen wall",
