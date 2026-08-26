@@ -2,46 +2,159 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from numbers import Real
+from typing import Any
 from uuid import uuid4
+
+from lat_ces.scientific.quantity import Quantity
 
 from .provenance import MeasurementProvenance
 
 
+class MeasurementError(ValueError):
+    """Raised when a measurement violates the canonical SCI contract."""
+
+
 @dataclass(frozen=True)
 class Measurement:
-    """SCI-0046/0047 canonical measurement object.
+    """Canonical scientific measurement record.
 
-    A measurement is a traceable scientific record, not a bare number.
+    ``Quantity`` is the authoritative value/unit carrier. Existing
+    PhysicalQuantity-like objects are accepted only as compatibility inputs.
     """
 
-    quantity: object
-    value: float
-    unit: object
-    uncertainty: float | None
-    instrument: object
-    calibration: object | None = None
+    quantity: Any
+    value: Real | None = None
+    unit: Any | None = None
+    uncertainty: Any = None
+    instrument: Any = None
+    calibration: Any = None
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     provenance: MeasurementProvenance | None = None
-    evidence: object | None = None
+    evidence: Any = None
     measurement_id: str = field(default_factory=lambda: f"MEAS-{uuid4().hex.upper()}")
     revision: int = 1
+    method: str = ""
+    source: str = ""
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.quantity, Quantity) and not all(
+            hasattr(self.quantity, attr) for attr in ("value", "unit", "dimension")
+        ):
+            raise MeasurementError("Measurement requires a Quantity-like scientific object")
+        if self.revision < 1:
+            raise MeasurementError("measurement revision must be >= 1")
+        if not self.measurement_id.strip():
+            raise MeasurementError("measurement_id must be non-empty")
+        if not isinstance(self.timestamp, str) or not self.timestamp.strip():
+            raise MeasurementError("timestamp must be non-empty")
+        quantity_value = self.quantity.value
+        quantity_unit = self.quantity.unit
+        if self.value is None:
+            object.__setattr__(self, "value", quantity_value)
+        elif self.value != quantity_value:
+            raise MeasurementError("measurement.value must match quantity.value")
+        if self.unit is None:
+            object.__setattr__(self, "unit", quantity_unit)
+        elif self.unit is not quantity_unit and self.unit != quantity_unit:
+            raise MeasurementError("measurement.unit must match quantity.unit")
+        if self.uncertainty is not None:
+            uncertainty_value = getattr(self.uncertainty, "value", self.uncertainty)
+            if uncertainty_value < 0:
+                raise MeasurementError("measurement uncertainty cannot be negative")
+
+    @classmethod
+    def now(
+        cls,
+        quantity: Any,
+        *,
+        uncertainty: Any = None,
+        instrument: Any = None,
+        calibration: Any = None,
+        provenance: MeasurementProvenance | None = None,
+        evidence: Any = None,
+        method: str = "",
+        source: str = "",
+        measurement_id: str | None = None,
+    ) -> "Measurement":
+        return cls(
+            quantity=quantity,
+            uncertainty=uncertainty,
+            instrument=instrument,
+            calibration=calibration,
+            provenance=provenance,
+            evidence=evidence,
+            method=method,
+            source=source,
+            measurement_id=measurement_id or f"MEAS-{uuid4().hex.upper()}",
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+
+    @property
+    def dimension(self):
+        return self.quantity.dimension
+
+    @property
+    def revision_label(self) -> str:
+        n = self.revision
+        parts: list[str] = []
+        while n:
+            n, rem = divmod(n - 1, 26)
+            parts.append(chr(65 + rem))
+        return "".join(reversed(parts))
+
+    @property
+    def resolved_source(self) -> str:
+        return self.source.strip() or (self.provenance.source if self.provenance else "") or getattr(self.instrument, "instrument_id", "") or getattr(self.instrument, "uuid", "")
 
     def validate(self) -> "Measurement":
         from .validation import validate_measurement
-
         return validate_measurement(self)
 
-    def to_record(self) -> dict[str, object]:
+    def revise(
+        self,
+        *,
+        reason: str,
+        quantity: Any | None = None,
+        uncertainty: Any = None,
+        method: str | None = None,
+        source: str | None = None,
+        calibration: Any = None,
+        evidence: Any = None,
+    ) -> "Measurement":
+        if not reason.strip():
+            raise MeasurementError("revision reason must be non-empty")
+        return Measurement(
+            quantity=quantity or self.quantity,
+            uncertainty=self.uncertainty if uncertainty is None else uncertainty,
+            instrument=self.instrument,
+            calibration=self.calibration if calibration is None else calibration,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            provenance=self.provenance,
+            evidence=self.evidence if evidence is None else evidence,
+            measurement_id=self.measurement_id,
+            revision=self.revision + 1,
+            method=self.method if method is None else method,
+            source=self.source if source is None else source,
+        )
+
+    def to_record(self) -> dict[str, Any]:
         return {
             "measurement_id": self.measurement_id,
-            "quantity": self.quantity,
+            "quantity": self.quantity.to_record() if hasattr(self.quantity, "to_record") else repr(self.quantity),
             "value": self.value,
-            "unit": self.unit,
-            "uncertainty": self.uncertainty,
-            "instrument": self.instrument,
-            "calibration": self.calibration,
+            "unit": getattr(self.unit, "symbol", repr(self.unit)),
+            "dimension": repr(self.dimension),
+            "uncertainty": self.uncertainty.to_record() if hasattr(self.uncertainty, "to_record") else self.uncertainty,
+            "instrument": self.instrument.to_record() if hasattr(self.instrument, "to_record") else self.instrument,
+            "calibration": self.calibration.to_record() if hasattr(self.calibration, "to_record") else self.calibration,
             "timestamp": self.timestamp,
-            "provenance": self.provenance,
-            "evidence": self.evidence,
+            "method": self.method,
+            "source": self.resolved_source,
+            "provenance": self.provenance.__dict__ if self.provenance else None,
+            "evidence": self.evidence.to_record() if hasattr(self.evidence, "to_record") else self.evidence,
             "revision": self.revision,
         }
+
+
+__all__ = ["Measurement", "MeasurementError"]
