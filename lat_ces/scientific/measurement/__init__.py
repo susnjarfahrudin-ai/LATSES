@@ -1,6 +1,6 @@
 """Canonical SCI-0046/0047 measurement contract and compatibility facade."""
 
-from .measurement import Measurement
+from .measurement import Measurement, MeasurementError
 from .provenance import MeasurementProvenance
 from .validation import MeasurementValidationError, validate_measurement
 from .registry import MeasurementRegistry
@@ -15,6 +15,7 @@ from .compatibility import (
 
 __all__ = [
     "Measurement",
+    "MeasurementError",
     "MeasurementProvenance",
     "MeasurementValidationError",
     "validate_measurement",
