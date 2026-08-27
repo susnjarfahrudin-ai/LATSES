@@ -110,7 +110,8 @@ class ProductEngineeringWorkspaceApp(ProductBuildingWorkspaceApp):
         assert record.self_weight_kn_m is not None and record.self_weight_kn_m > 0.0
         assert record.thermal_status == "CALCULATED"
         assert record.conductive_resistance_m2kw is not None and record.conductive_resistance_m2kw > 0.0
-        missing_product_id = products_for_category("Zidovi")[1].product_id
+        missing_product = next(product for product in products_for_category("Zidovi") if product.status == "MISSING")
+        missing_product_id = missing_product.product_id
         ensure_product_binding_registry(model).bind(wall_id, "wall", missing_product_id)
         wall.material_id = None
         self._acceptance_checkpoint("before_build_product_engineering_report_missing")
@@ -125,8 +126,6 @@ class ProductEngineeringWorkspaceApp(ProductBuildingWorkspaceApp):
 
 
 def run_product_engineering_acceptance() -> None:
-    # Acceptance mode deliberately avoids Tk cleanup callbacks: all assertions
-    # must finish first, then main() performs a deterministic process exit.
     print("GUI ACCEPTANCE CHECKPOINT: before_app_create", flush=True)
     print("GUI ACCEPTANCE CHECKPOINT: before_app_constructor", flush=True)
     app = ProductEngineeringWorkspaceApp()
