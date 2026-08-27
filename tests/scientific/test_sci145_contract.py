@@ -44,8 +44,8 @@ def test_ontology_identity_relations_and_provenance():
     graph = Ontology()
     graph.add_entity(OntologyEntity("building", "object", "building", domain="A building", provenance=("scope",)))
     graph.add_entity(OntologyEntity("room", "object", "building", domain="A room", provenance=("scope",)))
-    graph.relate("building", "contains", "room")
-    assert graph.validate().relations()[0].relation == "contains"
+    graph.relate("room", "PART_OF", "building")
+    assert graph.validate().relations()[0].relation_type == "PART_OF"
 
 
 def test_reasoning_requires_traceability():
