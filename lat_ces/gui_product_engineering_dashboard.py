@@ -117,6 +117,7 @@ class ProductEngineeringWorkspaceApp(ProductBuildingWorkspaceApp):
         missing_report = build_product_engineering_report(model)
         self._acceptance_checkpoint("after_build_product_engineering_report_missing")
         missing = next(item for item in missing_report.records if item.target_id == wall_id)
+        print(f"GUI ACCEPTANCE MISSING RESULT: verification_status={missing.verification_status!r} thermal_status={missing.thermal_status!r}", flush=True)
         assert missing.verification_status == "MISSING"
         assert missing.thermal_status == "INPUT_REQUIRED"
         self.refresh_product_engineering_summary()
