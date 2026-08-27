@@ -13,10 +13,15 @@ class ModelElement:
 
     def product(self):
         """Resolve this element's catalog product by stable product ID."""
-        return get_product(self.product_id)
+        product = get_product(self.product_id)
+        if product is None:
+            raise KeyError(f"Unknown catalog product: {self.product_id}")
+        return product
 
 
 def bind_product(element_id: str, element_type: str, product_id: str) -> ModelElement:
     """Bind a catalog product to a concrete model element."""
-    get_product(product_id)  # fail immediately if the selection is not in the catalog
+    product = get_product(product_id)
+    if product is None:
+        raise KeyError(f"Unknown catalog product: {product_id}")
     return ModelElement(element_id, element_type, product_id)
