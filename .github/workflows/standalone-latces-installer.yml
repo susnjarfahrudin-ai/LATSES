@@ -1,19 +1,16 @@
-name: Standalone LAT-CES Installer Test
+name: Fahro Terenska Aplikacija - Installer
 
 on:
   push:
     branches:
-      - test/standalone-latces-core-gui-exe-20260827
-  pull_request:
-    branches:
-      - main
+      - fahro-terenska-aplikacija
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build-standalone-installer:
+  build-field-app-installer:
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -24,14 +21,14 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install standalone build dependencies
+      - name: Install field application build dependencies
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           python -m pip install --upgrade pip numpy PyQt6 pyqtgraph reportlab pyinstaller
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Compile standalone sources
+      - name: Compile and verify field application
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -39,30 +36,25 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m py_compile standalone_test/standalone_entry.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Verify standalone runtime
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
           python -c "import sys; sys.path.insert(0,'standalone_test'); import standalone_entry as e; assert e.verify_all()"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Build standalone EXE
+      - name: Build Fahro field application EXE
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          pyinstaller --noconfirm --clean --onefile --windowed --name LAT-CES-Standalone-Test standalone_test/standalone_entry.py
+          pyinstaller --noconfirm --clean --onefile --windowed --name Fahro-Terenska-Aplikacija standalone_test/standalone_entry.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (!(Test-Path '.\dist\LAT-CES-Standalone-Test.exe')) { throw 'Standalone EXE was not produced' }
-          if ((Get-Item '.\dist\LAT-CES-Standalone-Test.exe').Length -lt 1000000) { throw 'Standalone EXE unexpectedly small' }
+          if (!(Test-Path '.\dist\Fahro-Terenska-Aplikacija.exe')) { throw 'Field application EXE not produced' }
+          if ((Get-Item '.\dist\Fahro-Terenska-Aplikacija.exe').Length -lt 1000000) { throw 'Field application EXE unexpectedly small' }
 
-      - name: Smoke test standalone EXE
+      - name: Smoke test packaged field application
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $p = Start-Process -FilePath '.\dist\LAT-CES-Standalone-Test.exe' -PassThru -WindowStyle Hidden
+          $p = Start-Process -FilePath '.\dist\Fahro-Terenska-Aplikacija.exe' -PassThru -WindowStyle Hidden
           Start-Sleep -Seconds 5
-          if ($p.HasExited -and $p.ExitCode -ne 0) { throw "Standalone EXE exited with code $($p.ExitCode)" }
+          if ($p.HasExited -and $p.ExitCode -ne 0) { throw "Field application EXE exited with code $($p.ExitCode)" }
           if (!$p.HasExited) { Stop-Process -Id $p.Id -Force }
 
       - name: Install Inno Setup
@@ -72,11 +64,11 @@ jobs:
           choco install innosetup -y --no-progress
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Build standalone installer
+      - name: Build Fahro field application installer
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          New-Item -ItemType Directory -Force -Path '.\installer-output-standalone' | Out-Null
+          New-Item -ItemType Directory -Force -Path '.\installer-output-fahro' | Out-Null
           $candidates = @(
             "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
             "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
@@ -87,28 +79,29 @@ jobs:
             $iscc = Get-ChildItem 'C:\ProgramData\chocolatey\lib\innosetup' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
           }
           if (-not $iscc) { throw 'Inno Setup compiler ISCC.exe not found' }
-          & $iscc 'installer\Standalone-LATCES-Test.iss'
+          Copy-Item '.\installer\Standalone-LATCES-Test.iss' '.\installer\Fahro-Terenska-Aplikacija.iss' -Force
+          & $iscc 'installer\Fahro-Terenska-Aplikacija.iss'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (!(Test-Path '.\installer-output-standalone\LAT-CES-Standalone-Test-Setup.exe')) { throw 'Standalone installer was not produced' }
-          if ((Get-Item '.\installer-output-standalone\LAT-CES-Standalone-Test-Setup.exe').Length -lt 1000000) { throw 'Standalone installer unexpectedly small' }
+          if (!(Test-Path '.\installer-output-standalone\LAT-CES-Standalone-Test-Setup.exe')) { throw 'Fahro installer was not produced' }
+          Move-Item '.\installer-output-standalone\LAT-CES-Standalone-Test-Setup.exe' '.\installer-output-fahro\Fahro-Terenska-Aplikacija-Setup.exe' -Force
+          if ((Get-Item '.\installer-output-fahro\Fahro-Terenska-Aplikacija-Setup.exe').Length -lt 1000000) { throw 'Fahro installer unexpectedly small' }
 
-      - name: Smoke test standalone installer artifact
+      - name: Check installer hash
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $installer = '.\installer-output-standalone\LAT-CES-Standalone-Test-Setup.exe'
-          Get-FileHash $installer -Algorithm SHA256 | Format-List
+          Get-FileHash '.\installer-output-fahro\Fahro-Terenska-Aplikacija-Setup.exe' -Algorithm SHA256 | Format-List
 
-      - name: Upload standalone EXE
+      - name: Upload Fahro field application EXE
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
         with:
-          name: LAT-CES-Standalone-Test-EXE
-          path: dist/LAT-CES-Standalone-Test.exe
+          name: Fahro-Terenska-Aplikacija-Windows-x64
+          path: dist/Fahro-Terenska-Aplikacija.exe
           if-no-files-found: error
 
-      - name: Upload standalone installer
+      - name: Upload Fahro field application installer
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
         with:
-          name: LAT-CES-Standalone-Test-Installer
-          path: installer-output-standalone/LAT-CES-Standalone-Test-Setup.exe
+          name: Fahro-Terenska-Aplikacija-Installer
+          path: installer-output-fahro/Fahro-Terenska-Aplikacija-Setup.exe
           if-no-files-found: error
