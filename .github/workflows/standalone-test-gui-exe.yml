@@ -1,0 +1,44 @@
+name: Standalone LAT-CES Core + GUI EXE Test
+
+on:
+  push:
+    branches:
+      - test/standalone-latces-core-gui-exe-20260827
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install GUI build dependencies
+        shell: pwsh
+        run: python -m pip install --upgrade pip numpy PyQt6 pyqtgraph pyinstaller
+      - name: Verify constitutional core
+        shell: pwsh
+        run: python -c "import sys; sys.path.insert(0,'standalone_test'); import framework_jezgro as c; assert c.execute_master_runtime_verification()"
+      - name: Verify Thermo Fluid extension
+        shell: pwsh
+        run: python -c "import sys; sys.path.insert(0,'standalone_test'); import dopuna_thermo_fluid as d; assert d.execute_domain_extension_verification_suite()"
+      - name: GUI construction smoke test
+        shell: pwsh
+        run: python -c "import sys; sys.path.insert(0,'standalone_test'); from PyQt6 import QtWidgets; from latces_gui import LATCESMasterGUI; app=QtWidgets.QApplication(sys.argv); w=LATCESMasterGUI(); w.close()"
+      - name: Build LATCES GUI EXE
+        shell: pwsh
+        run: pyinstaller --noconfirm --clean --onefile --windowed --name LATCES standalone_test/latces_gui.py
+      - name: EXE artifact smoke
+        shell: pwsh
+        run: if (!(Test-Path .\dist\LATCES.exe)) { throw 'LATCES.exe not produced' }
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: LATCES-Standalone-GUI-Windows-x64
+          path: dist/LATCES.exe
+          if-no-files-found: error
