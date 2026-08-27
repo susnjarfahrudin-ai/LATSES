@@ -26,31 +26,40 @@ jobs:
 
       - name: Install standalone build dependencies
         shell: pwsh
-        run: python -m pip install --upgrade pip numpy PyQt6 pyqtgraph reportlab pyinstaller
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m pip install --upgrade pip numpy PyQt6 pyqtgraph reportlab pyinstaller
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Correct standalone MEP verification bound
+      - name: Compile standalone sources
         shell: pwsh
         run: |
-          $path = 'standalone_test\master_standalone.py'
-          $text = Get-Content $path -Raw
-          $old = 'assert 0.15 <= h1["pressure_drop_mpa"] <= 0.16'
-          $new = 'assert 0.15 <= h1["pressure_drop_mpa"] <= 0.17'
-          if ($text -notlike "*$old*") { throw 'Expected MEP verification assertion was not found' }
-          $text = $text.Replace($old, $new)
-          Set-Content -Path $path -Value $text -Encoding utf8
-
-      - name: Verify and build standalone EXE
-        shell: pwsh
-        run: |
+          $ErrorActionPreference = 'Stop'
           python -m py_compile standalone_test/master_standalone.py
-          python -c "import sys; sys.path.insert(0,'standalone_test'); import master_standalone as m; assert m.verify_all()"
-          pyinstaller --noconfirm --clean --onefile --windowed --name LAT-CES-Standalone-Test standalone_test/master_standalone.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m py_compile standalone_test/standalone_entry.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify standalone runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -c "import sys; sys.path.insert(0,'standalone_test'); import standalone_entry as e; assert e.verify_all()"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build standalone EXE
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pyinstaller --noconfirm --clean --onefile --windowed --name LAT-CES-Standalone-Test standalone_test/standalone_entry.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (!(Test-Path '.\dist\LAT-CES-Standalone-Test.exe')) { throw 'Standalone EXE was not produced' }
           if ((Get-Item '.\dist\LAT-CES-Standalone-Test.exe').Length -lt 1000000) { throw 'Standalone EXE unexpectedly small' }
 
       - name: Smoke test standalone EXE
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $p = Start-Process -FilePath '.\dist\LAT-CES-Standalone-Test.exe' -PassThru -WindowStyle Hidden
           Start-Sleep -Seconds 5
           if ($p.HasExited -and $p.ExitCode -ne 0) { throw "Standalone EXE exited with code $($p.ExitCode)" }
@@ -59,12 +68,14 @@ jobs:
       - name: Install Inno Setup
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           choco install innosetup -y --no-progress
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build standalone installer
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force -Path '.\installer-output-standalone' | Out-Null
           $candidates = @(
             "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
@@ -84,6 +95,7 @@ jobs:
       - name: Smoke test standalone installer artifact
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $installer = '.\installer-output-standalone\LAT-CES-Standalone-Test-Setup.exe'
           Get-FileHash $installer -Algorithm SHA256 | Format-List
 
