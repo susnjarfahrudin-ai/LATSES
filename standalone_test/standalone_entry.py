@@ -233,7 +233,10 @@ def verify_gui_domain_access() -> bool:
     window._run_hydrostatic()
     assert "Pa" in window.fluid_result.toPlainText()
     window._run_reynolds()
-    assert "Reynolds number:" in window.fluid_result.toPlainText()
+    reynolds_result = window.fluid_result.toPlainText().strip()
+    assert reynolds_result and "GREŠKA:" not in reynolds_result
+    value_text = reynolds_result.split(":", 1)[-1].strip().split()[0]
+    assert float(value_text) > 0.0
     window.close()
     return True
 
