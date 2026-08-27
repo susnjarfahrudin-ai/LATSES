@@ -3,6 +3,7 @@
 from .algorithm import AlgorithmReference
 from .data_object import ScientificDataObject
 from .integrity import provenance_hash
+from .legacy import ProvenanceRecord, ScientificProvenance
 from .provenance_graph import ProvenanceGraph, ProvenanceLink
 from .source import DataSource
 from .transformation import TransformationRecord
@@ -11,7 +12,7 @@ from .validation import ProvenanceValidationError, validate_algorithm, validate_
 __all__ = [
     "AlgorithmReference", "DataSource", "ScientificDataObject",
     "TransformationRecord", "ProvenanceGraph", "ProvenanceLink",
-    "provenance_hash", "ProvenanceValidationError", "validate_algorithm",
-    "validate_data_object", "validate_provenance_chain", "validate_source",
-    "validate_transformation",
+    "provenance_hash", "ProvenanceRecord", "ScientificProvenance",
+    "ProvenanceValidationError", "validate_algorithm", "validate_data_object",
+    "validate_provenance_chain", "validate_source", "validate_transformation",
 ]
