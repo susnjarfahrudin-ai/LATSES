@@ -115,32 +115,26 @@ class ProductEngineeringWorkspaceApp(ProductBuildingWorkspaceApp):
 
 
 def run_product_engineering_acceptance() -> None:
+    # Acceptance mode deliberately avoids Tk cleanup callbacks: all assertions
+    # must finish first, then main() performs a deterministic process exit.
     app = ProductEngineeringWorkspaceApp()
-    try:
-        app.withdraw()
-        app.update_idletasks()
-        app.open_reference_house()
-        app.update_idletasks()
-        app.run_acceptance()
-        text = app.product_engineering_summary.get("1.0", "end")
-        for marker in ("STATIKA", "TERMIKA", "PRODUCT IDENTITET / PROVENANCE", "INPUT_REQUIRED"):
-            assert marker in text, f"Engineering summary missing {marker}"
-        print("GUI PRODUCT ENGINEERING GREEN", flush=True)
-    finally:
-        try:
-            app.quit()
-        finally:
-            app.destroy()
+    app.withdraw()
+    app.update_idletasks()
+    app.open_reference_house()
+    app.update_idletasks()
+    app.run_acceptance()
+    text = app.product_engineering_summary.get("1.0", "end")
+    for marker in ("STATIKA", "TERMIKA", "PRODUCT IDENTITET / PROVENANCE", "INPUT_REQUIRED"):
+        assert marker in text, f"Engineering summary missing {marker}"
+    print("GUI PRODUCT ENGINEERING GREEN", flush=True)
 
 
 def main() -> None:
     if os.environ.get("LATCES_GUI_ACCEPTANCE") == "1":
-        try:
-            run_product_engineering_acceptance()
-        finally:
-            sys.stdout.flush()
-            sys.stderr.flush()
-            os._exit(0)
+        run_product_engineering_acceptance()
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(0)
     ProductEngineeringWorkspaceApp().mainloop()
 
 
