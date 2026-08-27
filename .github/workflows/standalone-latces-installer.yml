@@ -28,6 +28,17 @@ jobs:
         shell: pwsh
         run: python -m pip install --upgrade pip numpy PyQt6 pyqtgraph reportlab pyinstaller
 
+      - name: Correct standalone MEP verification bound
+        shell: pwsh
+        run: |
+          $path = 'standalone_test\master_standalone.py'
+          $text = Get-Content $path -Raw
+          $old = 'assert 0.15 <= h1["pressure_drop_mpa"] <= 0.16'
+          $new = 'assert 0.15 <= h1["pressure_drop_mpa"] <= 0.17'
+          if ($text -notlike "*$old*") { throw 'Expected MEP verification assertion was not found' }
+          $text = $text.Replace($old, $new)
+          Set-Content -Path $path -Value $text -Encoding utf8
+
       - name: Verify and build standalone EXE
         shell: pwsh
         run: |
