@@ -46,7 +46,7 @@ class TrustModel:
         values = (evidence, validation, provenance, governance, reproducibility)
         if any(not 0.0 <= value <= 1.0 for value in values):
             raise ValueError("Trust inputs must be within [0, 1]")
-        return sum(values) / len(values)
+        return round(sum(values) / len(values), 12)
 
 class ScientificKnowledgeTrustEngine:
     def assess(self, knowledge_id: str, *, evidence: float, validation: float, provenance: float, governance: float, reproducibility: float) -> TrustAssessment:
