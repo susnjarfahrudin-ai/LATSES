@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import tkinter as tk
 from tkinter import ttk
 
@@ -110,7 +111,7 @@ class ProductEngineeringWorkspaceApp(ProductBuildingWorkspaceApp):
         assert missing.verification_status == "MISSING"
         assert missing.thermal_status == "INPUT_REQUIRED"
         self.refresh_product_engineering_summary()
-        print("PRODUCT ENGINEERING GREEN: density -> structural self-weight + lambda -> thermal R + Product ID/material/provenance + INPUT_REQUIRED gate")
+        print("PRODUCT ENGINEERING GREEN: density -> structural self-weight + lambda -> thermal R + Product ID/material/provenance + INPUT_REQUIRED gate", flush=True)
 
 
 def run_product_engineering_acceptance() -> None:
@@ -124,7 +125,7 @@ def run_product_engineering_acceptance() -> None:
         text = app.product_engineering_summary.get("1.0", "end")
         for marker in ("STATIKA", "TERMIKA", "PRODUCT IDENTITET / PROVENANCE", "INPUT_REQUIRED"):
             assert marker in text, f"Engineering summary missing {marker}"
-        print("GUI PRODUCT ENGINEERING GREEN")
+        print("GUI PRODUCT ENGINEERING GREEN", flush=True)
     finally:
         try:
             app.quit()
@@ -135,6 +136,7 @@ def run_product_engineering_acceptance() -> None:
 def main() -> None:
     if os.environ.get("LATCES_GUI_ACCEPTANCE") == "1":
         run_product_engineering_acceptance()
+        sys.stdout.flush()
         raise SystemExit(0)
     ProductEngineeringWorkspaceApp().mainloop()
 
