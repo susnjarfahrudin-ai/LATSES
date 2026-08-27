@@ -77,22 +77,22 @@ jobs:
         run: |
           $env:LATCES_GUI_ACCEPTANCE = '1'
           $log = Join-Path $env:GITHUB_WORKSPACE 'acceptance.log'
-          Remove-Item $log -ErrorAction SilentlyContinue
-          $p = Start-Process -FilePath '.\dist\LATCES-Acceptance-Diagnostic.exe' -PassThru -WindowStyle Hidden -RedirectStandardOutput $log -RedirectStandardError $log
+          $err = Join-Path $env:GITHUB_WORKSPACE 'acceptance-error.log'
+          Remove-Item $log,$err -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath '.\dist\LATCES-Acceptance-Diagnostic.exe' -PassThru -WindowStyle Hidden -RedirectStandardOutput $log -RedirectStandardError $err
           $deadline = (Get-Date).AddSeconds(90)
           while (-not $p.HasExited -and (Get-Date) -lt $deadline) {
             Start-Sleep -Milliseconds 500
           }
+          Write-Host '--- ACCEPTANCE DIAGNOSTIC STDOUT ---'
+          if (Test-Path $log) { Get-Content $log }
+          Write-Host '--- ACCEPTANCE DIAGNOSTIC STDERR ---'
+          if (Test-Path $err) { Get-Content $err }
+          Write-Host '--- END ACCEPTANCE DIAGNOSTIC LOG ---'
           if (-not $p.HasExited) {
             Stop-Process -Id $p.Id -Force
-            Write-Host '--- ACCEPTANCE DIAGNOSTIC LOG ---'
-            if (Test-Path $log) { Get-Content $log }
-            Write-Host '--- END ACCEPTANCE DIAGNOSTIC LOG ---'
             throw 'GUI visual acceptance timed out after 90 seconds'
           }
-          Write-Host '--- ACCEPTANCE DIAGNOSTIC LOG ---'
-          if (Test-Path $log) { Get-Content $log }
-          Write-Host '--- END ACCEPTANCE DIAGNOSTIC LOG ---'
           if ($p.ExitCode -ne 0) { throw "GUI visual acceptance failed with exit code $($p.ExitCode)" }
 
       - name: Upload acceptance diagnostic log
@@ -100,7 +100,9 @@ jobs:
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
         with:
           name: LAT-CES-GUI-Acceptance-Diagnostic
-          path: acceptance.log
+          path: |
+            acceptance.log
+            acceptance-error.log
           if-no-files-found: warn
 
       - name: Install Inno Setup
