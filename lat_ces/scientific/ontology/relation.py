@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 ALLOWED_RELATION_TYPES = (
     "IS_A", "PART_OF", "CAUSES", "DEPENDS_ON",
-    "MEASURED_BY", "DERIVED_FROM", "VALIDATED_BY",
+    "MEASURED_BY", "USES_UNIT", "DERIVED_FROM", "VALIDATED_BY",
 )
 
 @dataclass(frozen=True)
