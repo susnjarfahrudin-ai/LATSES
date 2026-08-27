@@ -84,15 +84,22 @@ class ProductEngineeringWorkspaceApp(ProductBuildingWorkspaceApp):
         widget.insert("1.0", "\n".join(lines))
         widget.configure(state="disabled")
 
+    def _acceptance_checkpoint(self, name: str) -> None:
+        print(f"GUI ACCEPTANCE CHECKPOINT: {name}", flush=True)
+
     def run_acceptance(self) -> None:
+        self._acceptance_checkpoint("before_super_run_acceptance")
         super().run_acceptance()
+        self._acceptance_checkpoint("after_super_run_acceptance")
         model = self.workflow.model
         wall_id, _ = self._wall_targets()[0]
         wall = self.floor_plan.walls[wall_id]
         wall.load_bearing = True
         wall.tributary_width_m = 2.50
+        self._acceptance_checkpoint("before_build_product_engineering_report_calculated")
         self.refresh_product_engineering_summary()
         report = build_product_engineering_report(model)
+        self._acceptance_checkpoint("after_build_product_engineering_report_calculated")
         reference = get_product("CONCRETE-REFERENCE-C25-30")
         record = next(item for item in report.records if item.target_id == wall_id)
         assert reference is not None
@@ -106,7 +113,9 @@ class ProductEngineeringWorkspaceApp(ProductBuildingWorkspaceApp):
         missing_product_id = products_for_category("Zidovi")[1].product_id
         ensure_product_binding_registry(model).bind(wall_id, "wall", missing_product_id)
         wall.material_id = None
+        self._acceptance_checkpoint("before_build_product_engineering_report_missing")
         missing_report = build_product_engineering_report(model)
+        self._acceptance_checkpoint("after_build_product_engineering_report_missing")
         missing = next(item for item in missing_report.records if item.target_id == wall_id)
         assert missing.verification_status == "MISSING"
         assert missing.thermal_status == "INPUT_REQUIRED"
@@ -117,12 +126,18 @@ class ProductEngineeringWorkspaceApp(ProductBuildingWorkspaceApp):
 def run_product_engineering_acceptance() -> None:
     # Acceptance mode deliberately avoids Tk cleanup callbacks: all assertions
     # must finish first, then main() performs a deterministic process exit.
+    print("GUI ACCEPTANCE CHECKPOINT: before_app_create", flush=True)
     app = ProductEngineeringWorkspaceApp()
+    print("GUI ACCEPTANCE CHECKPOINT: after_app_create", flush=True)
     app.withdraw()
     app.update_idletasks()
+    print("GUI ACCEPTANCE CHECKPOINT: before_open_reference_house", flush=True)
     app.open_reference_house()
+    print("GUI ACCEPTANCE CHECKPOINT: after_open_reference_house", flush=True)
     app.update_idletasks()
+    print("GUI ACCEPTANCE CHECKPOINT: before_run_acceptance", flush=True)
     app.run_acceptance()
+    print("GUI ACCEPTANCE CHECKPOINT: after_run_acceptance", flush=True)
     text = app.product_engineering_summary.get("1.0", "end")
     for marker in ("STATIKA", "TERMIKA", "PRODUCT IDENTITET / PROVENANCE", "INPUT_REQUIRED"):
         assert marker in text, f"Engineering summary missing {marker}"
