@@ -112,8 +112,8 @@ def test_skv_t018_complete_validation_chain():
 
 
 def test_skv_t019_missing_provenance_rejected():
-    bad = ScientificEvidence("Experimental", "Sensor", "", "VERIFIED", evidence_id="EVID-002")
-    assert not KnowledgeValidator().validate(claim(), [bad], method(), confidence()).valid
+    with pytest.raises(ValueError, match="provenance is required"):
+        ScientificEvidence("Experimental", "Sensor", "", "VERIFIED", evidence_id="EVID-002")
 
 
 def test_skv_t020_weak_evidence_cannot_be_confirmed():
