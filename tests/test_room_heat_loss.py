@@ -98,7 +98,9 @@ def test_reference_house_uses_bound_canonical_product_lambda() -> None:
     conditioned = [result for result in results if result.floor_area_m2 > 0.0]
     assert conditioned
     assert all(result.status == "CALCULATED" for result in conditioned)
-    assert all(result.u_value_w_m2k == pytest.approx(0.449628, rel=1e-6) for result in conditioned)
+    # Canonical calculation: U = 1 / (Rsi + d/lambda + Rse)
+    # with Rsi=0.13 m²K/W, d=0.25 m, lambda=0.145 W/mK, Rse=0.04 m²K/W.
+    assert all(result.u_value_w_m2k == pytest.approx(0.5279446568, rel=1e-9) for result in conditioned)
     assert all(result.design_delta_t_k == pytest.approx(30.0) for result in conditioned)
     assert all(result.heat_loss_w is not None and result.heat_loss_w > 0.0 for result in conditioned)
     assert all(result.heat_loss_w_m2 is not None and result.heat_loss_w_m2 > 0.0 for result in conditioned)
