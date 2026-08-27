@@ -127,7 +127,9 @@ def run_product_engineering_acceptance() -> None:
     # Acceptance mode deliberately avoids Tk cleanup callbacks: all assertions
     # must finish first, then main() performs a deterministic process exit.
     print("GUI ACCEPTANCE CHECKPOINT: before_app_create", flush=True)
+    print("GUI ACCEPTANCE CHECKPOINT: before_app_constructor", flush=True)
     app = ProductEngineeringWorkspaceApp()
+    print("GUI ACCEPTANCE CHECKPOINT: after_app_constructor", flush=True)
     print("GUI ACCEPTANCE CHECKPOINT: after_app_create", flush=True)
     app.withdraw()
     app.update_idletasks()
