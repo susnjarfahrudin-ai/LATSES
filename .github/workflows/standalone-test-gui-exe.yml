@@ -1,18 +1,19 @@
-name: Standalone LAT-CES Master GUI EXE Test
+name: Fahro Terenska Aplikacija - EXE
 
 on:
   push:
     branches:
-      - test/standalone-latces-core-gui-exe-20260827
+      - fahro-terenska-aplikacija
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  test-and-build:
+  build-field-app-exe:
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -30,7 +31,7 @@ jobs:
           python -m pip install --upgrade pip numpy PyQt6 pyqtgraph reportlab pyinstaller
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Compile standalone master
+      - name: Compile standalone sources
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -39,51 +40,41 @@ jobs:
           python -m py_compile standalone_test/standalone_entry.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Verify standalone core and domain suites
+      - name: Verify field application runtime
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           python -c "import sys; sys.path.insert(0,'standalone_test'); import standalone_entry as e; assert e.verify_all()"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: GUI construction and safety smoke test
+      - name: Field application GUI smoke test
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           python -c "import sys; sys.path.insert(0,'standalone_test'); from PyQt6 import QtWidgets; import master_standalone as m; app=QtWidgets.QApplication(sys.argv); w=m.LATMasterDashboardV3(); w.process_hardware_frame(0.5,0.152); w.inject_acoustic_anomaly(); assert w.system_state == 'SAFE MODE (LOCKED)'; w.close()"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: PDF generation smoke test
+      - name: Build Fahro field application EXE
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $output = Join-Path $env:RUNNER_TEMP 'latces-pdf-test'
-          New-Item -ItemType Directory -Force -Path $output | Out-Null
-          Set-Location $output
-          python -c "import sys, os; sys.path.insert(0,os.environ['GITHUB_WORKSPACE']+'\\standalone_test'); from PyQt6 import QtWidgets; import master_standalone as m; app=QtWidgets.QApplication(sys.argv); w=m.LATMasterDashboardV3(); w.generate_certified_pdf(); w.close(); assert m.REPORTLAB_AVAILABLE; assert os.path.exists('generated\\Elaborat_Statike_Tla_i_MEP_Sertifikovan.pdf')"
+          pyinstaller --noconfirm --clean --onefile --windowed --name Fahro-Terenska-Aplikacija standalone_test/standalone_entry.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (!(Test-Path '.\dist\Fahro-Terenska-Aplikacija.exe')) { throw 'Field application EXE not produced' }
+          if ((Get-Item '.\dist\Fahro-Terenska-Aplikacija.exe').Length -lt 1000000) { throw 'Field application EXE unexpectedly small' }
 
-      - name: Build standalone GUI EXE
+      - name: Smoke test packaged field application
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          pyinstaller --noconfirm --clean --onefile --windowed --name LAT-CES-Standalone-Test standalone_test/standalone_entry.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (!(Test-Path '.\dist\LAT-CES-Standalone-Test.exe')) { throw 'Standalone EXE not produced' }
-          if ((Get-Item '.\dist\LAT-CES-Standalone-Test.exe').Length -lt 1000000) { throw 'Standalone EXE unexpectedly small' }
-
-      - name: Smoke test packaged standalone EXE
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $p = Start-Process -FilePath '.\dist\LAT-CES-Standalone-Test.exe' -PassThru -WindowStyle Hidden
+          $p = Start-Process -FilePath '.\dist\Fahro-Terenska-Aplikacija.exe' -PassThru -WindowStyle Hidden
           Start-Sleep -Seconds 5
-          if ($p.HasExited -and $p.ExitCode -ne 0) { throw "Standalone EXE exited with code $($p.ExitCode)" }
+          if ($p.HasExited -and $p.ExitCode -ne 0) { throw "Field application EXE exited with code $($p.ExitCode)" }
           if (!$p.HasExited) { Stop-Process -Id $p.Id -Force }
 
-      - name: Upload standalone EXE
+      - name: Upload field application EXE
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
         with:
-          name: LAT-CES-Standalone-GUI-Windows-x64
-          path: dist/LAT-CES-Standalone-Test.exe
+          name: Fahro-Terenska-Aplikacija-Windows-x64
+          path: dist/Fahro-Terenska-Aplikacija.exe
           if-no-files-found: error
