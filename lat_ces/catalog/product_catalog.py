@@ -1,11 +1,20 @@
 """Canonical product/material catalog for LAT-CES.
 
 Starter entries deliberately distinguish VERIFIED, REFERENCE and MISSING data.
-Missing manufacturer and engineering properties are never invented.
+Missing manufacturer and engineering properties are never invented. Manufacturer
+facts are accompanied by source/provenance metadata so engineering projections can
+remain computable without pretending manufacturer data is independently verified.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+
+WIENERBERGER_POROTHERM_25_S_SOURCE = (
+    "https://www.wienerberger.ba/content/dam/wienerberger/bosnia/marketing/"
+    "documents-magazines/technical/porotherm/technical-product-info-sheet/"
+    "BA_MKT_TEC_WAL_POR_Porotherm_25_S.pdf"
+)
 
 
 @dataclass(frozen=True)
@@ -21,6 +30,11 @@ class ProductSpec:
     compressive_strength_mpa: float | None = None
     status: str = "MISSING"
     source: str | None = None
+    source_uri: str | None = None
+    source_document: str | None = None
+    evidence_id: str | None = None
+    canonical_product_id: str | None = None
+    verification_note: str | None = None
 
     @property
     def engineering_summary(self) -> str:
@@ -34,9 +48,42 @@ class ProductSpec:
 
 
 CATALOG: tuple[ProductSpec, ...] = (
-    ProductSpec("MASONRY-CONCRETE-25X20X40", "Betonski blok", "Zidovi", dimensions="25 × 20 × 40 cm", status="MISSING", source="LAT-CES starter catalog"),
-    ProductSpec("MASONRY-THERMAL-25X25X30", "Termo blok", "Zidovi", dimensions="25 × 25 × 30 cm", status="MISSING", source="LAT-CES starter catalog"),
-    ProductSpec("CONCRETE-REFERENCE-C25-30", "Armirani beton C25/30 — referentni materijal", "Beton", density_kg_m3=2500.0, youngs_modulus_pa=30_000_000_000.0, thermal_conductivity_w_mk=2.10, compressive_strength_mpa=25.0, status="REFERENCE", source="LAT-CES reference engineering data"),
+    ProductSpec(
+        "MASONRY-CONCRETE-25X20X40",
+        "Betonski blok",
+        "Zidovi",
+        dimensions="25 × 20 × 40 cm",
+        status="MISSING",
+        source="LAT-CES starter catalog",
+    ),
+    ProductSpec(
+        "MASONRY-THERMAL-25X25X30",
+        "Termo blok — Porotherm 25 S referentni profil",
+        "Zidovi",
+        manufacturer="Wienerberger",
+        dimensions="375 × 250 × 238 mm; zid d=250 mm",
+        density_kg_m3=630.0,
+        thermal_conductivity_w_mk=0.145,
+        compressive_strength_mpa=10.0,
+        status="REFERENCE",
+        source="Wienerberger Bosnia official technical sheet",
+        source_uri=WIENERBERGER_POROTHERM_25_S_SOURCE,
+        source_document="Porotherm 25 S Tehnički list",
+        evidence_id="EXT-WIENERBERGER-BA-POROTHERM-25S",
+        canonical_product_id="MASONRY-POROTHERM-25-S",
+        verification_note="Manufacturer-declared reference data; independent verification remains a separate gate.",
+    ),
+    ProductSpec(
+        "CONCRETE-REFERENCE-C25-30",
+        "Armirani beton C25/30 — referentni materijal",
+        "Beton",
+        density_kg_m3=2500.0,
+        youngs_modulus_pa=30_000_000_000.0,
+        thermal_conductivity_w_mk=2.10,
+        compressive_strength_mpa=25.0,
+        status="REFERENCE",
+        source="LAT-CES reference engineering data",
+    ),
     ProductSpec("INSULATION-GLASS-WOOL", "Staklena mineralna vuna", "Izolacija", status="MISSING", source="Exact manufacturer/product required"),
     ProductSpec("INSULATION-ROCK-WOOL", "Kamena mineralna vuna", "Izolacija", status="MISSING", source="Exact manufacturer/product required"),
     ProductSpec("INSULATION-EPS", "EPS / stiropor", "Izolacija", status="MISSING", source="Exact manufacturer/product required"),
