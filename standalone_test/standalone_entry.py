@@ -233,7 +233,7 @@ def verify_gui_domain_access() -> bool:
     window._run_hydrostatic()
     assert "Pa" in window.fluid_result.toPlainText()
     window._run_reynolds()
-    assert "Reynolds" in window.fluid_result.toPlainText()
+    assert "Reynolds number:" in window.fluid_result.toPlainText()
     window.close()
     return True
 
@@ -250,7 +250,7 @@ def verify_all() -> bool:
 def main() -> int:
     if not verify_all():
         return 1
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     dashboard = FahroTerenskaDashboard()
     dashboard.show()
     return app.exec()
