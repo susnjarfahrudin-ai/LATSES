@@ -25,37 +25,57 @@ jobs:
 
       - name: Install standalone dependencies
         shell: pwsh
-        run: python -m pip install --upgrade pip numpy PyQt6 pyqtgraph reportlab pyinstaller
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m pip install --upgrade pip numpy PyQt6 pyqtgraph reportlab pyinstaller
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Compile standalone master
         shell: pwsh
-        run: python -m py_compile standalone_test/master_standalone.py
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m py_compile standalone_test/master_standalone.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m py_compile standalone_test/standalone_entry.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify standalone core and domain suites
         shell: pwsh
         run: |
-          python -c "import sys; sys.path.insert(0,'standalone_test'); import master_standalone as m; assert m.execute_master_runtime_verification(); assert m.execute_domain_extension_verification_suite(); assert m.execute_domain_and_mep_verification_suite()"
+          $ErrorActionPreference = 'Stop'
+          python -c "import sys; sys.path.insert(0,'standalone_test'); import standalone_entry as e; assert e.verify_all()"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: GUI construction and safety smoke test
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           python -c "import sys; sys.path.insert(0,'standalone_test'); from PyQt6 import QtWidgets; import master_standalone as m; app=QtWidgets.QApplication(sys.argv); w=m.LATMasterDashboardV3(); w.process_hardware_frame(0.5,0.152); w.inject_acoustic_anomaly(); assert w.system_state == 'SAFE MODE (LOCKED)'; w.close()"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: PDF generation smoke test
         shell: pwsh
         run: |
-          python -c "import sys, tempfile, os; sys.path.insert(0,'standalone_test'); from PyQt6 import QtWidgets; import master_standalone as m; app=QtWidgets.QApplication(sys.argv); w=m.LATMasterDashboardV3(); w.generate_certified_pdf(); w.close(); assert m.REPORTLAB_AVAILABLE"
+          $ErrorActionPreference = 'Stop'
+          $output = Join-Path $env:RUNNER_TEMP 'latces-pdf-test'
+          New-Item -ItemType Directory -Force -Path $output | Out-Null
+          Set-Location $output
+          python -c "import sys, os; sys.path.insert(0,os.environ['GITHUB_WORKSPACE']+'\\standalone_test'); from PyQt6 import QtWidgets; import master_standalone as m; app=QtWidgets.QApplication(sys.argv); w=m.LATMasterDashboardV3(); w.generate_certified_pdf(); w.close(); assert m.REPORTLAB_AVAILABLE; assert os.path.exists('generated\\Elaborat_Statike_Tla_i_MEP_Sertifikovan.pdf')"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build standalone GUI EXE
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name LAT-CES-Standalone-Test standalone_test/master_standalone.py
+          $ErrorActionPreference = 'Stop'
+          pyinstaller --noconfirm --clean --onefile --windowed --name LAT-CES-Standalone-Test standalone_test/standalone_entry.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (!(Test-Path '.\dist\LAT-CES-Standalone-Test.exe')) { throw 'Standalone EXE not produced' }
           if ((Get-Item '.\dist\LAT-CES-Standalone-Test.exe').Length -lt 1000000) { throw 'Standalone EXE unexpectedly small' }
 
       - name: Smoke test packaged standalone EXE
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $p = Start-Process -FilePath '.\dist\LAT-CES-Standalone-Test.exe' -PassThru -WindowStyle Hidden
           Start-Sleep -Seconds 5
           if ($p.HasExited -and $p.ExitCode -ne 0) { throw "Standalone EXE exited with code $($p.ExitCode)" }
