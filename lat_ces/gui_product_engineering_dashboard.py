@@ -135,9 +135,12 @@ def run_product_engineering_acceptance() -> None:
 
 def main() -> None:
     if os.environ.get("LATCES_GUI_ACCEPTANCE") == "1":
-        run_product_engineering_acceptance()
-        sys.stdout.flush()
-        raise SystemExit(0)
+        try:
+            run_product_engineering_acceptance()
+        finally:
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit(0)
     ProductEngineeringWorkspaceApp().mainloop()
 
 
