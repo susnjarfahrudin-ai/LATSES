@@ -112,7 +112,7 @@ class ProductEngineeringWorkspaceApp(ProductBuildingWorkspaceApp):
         assert record.conductive_resistance_m2kw is not None and record.conductive_resistance_m2kw > 0.0
         missing_product = next(product for product in products_for_category("Zidovi") if product.status == "MISSING")
         missing_product_id = missing_product.product_id
-        ensure_product_binding_registry(model).bind(wall_id, "wall", missing_product_id)
+        ensure_product_binding_registry(model).bind(wall_id, "wall", "MASONRY-THERMAL-25X25X30-MISSING")
         wall.material_id = None
         self._acceptance_checkpoint("before_build_product_engineering_report_missing")
         missing_report = build_product_engineering_report(model)
