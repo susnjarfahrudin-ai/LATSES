@@ -470,13 +470,38 @@ class LATCESApp(tk.Tk):
             x2, y2 = self.model_to_canvas(wall.segment.end)
             selected = wall.wall_id == self.editor.selected_wall_id
             self.canvas.create_line(x1, y1, x2, y2, width=10 if selected else 7, fill="#2563eb" if selected else "#111827")
-            self.canvas.create_text((x1 + x2) / 2, (y1 + y2) / 2 - 10, text=f"{wall.segment.length:.2f} m", fill="#374151")
+
+            # Keep the drawing clean: dimensions belong to the selected wall,
+            # not every wall at once.  This preserves geometry while removing
+            # the text collision that made dense plans unreadable.
+            if selected:
+                dx, dy = x2 - x1, y2 - y1
+                length_px = max(math.hypot(dx, dy), 1.0)
+                nx, ny = -dy / length_px, dx / length_px
+                offset_px = 18
+                mx, my = (x1 + x2) / 2, (y1 + y2) / 2
+                self.canvas.create_text(
+                    mx + nx * offset_px,
+                    my + ny * offset_px,
+                    text=f"{wall.segment.length:.2f} m",
+                    fill="#1f2937",
+                    font=("Segoe UI", 9, "bold"),
+                    anchor="center",
+                )
+
             for opening in wall.openings:
                 t1, t2 = opening.offset / wall.segment.length, (opening.offset + opening.width) / wall.segment.length
                 ox1, oy1 = x1 + (x2 - x1) * t1, y1 + (y2 - y1) * t1
                 ox2, oy2 = x1 + (x2 - x1) * t2, y1 + (y2 - y1) * t2
                 self.canvas.create_line(ox1, oy1, ox2, oy2, width=10, fill="white")
-                self.canvas.create_text((ox1 + ox2) / 2, (oy1 + oy2) / 2 + 12, text=f"{opening.kind} {opening.width:.2f} m", fill="#4b5563", font=("Segoe UI", 8))
+                if selected:
+                    self.canvas.create_text(
+                        (ox1 + ox2) / 2,
+                        (oy1 + oy2) / 2 + 14,
+                        text=f"{opening.kind} {opening.width:.2f} m",
+                        fill="#4b5563",
+                        font=("Segoe UI", 8),
+                    )
         self.draw_compass()
         self.canvas.create_text(20, height - 20, text=f"Etaža: {self.active_level.name}", anchor="sw", fill="#5f6368")
 
