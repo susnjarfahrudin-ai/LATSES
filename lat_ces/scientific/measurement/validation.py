@@ -8,6 +8,8 @@ class MeasurementValidationError(ValueError):
 
 
 def validate_measurement(measurement: Measurement) -> Measurement:
+    if not measurement.building_model_id.strip():
+        raise MeasurementValidationError("MEAS-000: measurement requires a canonical building_model_id")
     if measurement.quantity is None:
         raise MeasurementValidationError("MEAS-001: measurement requires a physical quantity")
     if measurement.unit is None:
