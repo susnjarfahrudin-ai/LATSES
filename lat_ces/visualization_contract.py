@@ -13,6 +13,7 @@ class VisualizationRepresentation:
     """
 
     representation_id: str
+    engineering_result_id: str
     source_ref: str
     building_model_id: str
     quantity: Any
@@ -25,6 +26,8 @@ class VisualizationRepresentation:
     def __post_init__(self) -> None:
         if not self.representation_id.strip():
             raise ValueError("representation_id is required")
+        if not self.engineering_result_id.strip():
+            raise ValueError("engineering_result_id is required")
         if not self.source_ref.strip():
             raise ValueError("source_ref is required")
         if not self.building_model_id.strip():
