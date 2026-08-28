@@ -1,6 +1,7 @@
 """Authoritative, GUI-independent building geometry and construction model."""
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
+from uuid import uuid4
 
 
 @dataclass(frozen=True)
@@ -177,12 +178,15 @@ class Level:
 
 @dataclass
 class BuildingModel:
+    building_model_id: str = field(default_factory=lambda: str(uuid4()))
     name: str = "Untitled"
     levels: Dict[str, Level] = field(default_factory=dict)
     materials: Dict[str, Material] = field(default_factory=dict)
     load_bearing_mode: str = "all_walls"
 
     def __post_init__(self):
+        if not self.building_model_id.strip():
+            raise ValueError("building_model_id cannot be empty")
         if self.load_bearing_mode not in {"all_walls", "exterior_only"}:
             raise ValueError("load_bearing_mode must be 'all_walls' or 'exterior_only'")
 
