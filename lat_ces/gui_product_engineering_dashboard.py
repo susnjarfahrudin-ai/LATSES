@@ -19,12 +19,26 @@ class ProductEngineeringWorkspaceApp(ProductBuildingWorkspaceApp):
         self._install_product_engineering_summary()
 
     def _install_product_engineering_summary(self) -> None:
-        frame = ttk.Frame(self.complete_tabs, padding=10)
-        self.complete_tabs.add(frame, text="Engineering Summary")
-        ttk.Button(frame, text="Osvježi engineering rezultat", command=self.refresh_product_engineering_summary).pack(anchor="w")
-        self.product_engineering_summary = tk.Text(frame, height=28, wrap="word")
-        self.product_engineering_summary.pack(fill="both", expand=True, pady=(8, 0))
-        self.product_engineering_summary.configure(state="disabled")
+        """Reuse the canonical Engineering Summary instead of adding a second tab."""
+        if not hasattr(self, "complete_tabs"):
+            return
+        summary_index = next(
+            (
+                index
+                for index in range(self.complete_tabs.index("end"))
+                if self.complete_tabs.tab(index, "text") == "Engineering Summary"
+            ),
+            None,
+        )
+        if summary_index is None:
+            return
+
+        # The launcher already owns the single canonical summary tab.
+        # Product engineering projects its richer result into that same tab.
+        self.product_engineering_summary = getattr(self, "engineering_summary", None)
+        if self.product_engineering_summary is None:
+            return
+        self.complete_tabs.select(summary_index)
         self.refresh_product_engineering_summary()
 
     def refresh_product_engineering_summary(self) -> None:

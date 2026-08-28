@@ -18,6 +18,35 @@ _original_build_model_tab = CompleteBuildingWorkspaceApp._build_model_tab
 _original_draw_floor_plan = CompleteBuildingWorkspaceApp.draw_floor_plan
 
 
+def _apply_natural_blue_atmosphere(self: CompleteBuildingWorkspaceApp) -> None:
+    """Give the engineering workspace the agreed calm sky/natural visual layer."""
+    style = ttk.Style(self)
+    try:
+        style.configure("Natural.TFrame", background="#eaf4fb")
+        style.configure("Natural.TLabel", background="#eaf4fb", foreground="#17324d")
+        style.configure("Natural.TLabelframe", background="#eaf4fb", foreground="#17324d")
+        style.configure("Natural.TLabelframe.Label", background="#eaf4fb", foreground="#17324d")
+        style.configure("Natural.TNotebook", background="#dbeef9", borderwidth=0)
+        style.configure("Natural.TNotebook.Tab", background="#cfe7f5", foreground="#17324d", padding=(12, 6))
+        style.map("Natural.TNotebook.Tab", background=[("selected", "#ffffff")], foreground=[("selected", "#0f3d5e")])
+        style.configure("Natural.TButton", padding=(9, 5))
+    except tk.TclError:
+        pass
+
+    self.configure(background="#eaf4fb")
+    self.option_add("*Font", ("Segoe UI", 9))
+    if hasattr(self, "canvas"):
+        self.canvas.configure(background="#f6fbfe", highlightbackground="#a9c9dc")
+
+    # Keep the existing widget hierarchy and model untouched; only style it.
+    for child in self.winfo_children():
+        if isinstance(child, ttk.Frame):
+            try:
+                child.configure(style="Natural.TFrame")
+            except tk.TclError:
+                pass
+
+
 def _build_model_tab_with_inspector(self: CompleteBuildingWorkspaceApp, tab: ttk.Frame) -> None:
     _original_build_model_tab(self, tab)
     ttk.Button(tab, text="Model Inspector", command=self.show_canonical_model_inspector).pack(side="left", padx=(10, 2))
@@ -120,6 +149,7 @@ def refresh_engineering_summary(self: CompleteBuildingWorkspaceApp) -> None:
 
 def _init_with_reference_house(self: CompleteBuildingWorkspaceApp) -> None:
     _original_init(self)
+    _apply_natural_blue_atmosphere(self)
     self.open_reference_house()
     _install_engineering_summary(self)
 
