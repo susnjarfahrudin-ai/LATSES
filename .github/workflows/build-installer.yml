@@ -64,20 +64,46 @@ jobs:
           if ($p.HasExited -and $p.ExitCode -ne 0) { throw "LATSES.exe exited with code $($p.ExitCode)" }
           if (!$p.HasExited) { Stop-Process -Id $p.Id -Force }
 
+      - name: Build console acceptance diagnostic executable
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --console --name LATCES-Acceptance-Diagnostic `
+            --add-data "lat_ces/reference_house_model.json;lat_ces" `
+            lat_ces/gui_product_engineering_dashboard.py
+          if (!(Test-Path '.\dist\LATCES-Acceptance-Diagnostic.exe')) { throw 'LATCES-Acceptance-Diagnostic.exe was not created' }
+
       - name: GUI visual acceptance sequence
         shell: pwsh
         run: |
           $env:LATCES_GUI_ACCEPTANCE = '1'
-          $p = Start-Process -FilePath '.\dist\LATSES.exe' -PassThru -WindowStyle Hidden
+          $log = Join-Path $env:GITHUB_WORKSPACE 'acceptance.log'
+          $err = Join-Path $env:GITHUB_WORKSPACE 'acceptance-error.log'
+          Remove-Item $log,$err -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath '.\dist\LATCES-Acceptance-Diagnostic.exe' -PassThru -WindowStyle Hidden -RedirectStandardOutput $log -RedirectStandardError $err
           $deadline = (Get-Date).AddSeconds(90)
           while (-not $p.HasExited -and (Get-Date) -lt $deadline) {
             Start-Sleep -Milliseconds 500
           }
+          Write-Host '--- ACCEPTANCE DIAGNOSTIC STDOUT ---'
+          if (Test-Path $log) { Get-Content $log }
+          Write-Host '--- ACCEPTANCE DIAGNOSTIC STDERR ---'
+          if (Test-Path $err) { Get-Content $err }
+          Write-Host '--- END ACCEPTANCE DIAGNOSTIC LOG ---'
           if (-not $p.HasExited) {
             Stop-Process -Id $p.Id -Force
             throw 'GUI visual acceptance timed out after 90 seconds'
           }
           if ($p.ExitCode -ne 0) { throw "GUI visual acceptance failed with exit code $($p.ExitCode)" }
+
+      - name: Upload acceptance diagnostic log
+        if: always()
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        with:
+          name: LAT-CES-GUI-Acceptance-Diagnostic
+          path: |
+            acceptance.log
+            acceptance-error.log
+          if-no-files-found: warn
 
       - name: Install Inno Setup
         shell: pwsh
