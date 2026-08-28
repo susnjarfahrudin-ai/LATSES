@@ -1,13 +1,171 @@
-"""Canonical Reference House -> current BuildingWorkflow loader.
+"""Canonical Reference House -> production BuildingModel fixture.
 
-The fixture provides authoritative building-envelope and level dimensions.
-Room areas are intentionally not turned into guessed room rectangles.
+The fixture uses the authoritative Reference House JSON for room names,
+areas and heights, then constructs deterministic canonical Room, Opening,
+Stair and Terrace objects owned by the same BuildingModel used by the GUI
+and scientific views.
 """
 from __future__ import annotations
 
-from lat_ces.building.model import BuildingModel, Level, Roof
+from lat_ces.building.elements import Stair, Terrace
+from lat_ces.building.model import BuildingModel, Level, Material, Roof, Room
 from lat_ces.building.workflow import BuildingWorkflow, make_envelope_floor_plan
+from lat_ces.building.floor_plan import Opening, Segment2D, Point2D, Wall
+from lat_ces.building.geometry import Box3D, Point3D
+from lat_ces.catalog.product_binding import ensure_product_binding_registry
 from lat_ces.reference_house import ReferenceHouse
+
+
+ROOM_STRIP_WIDTH_M = 10.0
+WALL_THICKNESS_M = 0.25
+REFERENCE_MASONRY_PRODUCT_ID = "MASONRY-THERMAL-25X25X30"
+
+
+def _add_authoritative_rooms(model: BuildingModel, level: Level, room_specs: list[dict]) -> list[Room]:
+    """Create deterministic area-preserving strip footprints from fixture data."""
+    rooms: list[Room] = []
+    x = 0.0
+    for spec in room_specs:
+        height_m = float(spec["height_m"])
+        if height_m <= 0.0:
+            continue
+        area_m2 = float(spec["area_m2"])
+        length_m = area_m2 / ROOM_STRIP_WIDTH_M
+        room = Room(
+            name=str(spec["name"]),
+            footprint=Box3D(
+                origin=Point3D(x, 0.0, level.elevation),
+                length=length_m,
+                width=ROOM_STRIP_WIDTH_M,
+                height=height_m,
+            ),
+        )
+        level.add_room(room)
+        rooms.append(room)
+        x += length_m
+    return rooms
+
+
+def _add_internal_partition_walls(level: Level, rooms: list[Room], material_id: str, load_bearing: bool) -> None:
+    if not level.floor_plan or len(rooms) < 2:
+        return
+    for previous, current in zip(rooms, rooms[1:]):
+        x = current.footprint.origin.x
+        tributary_width_m = (previous.footprint.length + current.footprint.length) / 2.0
+        wall = Wall(
+            name=f"Pregrada {previous.name} / {current.name}",
+            segment=Segment2D(Point2D(x, 0.0), Point2D(x, ROOM_STRIP_WIDTH_M)),
+            thickness=WALL_THICKNESS_M,
+            load_bearing=load_bearing,
+            material_id=material_id,
+            tributary_width_m=tributary_width_m if load_bearing else 0.0,
+            exterior=False,
+            room_ids=(previous.room_id, current.room_id),
+        )
+        level.floor_plan.add_wall(wall)
+
+
+def _assign_exterior_wall_room_adjacency(level: Level, rooms: list[Room]) -> None:
+    """Derive canonical exterior-wall -> room adjacency from actual geometry."""
+    if not level.floor_plan or not rooms:
+        return
+    tolerance = 1e-6
+    for wall in level.floor_plan.walls.values():
+        if not wall.exterior or wall.room_ids:
+            continue
+        x1, y1 = wall.segment.start.x, wall.segment.start.y
+        x2, y2 = wall.segment.end.x, wall.segment.end.y
+        adjacent_ids: list[str] = []
+
+        if abs(y1 - y2) <= tolerance:
+            wall_y = y1
+            seg_min_x, seg_max_x = sorted((x1, x2))
+            for room in rooms:
+                rx0 = room.footprint.origin.x
+                rx1 = rx0 + room.footprint.length
+                ry0 = room.footprint.origin.y
+                ry1 = ry0 + room.footprint.width
+                touches_boundary = abs(wall_y - ry0) <= tolerance or abs(wall_y - ry1) <= tolerance
+                overlaps_x = min(seg_max_x, rx1) - max(seg_min_x, rx0) > tolerance
+                if touches_boundary and overlaps_x:
+                    adjacent_ids.append(room.room_id)
+        elif abs(x1 - x2) <= tolerance:
+            wall_x = x1
+            seg_min_y, seg_max_y = sorted((y1, y2))
+            for room in rooms:
+                rx0 = room.footprint.origin.x
+                rx1 = rx0 + room.footprint.length
+                ry0 = room.footprint.origin.y
+                ry1 = ry0 + room.footprint.width
+                touches_boundary = abs(wall_x - rx0) <= tolerance or abs(wall_x - rx1) <= tolerance
+                overlaps_y = min(seg_max_y, ry1) - max(seg_min_y, ry0) > tolerance
+                if touches_boundary and overlaps_y:
+                    adjacent_ids.append(room.room_id)
+
+        if adjacent_ids:
+            wall.room_ids = tuple(dict.fromkeys(adjacent_ids))
+
+
+def _add_deterministic_openings(level: Level) -> None:
+    if not level.floor_plan:
+        return
+    walls = sorted(level.floor_plan.walls.values(), key=lambda wall: (-wall.segment.length, wall.wall_id))
+    if not walls:
+        return
+    door_wall = walls[0]
+    door_width = min(0.90, door_wall.segment.length * 0.25)
+    door_offset = max(0.10, (door_wall.segment.length - door_width) / 2.0)
+    door_wall.add_opening(Opening(kind="door", offset=door_offset, width=door_width, height_m=2.10))
+    for window_wall in walls[1:3]:
+        window_width = min(1.20, window_wall.segment.length * 0.30)
+        offset = max(0.10, (window_wall.segment.length - window_width) / 2.0)
+        window_wall.add_opening(Opening(kind="window", offset=offset, width=window_width, height_m=1.50))
+
+
+def _add_reference_house_stair_and_terrace(level: Level, level_data: dict, material_id: str) -> None:
+    """Promote the fixture's named stair/terrace spaces into first-class elements."""
+    for spec in level_data.get("rooms", []):
+        name = str(spec.get("name", ""))
+        area_m2 = float(spec.get("area_m2", 0.0))
+        if name.lower() == "stepenište" and area_m2 > 0.0 and not level.stairs:
+            width_m = 2.00
+            length_m = area_m2 / width_m
+            footprint = Box3D(
+                origin=Point3D(0.50, 0.50, level.elevation),
+                length=length_m,
+                width=width_m,
+                height=level.height,
+            )
+            level.add_stair(
+                Stair(
+                    name="Stepenište P+3",
+                    footprint=footprint,
+                    riser_count=16,
+                    riser_height_m=0.175,
+                    tread_width_m=0.280,
+                    landing=True,
+                    railing=True,
+                    floor_opening=True,
+                    material_id=material_id,
+                )
+            )
+        if name.lower() == "terasa" and area_m2 > 0.0 and not level.terraces:
+            width_m = 3.00
+            length_m = area_m2 / width_m
+            footprint = Box3D(
+                origin=Point3D(max(0.0, level.length_m - length_m - 0.50), max(0.0, level.width_m - width_m - 0.50), level.elevation),
+                length=length_m,
+                width=width_m,
+                height=0.20,
+            )
+            level.add_terrace(
+                Terrace(
+                    name="Terasa",
+                    footprint=footprint,
+                    construction_type="betonska konstrukcija",
+                    material_id=material_id,
+                )
+            )
 
 
 def build_reference_house_workflow() -> BuildingWorkflow:
@@ -18,6 +176,14 @@ def build_reference_house_workflow() -> BuildingWorkflow:
     height_m = float(dimensions["level_height_m"])
 
     model = BuildingModel(name=house.data["name"])
+    masonry = Material(
+        name=str(house.data["envelope"]["exterior_wall"]["masonry_block"]),
+        dimensions_m=(0.25, 0.20, 0.25),
+        product_id=REFERENCE_MASONRY_PRODUCT_ID,
+        category="masonry_block",
+    )
+    model.add_material(masonry)
+    product_bindings = ensure_product_binding_registry(model)
 
     for index, level_data in enumerate(house.levels):
         loads = level_data.get("loads", {})
@@ -30,7 +196,20 @@ def build_reference_house_workflow() -> BuildingWorkflow:
             dead_load_kpa=float(loads.get("dead_kpa", 0.0)),
             live_load_kpa=float(loads.get("live_kpa", 0.0)),
         )
-        level.set_floor_plan(make_envelope_floor_plan(level.name, length_m, width_m, 0.25))
+        level.set_floor_plan(make_envelope_floor_plan(level.name, length_m, width_m, WALL_THICKNESS_M))
+        rooms = _add_authoritative_rooms(model, level, level_data.get("rooms", []))
+        _add_reference_house_stair_and_terrace(level, level_data, masonry.material_id)
+        if level.floor_plan:
+            for wall in level.floor_plan.walls.values():
+                wall.material_id = masonry.material_id
+                wall.load_bearing = model.load_bearing_mode == "all_walls" or wall.exterior
+                if wall.load_bearing and wall.tributary_width_m <= 0.0:
+                    wall.tributary_width_m = width_m / 2.0
+            _add_internal_partition_walls(level, rooms, masonry.material_id, model.load_bearing_mode == "all_walls")
+            _assign_exterior_wall_room_adjacency(level, rooms)
+            _add_deterministic_openings(level)
+            for wall in level.floor_plan.walls.values():
+                product_bindings.bind(wall.wall_id, "wall", REFERENCE_MASONRY_PRODUCT_ID)
         model.add_level(level)
 
     roof_data = house.data.get("roof", {})

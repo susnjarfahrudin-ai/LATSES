@@ -4,7 +4,7 @@ from .measurement import Measurement
 
 
 class MeasurementRegistry:
-    """Small deterministic registry used by the SCI measurement contract."""
+    """Deterministic registry for canonical measurements."""
 
     def __init__(self) -> None:
         self._items: dict[str, Measurement] = {}
@@ -20,5 +20,14 @@ class MeasurementRegistry:
     def get(self, measurement_id: str) -> Measurement | None:
         return self._items.get(measurement_id)
 
+    def all(self) -> tuple[Measurement, ...]:
+        return tuple(self._items.values())
+
     def __len__(self) -> int:
         return len(self._items)
+
+    def __contains__(self, measurement_id: str) -> bool:
+        return measurement_id in self._items
+
+
+__all__ = ["MeasurementRegistry"]
