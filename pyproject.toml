@@ -13,6 +13,7 @@ dependencies = []
 [project.scripts]
 lat-ces = "lat_ces.cli:main"
 lat-ces-gui = "lat_ces.gui_building_model:main"
+lat-ces-gui-interface = "lat_ces.gui_interface:main"
 lat-ces-gui-legacy = "lat_ces.gui_drafting:main"
 lat-ces-gui-mep = "lat_ces.gui_mep:main"
 lat-ces-gui-water = "lat_ces.gui_water:main"
