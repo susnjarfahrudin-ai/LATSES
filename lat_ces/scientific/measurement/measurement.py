@@ -17,13 +17,7 @@ class MeasurementError(ValueError):
 
 @dataclass(frozen=True)
 class Measurement:
-    """Canonical scientific measurement record.
-
-    ``Quantity`` is accepted as the canonical implementation, while any
-    quantity-like scientific object exposing the required ``dimension``
-    contract is also valid. This keeps Measurement coupled to the scientific
-    contract rather than to one concrete Python class.
-    """
+    """Canonical scientific measurement record."""
 
     quantity: Any
     value: Real | None = None
@@ -38,6 +32,13 @@ class Measurement:
     revision: int = 1
     building_model_id: str = ""
     location: object | None = None
+    method: str | None = None
+    source: str | None = None
+
+    @property
+    def resolved_source(self) -> str | None:
+        """Canonical source value consumed by the validation contract."""
+        return self.source
 
     def validate(self) -> "Measurement":
         from .validation import validate_measurement
@@ -58,6 +59,8 @@ class Measurement:
             raise MeasurementError("revision reason must be non-empty")
         return Measurement(
             quantity=quantity or self.quantity,
+            value=self.value,
+            unit=self.unit,
             uncertainty=self.uncertainty if uncertainty is None else uncertainty,
             instrument=self.instrument,
             calibration=self.calibration if calibration is None else calibration,
@@ -66,6 +69,8 @@ class Measurement:
             evidence=self.evidence if evidence is None else evidence,
             measurement_id=self.measurement_id,
             revision=self.revision + 1,
+            building_model_id=self.building_model_id,
+            location=self.location,
             method=self.method if method is None else method,
             source=self.source if source is None else source,
         )
@@ -74,22 +79,19 @@ class Measurement:
         return {
             "measurement_id": self.measurement_id,
             "building_model_id": self.building_model_id,
-            "quantity": self.quantity,
             "quantity": self.quantity.to_record() if hasattr(self.quantity, "to_record") else repr(self.quantity),
             "value": self.value,
             "unit": getattr(self.unit, "symbol", repr(self.unit)),
-            "dimension": repr(self.dimension),
+            "dimension": repr(getattr(self.quantity, "dimension", None)),
             "uncertainty": self.uncertainty.to_record() if hasattr(self.uncertainty, "to_record") else self.uncertainty,
             "instrument": self.instrument.to_record() if hasattr(self.instrument, "to_record") else self.instrument,
             "calibration": self.calibration.to_record() if hasattr(self.calibration, "to_record") else self.calibration,
             "timestamp": self.timestamp,
             "location": self.location,
-            "provenance": self.provenance,
-            "evidence": self.evidence,
-            "method": self.method,
-            "source": self.resolved_source,
             "provenance": self.provenance.__dict__ if self.provenance else None,
             "evidence": self.evidence.to_record() if hasattr(self.evidence, "to_record") else self.evidence,
+            "method": self.method,
+            "source": self.resolved_source,
             "revision": self.revision,
         }
 
