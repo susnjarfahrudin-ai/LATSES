@@ -178,11 +178,11 @@ class Level:
 
 @dataclass
 class BuildingModel:
-    building_model_id: str = field(default_factory=lambda: str(uuid4()))
     name: str = "Untitled"
     levels: Dict[str, Level] = field(default_factory=dict)
     materials: Dict[str, Material] = field(default_factory=dict)
     load_bearing_mode: str = "all_walls"
+    building_model_id: str = field(default_factory=lambda: str(uuid4()))
 
     def __post_init__(self):
         if not self.building_model_id.strip():
