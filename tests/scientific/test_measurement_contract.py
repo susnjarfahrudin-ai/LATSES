@@ -49,6 +49,7 @@ def valid_measurement():
         uncertainty=Uncertainty(0.2, "sensor accuracy", confidence=95),
         instrument=valid_instrument(),
         calibration=valid_calibration(),
+        source="instrument:SENSOR-TEMP-001",
         provenance=MeasurementProvenance.now(
             source="instrument:SENSOR-TEMP-001",
             recorded_by="LAT-CES-test",

@@ -7,6 +7,7 @@
 **Date:** 2026-08-28
 
 ## 1. Executive Decision
+## Executive Decision
 
 LATSES uses the **Canonical BuildingModel as the sole owner of physical-object identity**, while Engineering Core owns engineering results. External tools are treated as **solver / visualization backends**, not scientific authorities.
 
@@ -35,6 +36,7 @@ LATSES
 ```
 
 ## 2. Fundamental Principles
+## Fundamental Principles
 
 - `BuildingModel` is the only canonical identity of the physical object.
 - Engineering Core owns scientific interpretation and engineering results.
@@ -46,6 +48,9 @@ LATSES
 ## 3. Canonical BuildingModel
 
 All representations reference the same canonical model identity:
+## Canonical BuildingModel
+
+All representations reference the same canonical model identity. There must not be independent identities for a LATSES model, Blender model, or CFD model representing the same physical object.
 
 ```text
 ONE PHYSICAL OBJECT
@@ -68,6 +73,13 @@ Structural · Thermal · Fluid Mechanics · HVAC · Acoustics · Comfort · Ener
 An external solver may perform numerical computation, but its output returns through a defined LATSES contract and remains traceable to the canonical model, inputs, solver/version, execution context and result.
 
 ## 5. CFD / External Backend Boundary
+## Engineering Core
+
+Engineering Core covers at minimum: Structural, Thermal, Fluid Mechanics, HVAC, Acoustics, Comfort, Energy and Validation.
+
+External solver output returns through a defined LATSES contract and remains traceable to the canonical model, inputs, solver/version, execution context and result.
+
+## CFD / External Backend Boundary
 
 OpenFOAM is an external CFD solver. ParaView is a scientific visualization/inspection backend. Blender is an engineering visualization interpreter/renderer. Geometry Nodes is a procedural visual layer, not an engineering calculation engine.
 
@@ -86,6 +98,11 @@ The backend boundary must preserve model identity, inputs, boundary conditions, 
 ## 6. Common Visualization Adapter
 
 LATSES will use a common **3D & Illustration Adapter** boundary:
+The backend boundary preserves model identity, inputs, boundary conditions, materials, solver/version, execution time and returned result provenance.
+
+## Common Visualization Adapter
+
+LATSES uses a common **3D & Illustration Adapter** boundary:
 
 ```text
 LATSES Results
@@ -113,6 +130,16 @@ Visualization is layered so architectural context, dynamic flow, scalar fields a
 Visual effects must never change the underlying numerical values.
 
 ## 8. Measurement Layer
+## Layered Visualization
+
+- **Layer A — Architectural Context:** walls, floors, roofs, openings and building elements.
+- **Layer B — Dynamic Flow:** velocity, direction, streamlines, particles, jets and recirculation.
+- **Layer C — Fields / Acoustics / Comfort:** temperature, pressure, humidity, CO₂, VOC, acoustic level, comfort indices and scalar fields.
+- **Layer D — Measurements:** sensors, locations, measured values, timestamps, units, quality and uncertainty.
+
+Visual effects never change underlying numerical values.
+
+## Measurement Layer
 
 A measurement is a real observation, not a derived simulation value. The canonical contract is:
 
@@ -135,6 +162,7 @@ Measured and simulated values remain separate.
 ## 9. Validation Layer
 
 The validation loop is:
+## Validation Layer
 
 ```text
 BUILDING MODEL
@@ -161,6 +189,11 @@ A validation record must preserve quantity, measured value, simulated value, del
 ## 10. Provenance Contract
 
 Every visual engineering element must be traceable:
+A validation record preserves quantity, measured value, simulated value, delta, relative error where applicable, tolerance, status, timestamp and provenance.
+
+## Provenance Contract
+
+Every visual engineering element is traceable:
 
 ```text
 visual_object_id
@@ -177,6 +210,9 @@ source data
 For simulation, provenance includes solver/version and input/model context. For measurements, provenance includes sensor/instrument identity and timestamp.
 
 ## 11. Engineering Truth vs Visual Representation
+Simulation provenance includes solver/version and input/model context. Measurement provenance includes sensor/instrument identity and timestamp.
+
+## Engineering Truth vs Visual Representation
 
 **Engineering truth** comes from `BuildingModel`, Engineering Core, Measurement Layer and validated results.
 
@@ -191,6 +227,13 @@ External backends are replaceable adapters. Replacing Blender, ParaView or OpenF
 Third-party software remains independently licensed and must be represented through appropriate third-party notices and compliance documentation.
 
 ## 13. Development Priority
+## Backend Independence and Compliance
+
+External backends are replaceable adapters. Replacing Blender, ParaView or OpenFOAM does not require a new BuildingModel identity or a second engineering authority.
+
+Third-party software remains independently licensed and must be represented through appropriate third-party notices and compliance documentation.
+
+## Development Priority
 
 ```text
 1. Canonical BuildingModel
@@ -210,6 +253,7 @@ Third-party software remains independently licensed and must be represented thro
 No GUI rewrite is authorized by this architecture decision.
 
 ## 14. Acceptance Criteria
+## Acceptance Criteria
 
 The architecture is implementation-accepted when the repository can demonstrate:
 
@@ -226,6 +270,11 @@ The architecture is implementation-accepted when the repository can demonstrate:
 New modules must comply with this architecture unless an explicit Architecture Decision changes it. A new module must not introduce another BuildingModel identity, engineering-result authority, renderer-owned engineering model, measurement source of truth or CFD result authority.
 
 ## 16. Final Decision
+## Adoption Rule
+
+New modules must comply with this architecture unless an explicit Architecture Decision changes it. A new module must not introduce another BuildingModel identity, engineering-result authority, renderer-owned engineering model, measurement source of truth or CFD result authority.
+
+## Final Decision
 
 **DECISION: ADOPT**
 
