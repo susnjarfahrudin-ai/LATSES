@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from lat_ces.building_model import BuildingModel
+from lat_ces.building.model import BuildingModel
 from lat_ces.structural.beam_solver import SimplySupportedBeamInput, solve_simply_supported_beam_udl
 from lat_ces.structural.canonical_binding import (
     CanonicalStructuralResultBinding,
