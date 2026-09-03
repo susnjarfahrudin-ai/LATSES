@@ -6,6 +6,8 @@ import sys
 import tkinter as tk
 from tkinter import ttk
 
+from lat_ces.building.geometry import Box3D, Point3D
+from lat_ces.building.model import Room
 from lat_ces.catalog.product_engineering import build_product_engineering_report
 from lat_ces.catalog.product_catalog import get_product, products_for_category
 from lat_ces.catalog.product_binding import ensure_product_binding_registry
@@ -101,7 +103,21 @@ class ProductEngineeringWorkspaceApp(ProductBuildingWorkspaceApp):
     def _acceptance_checkpoint(self, name: str) -> None:
         print(f"GUI ACCEPTANCE CHECKPOINT: {name}", flush=True)
 
+    def _ensure_acceptance_room_fixture(self) -> None:
+        """Provide the smallest canonical Room required by the acceptance contract."""
+        if self._room_targets():
+            return
+        level = self.active_level
+        level.add_room(
+            Room(
+                name="Acceptance Room",
+                room_id="ROOM-ACCEPTANCE",
+                footprint=Box3D(Point3D(0.0, 0.0, level.elevation), 4.0, 4.0, level.height),
+            )
+        )
+
     def run_acceptance(self) -> None:
+        self._ensure_acceptance_room_fixture()
         self._acceptance_checkpoint("before_super_run_acceptance")
         super().run_acceptance()
         self._acceptance_checkpoint("after_super_run_acceptance")
