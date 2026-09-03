@@ -14,11 +14,16 @@ from lat_ces.scientific.quantity import PhysicalQuantity
 
 @dataclass(frozen=True)
 class EngineeringResult:
+    """Canonical result envelope shared by engineering disciplines."""
+
     object_type: str
     object_id: str
     status: str
     values: dict[str, Any]
     message: str = ""
+    building_model_id: str | None = None
+    equation: str | None = None
+    provenance: dict[str, Any] | None = None
 
 
 class EngineeringResultRegistry:

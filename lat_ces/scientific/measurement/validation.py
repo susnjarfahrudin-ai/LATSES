@@ -34,7 +34,7 @@ def validate_measurement(measurement: Measurement) -> Measurement:
         raise MeasurementValidationError("MEAS-005: measurement requires a timestamp")
     if measurement.provenance is None:
         raise MeasurementValidationError("MEAS-006: measurement requires provenance")
-    if not measurement.source:
+    if not measurement.resolved_source:
         raise MeasurementValidationError("MEAS-007: measurement requires a source")
     calibration_required = getattr(measurement.instrument, "calibration_required", False)
     if calibration_required and measurement.calibration is None:
