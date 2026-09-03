@@ -192,11 +192,15 @@ def test_process_failure_takeover_and_recovery_cycle() -> None:
 
     assert takeover.state is RecoveryState.TAKEOVER
     assert active_recovery.state is RecoveryState.ACTIVE
-    assert active_recovery.role is ExecutionRole.REVISION_RECOVERY
+    assert active_recovery.active_role is ExecutionRole.REVISION_RECOVERY
+    assert active_recovery.recovering_role is ExecutionRole.PROCESS
     assert recovering.state is RecoveryState.RECOVERING
+    assert recovering.active_role is ExecutionRole.REVISION_RECOVERY
+    assert recovering.recovering_role is ExecutionRole.PROCESS
     assert verified.state is RecoveryState.CHECKPOINT_VERIFIED
     assert ready.state is RecoveryState.READY
-    assert ready.role is ExecutionRole.REVISION_RECOVERY
+    assert ready.active_role is ExecutionRole.REVISION_RECOVERY
+    assert ready.recovering_role is ExecutionRole.PROCESS
     assert ready.checkpoint is checkpoint
 
 
@@ -217,10 +221,30 @@ def test_recovery_role_can_take_over_back_and_recover_again() -> None:
     recovering = active_process.begin_recovery(checkpoint)
     ready = recovering.verify_checkpoint().mark_ready()
 
-    assert active_process.role is ExecutionRole.PROCESS
-    assert ready.role is ExecutionRole.PROCESS
+    assert active_process.active_role is ExecutionRole.PROCESS
+    assert active_process.recovering_role is ExecutionRole.REVISION_RECOVERY
+    assert ready.active_role is ExecutionRole.PROCESS
+    assert ready.recovering_role is ExecutionRole.REVISION_RECOVERY
     assert ready.state is RecoveryState.READY
     assert ready.checkpoint is checkpoint
+
+
+def test_state_machine_can_run_a_second_takeover_after_recovery() -> None:
+    checkpoint = RecoveryCheckpoint(
+        revision_id="rev-013",
+        content_hash="sha256:next",
+        provenance="verification/checkpoint-013",
+    )
+    first = RecoveryStateMachine(role=ExecutionRole.PROCESS)
+    ready = first.on_failure(HealthState.DEGRADED).activate_standby().begin_recovery(checkpoint).verify_checkpoint().mark_ready()
+
+    second_takeover = ready.on_failure(HealthState.UNAVAILABLE)
+    second_active = second_takeover.activate_standby()
+
+    assert second_takeover.state is RecoveryState.TAKEOVER
+    assert second_active.state is RecoveryState.ACTIVE
+    assert second_active.active_role is ExecutionRole.PROCESS
+    assert second_active.recovering_role is ExecutionRole.REVISION_RECOVERY
 
 
 def test_state_machine_rejects_invalid_transition() -> None:
