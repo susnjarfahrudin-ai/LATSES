@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Tuple
 
+from lat_ces.structural.beam_solver import BeamSolverResult, SimplySupportedBeamInput
+
 
 @dataclass(frozen=True)
 class StructuralStationResult:
@@ -40,4 +42,45 @@ class CanonicalStructuralResult:
             raise TypeError("stations must be a tuple")
 
 
-__all__ = ["StructuralStationResult", "CanonicalStructuralResult"]
+def canonicalize_beam_solver_result(
+    result_id: str,
+    beam: SimplySupportedBeamInput,
+    solver_result: BeamSolverResult,
+    *,
+    solver_provenance: str = "SimplySupportedBeamInput/solve_simply_supported_beam_udl",
+    station_positions_m: Tuple[float, ...] = (),
+) -> CanonicalStructuralResult:
+    """Convert one proven beam solver result into immutable canonical evidence."""
+    if not isinstance(beam, SimplySupportedBeamInput):
+        raise TypeError("beam must be a SimplySupportedBeamInput")
+    if not isinstance(solver_result, BeamSolverResult):
+        raise TypeError("solver_result must be a BeamSolverResult")
+
+    stations = tuple(
+        StructuralStationResult(
+            x_m=x_m,
+            shear_n=solver_result.shear_force_n(x_m, beam),
+            bending_moment_nm=solver_result.bending_moment_nm(x_m, beam),
+            deflection_m=solver_result.deflection_m(x_m, beam),
+        )
+        for x_m in station_positions_m
+    )
+
+    return CanonicalStructuralResult(
+        result_id=result_id,
+        solver_status=solver_result.status,
+        solver_provenance=solver_provenance,
+        reaction_left_n=solver_result.reaction_left_n,
+        reaction_right_n=solver_result.reaction_right_n,
+        max_shear_n=solver_result.max_shear_n,
+        max_bending_moment_nm=solver_result.max_bending_moment_nm,
+        max_deflection_m=solver_result.max_deflection_m,
+        stations=stations,
+    )
+
+
+__all__ = [
+    "StructuralStationResult",
+    "CanonicalStructuralResult",
+    "canonicalize_beam_solver_result",
+]
