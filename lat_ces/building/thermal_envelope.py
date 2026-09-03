@@ -32,6 +32,16 @@ def _net_wall_area_m2(wall, level_height: float) -> float:
     return max(0.0, gross_area - opening_area)
 
 
+def _input_required(wall, values: dict, message: str) -> EngineeringResult:
+    return EngineeringResult(
+        object_type="thermal_wall",
+        object_id=wall.wall_id,
+        status="INPUT_REQUIRED",
+        values=values,
+        message=message,
+    )
+
+
 def calculate_wall_thermal_result(
     model: object,
     level: object,
@@ -42,53 +52,41 @@ def calculate_wall_thermal_result(
 ) -> EngineeringResult:
     """Calculate opaque exterior-wall U-value and transmission heat loss."""
     if not getattr(wall, "exterior", False):
-        return EngineeringResult(
-            object_type="thermal_wall",
-            object_id=wall.wall_id,
-            status="INPUT_REQUIRED",
-            values={},
-            message="Thermal envelope calculation requires an exterior wall.",
-        )
+        return _input_required(wall, {}, "Thermal envelope calculation requires an exterior wall.")
 
     material_id = getattr(wall, "material_id", None)
     if not material_id or material_id not in model.materials:
-        return EngineeringResult(
-            object_type="thermal_wall",
-            object_id=wall.wall_id,
-            status="INPUT_REQUIRED",
-            values={},
-            message="Exterior wall requires a material with declared thermal conductivity.",
+        return _input_required(
+            wall, {}, "Exterior wall requires a material with declared thermal conductivity."
         )
 
     material = model.materials[material_id]
     lam = material.thermal_conductivity
     if lam is None or lam <= 0.0:
-        return EngineeringResult(
-            object_type="thermal_wall",
-            object_id=wall.wall_id,
-            status="INPUT_REQUIRED",
-            values={"material_id": material_id},
-            message="Material thermal conductivity (lambda) is required; LAT-CES will not assume a value.",
+        return _input_required(
+            wall,
+            {"building_model_id": model.model_id, "material_id": material_id},
+            "Material thermal conductivity (lambda) is required; LAT-CES will not assume a value.",
         )
 
     thickness = wall.thickness
     if thickness <= 0.0:
-        return EngineeringResult(
-            object_type="thermal_wall",
-            object_id=wall.wall_id,
-            status="INPUT_REQUIRED",
-            values={"material_id": material_id},
-            message="Wall thickness must be greater than zero.",
+        return _input_required(
+            wall,
+            {"building_model_id": model.model_id, "material_id": material_id},
+            "Wall thickness must be greater than zero.",
         )
 
     delta_t = indoor_temperature_c - outdoor_temperature_c
     if delta_t <= 0.0:
-        return EngineeringResult(
-            object_type="thermal_wall",
-            object_id=wall.wall_id,
-            status="INPUT_REQUIRED",
-            values={"indoor_temperature_c": indoor_temperature_c, "outdoor_temperature_c": outdoor_temperature_c},
-            message="Indoor design temperature must exceed outdoor design temperature for heat-loss evaluation.",
+        return _input_required(
+            wall,
+            {
+                "building_model_id": model.model_id,
+                "indoor_temperature_c": indoor_temperature_c,
+                "outdoor_temperature_c": outdoor_temperature_c,
+            },
+            "Indoor design temperature must exceed outdoor design temperature for heat-loss evaluation.",
         )
 
     area = _net_wall_area_m2(wall, level.height)
@@ -118,6 +116,14 @@ def calculate_wall_thermal_result(
             "heat_loss_kw": heat_loss / 1000.0,
         },
         message="Opaque exterior wall evaluated from declared material, thickness and design temperatures.",
+        building_model_id=model.model_id,
+        equation="U = 1 / (Rsi + d/lambda + Rse); Q = U * A * DeltaT",
+        provenance={
+            "building_model_id": model.model_id,
+            "level_id": level.level_id,
+            "wall_id": wall.wall_id,
+            "material_id": material_id,
+        },
     )
 
 
@@ -154,7 +160,11 @@ def validate_thermal_result(result: EngineeringResult, *, tolerance: float = 1e-
     expected = values["u_value_w_m2k"] * values["area_m2"] * values["delta_t_k"]
     actual = values["heat_loss_w"]
     if abs(actual - expected) > tolerance * max(1.0, abs(expected)):
-        return ("THERMAL-VAL-001: heat loss does not satisfy Q = U * A * ΔT",)
+        return ("THERMAL-VAL-001: heat loss does not satisfy Q = U * A * DeltaT",)
+    if result.building_model_id != values.get("building_model_id"):
+        return ("THERMAL-VAL-002: engineering result is detached from its BuildingModel identity",)
+    if not result.equation or not result.provenance:
+        return ("THERMAL-VAL-003: calculated thermal result is missing equation or provenance",)
     return ()
 
 
