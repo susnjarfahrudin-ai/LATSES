@@ -1,8 +1,8 @@
-"""Neutral role and handover contracts for independent structural execution paths.
+"""Neutral role, takeover, and recovery contracts for independent execution paths.
 
-The PROCESS and REVISION_RECOVERY roles are peers. This module contains no
-implementation dependency on either BuildingModel implementation; it only
-carries immutable identity, health, provenance, and handover evidence.
+PROCESS and REVISION_RECOVERY remain implementation-isolated. The neutral
+contracts may be used by a coordinator, but a role-local signal intentionally
+does not disclose the peer model or its implementation identity.
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ class ExecutionRole(str, Enum):
 
 
 class HealthState(str, Enum):
-    """Operational health used to justify an explicit handover."""
+    """Operational health used to justify an explicit takeover."""
 
     HEALTHY = "HEALTHY"
     DEGRADED = "DEGRADED"
@@ -36,8 +36,25 @@ class RoleHealth:
 
 
 @dataclass(frozen=True)
+class RecoveryCheckpoint:
+    """Last verified state from which an inactive role can recover."""
+
+    revision_id: str
+    content_hash: str
+    provenance: str
+
+    def __post_init__(self) -> None:
+        if not self.revision_id:
+            raise ValueError("checkpoint revision_id must not be empty")
+        if not self.content_hash:
+            raise ValueError("checkpoint content_hash must not be empty")
+        if not self.provenance:
+            raise ValueError("checkpoint provenance must not be empty")
+
+
+@dataclass(frozen=True)
 class HandoverRequest:
-    """Immutable request to transfer active responsibility between peer roles."""
+    """Immutable coordinator request to transfer active responsibility."""
 
     from_role: ExecutionRole
     to_role: ExecutionRole
@@ -61,7 +78,7 @@ class HandoverRequest:
 
 @dataclass(frozen=True)
 class HandoverDecision:
-    """Immutable decision acknowledging the target role takeover."""
+    """Immutable coordinator decision acknowledging target takeover."""
 
     request: HandoverRequest
     accepted: bool
@@ -72,10 +89,28 @@ class HandoverDecision:
             raise ValueError("accepted handover must preserve revision identity")
 
 
+@dataclass(frozen=True)
+class TakeoverSignal:
+    """Role-local activation signal that does not identify the peer model."""
+
+    recipient_role: ExecutionRole
+    cause: HealthState
+    checkpoint: RecoveryCheckpoint
+    provenance: str
+
+    def __post_init__(self) -> None:
+        if self.cause is HealthState.HEALTHY:
+            raise ValueError("healthy state cannot trigger takeover")
+        if not self.provenance:
+            raise ValueError("takeover provenance must not be empty")
+
+
 __all__ = [
     "ExecutionRole",
     "HealthState",
     "RoleHealth",
+    "RecoveryCheckpoint",
     "HandoverRequest",
     "HandoverDecision",
+    "TakeoverSignal",
 ]
