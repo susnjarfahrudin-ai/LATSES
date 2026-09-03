@@ -12,6 +12,7 @@ from lat_ces.building.structural import calculate_structural_loads
 from lat_ces.gui import FloorPlanEditor
 from lat_ces.gui_drafting import DraftingLATCESApp
 from lat_ces.gui_mep_engineering import EngineeringMEPWorkspaceApp
+from lat_ces.reference_house_workflow import build_reference_house_workflow
 
 
 class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
@@ -40,6 +41,37 @@ class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
         super().__init__()
         self._install_complete_tabs()
         self._refresh_complete_tabs()
+
+    def _build_side_panel(self, side: ttk.Frame) -> None:
+        super()._build_side_panel(side)
+        reference_box = ttk.LabelFrame(side, text="Referentna kuća", padding=10)
+        reference_box.pack(fill="x", pady=(10, 0))
+        ttk.Label(
+            reference_box,
+            text="Ugrađena LAT-CES P+3 referentna kuća. Učitava stvarni fixture i eksplicitni gabarit/zidove.",
+            wraplength=320,
+        ).pack(anchor="w")
+        ttk.Button(
+            reference_box,
+            text="Otvori Referentnu kuću",
+            command=self.open_reference_house,
+        ).pack(fill="x", pady=(7, 0))
+
+    def open_reference_house(self) -> None:
+        try:
+            self.workflow = build_reference_house_workflow()
+            self.editor = FloorPlanEditor(self)
+            self.model_path.set("")
+            self.view_step.set(3)
+            self.configure_stage(3)
+            self.refresh_view()
+            self.status_var.set("Referentna kuća učitana — P+3 · 12 × 10 m")
+        except Exception as exc:
+            messagebox.showerror(
+                "LAT-CES — Referentna kuća",
+                f"Referentna kuća se ne može učitati.\n\n{exc}",
+                parent=self,
+            )
 
     def _install_complete_tabs(self) -> None:
         children = list(self.winfo_children())

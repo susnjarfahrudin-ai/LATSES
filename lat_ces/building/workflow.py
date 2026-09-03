@@ -30,6 +30,7 @@ def make_envelope_floor_plan(name: str, length_m: float, width_m: float, thickne
                 name=f"Vanjski zid {index}",
                 segment=Segment2D(Point2D(x1, y1), Point2D(x2, y2)),
                 thickness=thickness_m,
+                exterior=True,
             )
         )
     return plan
@@ -75,7 +76,7 @@ def add_room_layout(plan: FloorPlan, spec: LevelProjectSpec) -> None:
         if x1 < spec.length_m - wall_t - 1e-9:
             plan.add_wall(Wall(name=f"Pregrada — {room.name} desno", segment=Segment2D(Point2D(x1, y0), Point2D(x1, y1)), thickness=wall_t))
         if y0 > wall_t + 1e-9:
-            plan.add_wall(Wall(name=f"Pregrada — {room.name} gore", segment=Segment2D(Point2D(x0, y0), Point2D(x1, y0)), thickness=wall_t))
+            plan.add_wall(Wall(name=f"Pregrada — {room.name} gore", segment=Segment2D(Point2D(x0, y0), Point2D(x1, y0),), thickness=wall_t))
         if y1 < spec.width_m - wall_t - 1e-9:
             plan.add_wall(Wall(name=f"Pregrada — {room.name} dole", segment=Segment2D(Point2D(x0, y1), Point2D(x1, y1)), thickness=wall_t))
 
@@ -218,19 +219,3 @@ class BuildingWorkflow:
         if project and project.floor_count and not project.all_levels_finalized() and project.floor_count_finalized:
             findings.append("Broj etaža je zaključan, ali nisu sve etaže završene")
         return findings
-
-    def summary(self) -> dict[str, object]:
-        return {
-            "model": self.model.name,
-            "levels": len(self.model.levels),
-            "active_level": self.active_level.name if self.active_level_id else None,
-            "floor_area_m2": self.model.floor_area,
-            "volume_m3": self.model.volume,
-            "rooms": self.model.room_count,
-            "elements": self.model.element_count,
-            "step": self.current_step,
-            "roof": self.roof_shape,
-            "roof_type": self.model.roof.roof_type if self.model.roof else None,
-            "roof_slope_deg": self.model.roof.slope_deg if self.model.roof else None,
-            "north_azimuth_deg": self.model.orientation.north_azimuth_deg,
-        }
