@@ -8,6 +8,8 @@ from lat_ces.structural.role_handover import (
     HandoverRequest,
     HealthState,
     RecoveryCheckpoint,
+    RecoveryState,
+    RecoveryStateMachine,
     RoleHealth,
     TakeoverSignal,
 )
@@ -172,3 +174,67 @@ def test_takeover_signal_requires_failure_or_degradation() -> None:
             checkpoint=checkpoint,
             provenance="coordinator/health-event",
         )
+
+
+def test_process_failure_takeover_and_recovery_cycle() -> None:
+    checkpoint = RecoveryCheckpoint(
+        revision_id="rev-011",
+        content_hash="sha256:yz0",
+        provenance="verification/checkpoint-011",
+    )
+    process = RecoveryStateMachine(role=ExecutionRole.PROCESS, state=RecoveryState.ACTIVE)
+
+    takeover = process.on_failure(HealthState.DEGRADED)
+    active_recovery = takeover.activate_standby()
+    recovering = active_recovery.begin_recovery(checkpoint)
+    verified = recovering.verify_checkpoint()
+    ready = verified.mark_ready()
+
+    assert takeover.state is RecoveryState.TAKEOVER
+    assert active_recovery.state is RecoveryState.ACTIVE
+    assert active_recovery.role is ExecutionRole.REVISION_RECOVERY
+    assert recovering.state is RecoveryState.RECOVERING
+    assert verified.state is RecoveryState.CHECKPOINT_VERIFIED
+    assert ready.state is RecoveryState.READY
+    assert ready.role is ExecutionRole.REVISION_RECOVERY
+    assert ready.checkpoint is checkpoint
+
+
+def test_recovery_role_can_take_over_back_and_recover_again() -> None:
+    checkpoint = RecoveryCheckpoint(
+        revision_id="rev-012",
+        content_hash="sha256:abc2",
+        provenance="verification/checkpoint-012",
+    )
+    recovery = RecoveryStateMachine(
+        role=ExecutionRole.REVISION_RECOVERY,
+        state=RecoveryState.ACTIVE,
+        checkpoint=checkpoint,
+    )
+
+    takeover = recovery.on_failure(HealthState.UNAVAILABLE)
+    active_process = takeover.activate_standby()
+    recovering = active_process.begin_recovery(checkpoint)
+    ready = recovering.verify_checkpoint().mark_ready()
+
+    assert active_process.role is ExecutionRole.PROCESS
+    assert ready.role is ExecutionRole.PROCESS
+    assert ready.state is RecoveryState.READY
+    assert ready.checkpoint is checkpoint
+
+
+def test_state_machine_rejects_invalid_transition() -> None:
+    machine = RecoveryStateMachine()
+
+    with pytest.raises(ValueError, match="standby activation requires TAKEOVER state"):
+        machine.activate_standby()
+
+    with pytest.raises(ValueError, match="healthy role cannot trigger takeover"):
+        machine.on_failure(HealthState.HEALTHY)
+
+
+def test_ready_requires_verified_checkpoint() -> None:
+    machine = RecoveryStateMachine(state=RecoveryState.RECOVERING)
+
+    with pytest.raises(ValueError, match="checkpoint verification requires a recovery checkpoint"):
+        machine.verify_checkpoint()
