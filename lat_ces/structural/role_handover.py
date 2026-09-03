@@ -1,8 +1,7 @@
-"""Neutral role, takeover, recovery, and state-machine contracts.
+"""ROM coordination contracts for isolated PROCESS and REVISION/RECOVERY roles.
 
-PROCESS and REVISION_RECOVERY remain implementation-isolated. The neutral
-contracts may be used by a coordinator, but a role-local signal intentionally
-does not disclose the peer model or its implementation identity.
+The coordinator is read-only with respect to both execution models: it stores
+only immutable operational evidence and emits role-local takeover signals.
 """
 from __future__ import annotations
 
@@ -11,23 +10,17 @@ from enum import Enum
 
 
 class ExecutionRole(str, Enum):
-    """Independent execution roles that may become active."""
-
     PROCESS = "PROCESS"
     REVISION_RECOVERY = "REVISION_RECOVERY"
 
 
 class HealthState(str, Enum):
-    """Operational health used to justify an explicit takeover."""
-
     HEALTHY = "HEALTHY"
     DEGRADED = "DEGRADED"
     UNAVAILABLE = "UNAVAILABLE"
 
 
 class RecoveryState(str, Enum):
-    """Lifecycle states for controlled takeover and recovery."""
-
     ACTIVE = "ACTIVE"
     TAKEOVER = "TAKEOVER"
     STANDBY = "STANDBY"
@@ -38,8 +31,6 @@ class RecoveryState(str, Enum):
 
 @dataclass(frozen=True)
 class RoleHealth:
-    """Immutable health evidence for one execution role."""
-
     role: ExecutionRole
     state: HealthState
     revision_id: str
@@ -48,8 +39,6 @@ class RoleHealth:
 
 @dataclass(frozen=True)
 class RecoveryCheckpoint:
-    """Last verified state from which an inactive role can recover."""
-
     revision_id: str
     content_hash: str
     provenance: str
@@ -65,8 +54,6 @@ class RecoveryCheckpoint:
 
 @dataclass(frozen=True)
 class HandoverRequest:
-    """Immutable coordinator request to transfer active responsibility."""
-
     from_role: ExecutionRole
     to_role: ExecutionRole
     reason: HealthState
@@ -89,8 +76,6 @@ class HandoverRequest:
 
 @dataclass(frozen=True)
 class HandoverDecision:
-    """Immutable coordinator decision acknowledging target takeover."""
-
     request: HandoverRequest
     accepted: bool
     target_revision_id: str
@@ -102,8 +87,6 @@ class HandoverDecision:
 
 @dataclass(frozen=True)
 class TakeoverSignal:
-    """Role-local activation signal that does not identify the peer model."""
-
     recipient_role: ExecutionRole
     cause: HealthState
     checkpoint: RecoveryCheckpoint
@@ -118,98 +101,71 @@ class TakeoverSignal:
 
 @dataclass(frozen=True)
 class RecoveryStateMachine:
-    """Deterministic coordinator state for active-role takeover and recovery."""
-
     state: RecoveryState = RecoveryState.ACTIVE
     active_role: ExecutionRole = ExecutionRole.PROCESS
     recovering_role: ExecutionRole | None = None
     checkpoint: RecoveryCheckpoint | None = None
 
     def on_failure(self, health: HealthState) -> "RecoveryStateMachine":
-        """Move the active role to TAKEOVER after a degraded/unavailable signal."""
         if self.state not in {RecoveryState.ACTIVE, RecoveryState.READY}:
             raise ValueError("failure can only be handled from ACTIVE or READY")
         if health is HealthState.HEALTHY:
             raise ValueError("healthy role cannot trigger takeover")
         standby_role = self.recovering_role or self._other_role(self.active_role)
-        return RecoveryStateMachine(
-            state=RecoveryState.TAKEOVER,
-            active_role=self.active_role,
-            recovering_role=standby_role,
-            checkpoint=self.checkpoint,
-        )
+        return RecoveryStateMachine(RecoveryState.TAKEOVER, self.active_role, standby_role, self.checkpoint)
 
     def activate_standby(self) -> "RecoveryStateMachine":
-        """Move the selected replacement into explicit STANDBY state."""
-        if self.state is not RecoveryState.TAKEOVER:
+        if self.state is not RecoveryState.TAKEOVER or self.recovering_role is None:
             raise ValueError("standby activation requires TAKEOVER state")
-        if self.recovering_role is None:
-            raise ValueError("TAKEOVER requires a standby role")
-        return RecoveryStateMachine(
-            state=RecoveryState.STANDBY,
-            active_role=self.active_role,
-            recovering_role=self.recovering_role,
-            checkpoint=self.checkpoint,
-        )
+        return RecoveryStateMachine(RecoveryState.STANDBY, self.active_role, self.recovering_role, self.checkpoint)
 
     def promote_standby(self) -> "RecoveryStateMachine":
-        """Promote the standby role to active responsibility."""
-        if self.state is not RecoveryState.STANDBY:
+        if self.state is not RecoveryState.STANDBY or self.recovering_role is None:
             raise ValueError("standby promotion requires STANDBY state")
-        if self.recovering_role is None:
-            raise ValueError("STANDBY requires a replacement role")
-        return RecoveryStateMachine(
-            state=RecoveryState.ACTIVE,
-            active_role=self.recovering_role,
-            recovering_role=self.active_role,
-            checkpoint=self.checkpoint,
-        )
+        return RecoveryStateMachine(RecoveryState.ACTIVE, self.recovering_role, self.active_role, self.checkpoint)
 
     def begin_recovery(self, checkpoint: RecoveryCheckpoint) -> "RecoveryStateMachine":
-        """Recover the inactive role while the newly promoted role remains active."""
-        if self.state is not RecoveryState.ACTIVE:
+        if self.state is not RecoveryState.ACTIVE or self.recovering_role is None:
             raise ValueError("recovery can begin only while a role is ACTIVE")
-        if self.recovering_role is None:
-            raise ValueError("recovery requires an inactive role")
-        return RecoveryStateMachine(
-            state=RecoveryState.RECOVERING,
-            active_role=self.active_role,
-            recovering_role=self.recovering_role,
-            checkpoint=checkpoint,
-        )
+        return RecoveryStateMachine(RecoveryState.RECOVERING, self.active_role, self.recovering_role, checkpoint)
 
     def verify_checkpoint(self) -> "RecoveryStateMachine":
-        """Accept the recovered state only after a checkpoint exists."""
         if self.state is not RecoveryState.RECOVERING:
             raise ValueError("checkpoint verification requires RECOVERING state")
         if self.checkpoint is None:
             raise ValueError("checkpoint verification requires a recovery checkpoint")
-        return RecoveryStateMachine(
-            state=RecoveryState.CHECKPOINT_VERIFIED,
-            active_role=self.active_role,
-            recovering_role=self.recovering_role,
-            checkpoint=self.checkpoint,
-        )
+        return RecoveryStateMachine(RecoveryState.CHECKPOINT_VERIFIED, self.active_role, self.recovering_role, self.checkpoint)
 
     def mark_ready(self) -> "RecoveryStateMachine":
-        """Mark the recovered standby role ready for a future takeover."""
-        if self.state is not RecoveryState.CHECKPOINT_VERIFIED:
+        if self.state is not RecoveryState.CHECKPOINT_VERIFIED or self.recovering_role is None:
             raise ValueError("READY requires a verified checkpoint")
-        if self.recovering_role is None:
-            raise ValueError("READY requires an inactive recovered role")
-        return RecoveryStateMachine(
-            state=RecoveryState.READY,
-            active_role=self.active_role,
-            recovering_role=self.recovering_role,
-            checkpoint=self.checkpoint,
-        )
+        return RecoveryStateMachine(RecoveryState.READY, self.active_role, self.recovering_role, self.checkpoint)
 
     @staticmethod
     def _other_role(role: ExecutionRole) -> ExecutionRole:
-        return (
+        return ExecutionRole.REVISION_RECOVERY if role is ExecutionRole.PROCESS else ExecutionRole.PROCESS
+
+
+@dataclass(frozen=True)
+class ROMCoordinator:
+    """Read-only monitor/coordinator with no BuildingModel dependency."""
+
+    active_role: ExecutionRole
+    last_verified_checkpoint: RecoveryCheckpoint
+
+    def observe_failure(self, health: HealthState) -> TakeoverSignal:
+        if health is HealthState.HEALTHY:
+            raise ValueError("healthy state cannot trigger takeover")
+        recipient = (
             ExecutionRole.REVISION_RECOVERY
-            if role is ExecutionRole.PROCESS
+            if self.active_role is ExecutionRole.PROCESS
             else ExecutionRole.PROCESS
+        )
+        return TakeoverSignal(
+            recipient_role=recipient,
+            cause=health,
+            checkpoint=self.last_verified_checkpoint,
+            provenance="rom/failure-observation",
         )
 
 
@@ -223,4 +179,5 @@ __all__ = [
     "HandoverDecision",
     "TakeoverSignal",
     "RecoveryStateMachine",
+    "ROMCoordinator",
 ]
