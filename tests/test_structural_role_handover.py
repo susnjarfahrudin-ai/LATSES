@@ -7,7 +7,9 @@ from lat_ces.structural.role_handover import (
     HandoverDecision,
     HandoverRequest,
     HealthState,
+    RecoveryCheckpoint,
     RoleHealth,
+    TakeoverSignal,
 )
 
 
@@ -122,4 +124,51 @@ def test_accepted_handover_cannot_change_revision_identity() -> None:
             request=request,
             accepted=True,
             target_revision_id="rev-other",
+        )
+
+
+def test_takeover_signal_is_role_local_and_carries_last_verified_checkpoint() -> None:
+    checkpoint = RecoveryCheckpoint(
+        revision_id="rev-008",
+        content_hash="sha256:pqr",
+        provenance="verification/checkpoint-008",
+    )
+    signal = TakeoverSignal(
+        recipient_role=ExecutionRole.REVISION_RECOVERY,
+        cause=HealthState.UNAVAILABLE,
+        checkpoint=checkpoint,
+        provenance="coordinator/health-event",
+    )
+
+    assert signal.recipient_role is ExecutionRole.REVISION_RECOVERY
+    assert signal.cause is HealthState.UNAVAILABLE
+    assert signal.checkpoint.revision_id == "rev-008"
+    assert not hasattr(signal, "from_role")
+    assert not hasattr(signal, "peer_model")
+
+
+def test_recovery_checkpoint_is_immutable() -> None:
+    checkpoint = RecoveryCheckpoint(
+        revision_id="rev-009",
+        content_hash="sha256:stu",
+        provenance="verification/checkpoint-009",
+    )
+
+    with pytest.raises(FrozenInstanceError):
+        checkpoint.content_hash = "sha256:changed"  # type: ignore[misc]
+
+
+def test_takeover_signal_requires_failure_or_degradation() -> None:
+    checkpoint = RecoveryCheckpoint(
+        revision_id="rev-010",
+        content_hash="sha256:vwx",
+        provenance="verification/checkpoint-010",
+    )
+
+    with pytest.raises(ValueError, match="cannot trigger takeover"):
+        TakeoverSignal(
+            recipient_role=ExecutionRole.PROCESS,
+            cause=HealthState.HEALTHY,
+            checkpoint=checkpoint,
+            provenance="coordinator/health-event",
         )
