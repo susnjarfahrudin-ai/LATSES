@@ -1,5 +1,9 @@
 name: LAT-CES Windows Installer
 
+# Persistent operational memory: docs/WORKFLOW-RUNBOOK.md
+# Release rule: exact commit -> verification GREEN -> EXE smoke -> GUI acceptance -> installer smoke -> artifact evidence.
+# Never report an EXE/installer as ready from an older commit.
+
 on:
   workflow_dispatch:
   push:
@@ -44,6 +48,15 @@ jobs:
         shell: pwsh
         run: |
           python -c "from lat_ces.gui_complete import CompleteBuildingWorkspaceApp; from lat_ces.gui_functional import FunctionalLATCESApp; from lat_ces.gui_release import ReleaseLATCESApp; print('LAT-CES GUI imports OK')"
+      - name: Verify complete desktop application imports
+        shell: pwsh
+        run: |
+          python -c "from lat_ces.gui_complete import CompleteBuildingWorkspaceApp; print('LAT-CES complete Building workspace import OK')"
+          python -c "from lat_ces.gui_launcher import CompleteBuildingWorkspaceApp; print('LAT-CES GUI launcher import OK')"
+          python -c "from lat_ces.gui_dashboard import ProjectOverviewApp; print('LAT-CES project overview import OK')"
+          python -c "from lat_ces.gui_product_dashboard import ProductBuildingWorkspaceApp; print('LAT-CES product binding workspace import OK')"
+          python -c "from lat_ces.gui_product_engineering_dashboard import ProductEngineeringWorkspaceApp; print('LAT-CES product engineering workspace import OK')"
+          python -c "from lat_ces.reference_house_workflow import build_reference_house_workflow; w=build_reference_house_workflow(); assert len(w.model.levels)==4; assert all(l.floor_plan and l.floor_plan.wall_count>4 for l in w.model.levels.values()); assert all(sum(wall.exterior for wall in l.floor_plan.walls.values())==4 for l in w.model.levels.values()); print('Reference House workflow load OK')"
           pytest -q
 
       - name: Build GUI executable from release entrypoint
@@ -52,6 +65,11 @@ jobs:
           pyinstaller --noconfirm --clean --onefile --windowed --name LATSES --add-data 'lat_ces/reference_house_model.json;lat_ces' lat_ces/gui_release.py
           if (!(Test-Path '.\\dist\\LATSES.exe')) { throw 'LATSES.exe was not created' }
           if ((Get-Item '.\\dist\\LATSES.exe').Length -lt 1000000) { throw 'LATSES.exe is unexpectedly small' }
+          pyinstaller --noconfirm --clean --onefile --windowed --name LATSES `
+            --add-data "lat_ces/reference_house_model.json;lat_ces" `
+            lat_ces/gui_product_engineering_dashboard.py
+          if (!(Test-Path '.\dist\LATSES.exe')) { throw 'LATSES.exe was not created' }
+          if ((Get-Item '.\dist\LATSES.exe').Length -lt 1000000) { throw 'LATSES.exe is unexpectedly small' }
 
       - name: GUI Reference House -> Tlocrt smoke
         shell: pwsh
@@ -63,10 +81,51 @@ jobs:
       - name: Smoke test packaged executable
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath '.\\dist\\LATSES.exe' -PassThru -WindowStyle Hidden
+          $p = Start-Process -FilePath '.\dist\LATSES.exe' -PassThru -WindowStyle Hidden
           Start-Sleep -Seconds 3
           if ($p.HasExited -and $p.ExitCode -ne 0) { throw "LATSES.exe exited with code $($p.ExitCode)" }
           if (!$p.HasExited) { Stop-Process -Id $p.Id -Force }
+
+      - name: Build console acceptance diagnostic executable
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --console --name LATCES-Acceptance-Diagnostic `
+            --add-data "lat_ces/reference_house_model.json;lat_ces" `
+            lat_ces/gui_product_engineering_dashboard.py
+          if (!(Test-Path '.\dist\LATCES-Acceptance-Diagnostic.exe')) { throw 'LATCES-Acceptance-Diagnostic.exe was not created' }
+
+      - name: GUI visual acceptance sequence
+        shell: pwsh
+        run: |
+          $env:LATCES_GUI_ACCEPTANCE = '1'
+          $log = Join-Path $env:GITHUB_WORKSPACE 'acceptance.log'
+          $err = Join-Path $env:GITHUB_WORKSPACE 'acceptance-error.log'
+          Remove-Item $log,$err -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath '.\dist\LATCES-Acceptance-Diagnostic.exe' -PassThru -WindowStyle Hidden -RedirectStandardOutput $log -RedirectStandardError $err
+          $deadline = (Get-Date).AddSeconds(90)
+          while (-not $p.HasExited -and (Get-Date) -lt $deadline) {
+            Start-Sleep -Milliseconds 500
+          }
+          Write-Host '--- ACCEPTANCE DIAGNOSTIC STDOUT ---'
+          if (Test-Path $log) { Get-Content $log }
+          Write-Host '--- ACCEPTANCE DIAGNOSTIC STDERR ---'
+          if (Test-Path $err) { Get-Content $err }
+          Write-Host '--- END ACCEPTANCE DIAGNOSTIC LOG ---'
+          if (-not $p.HasExited) {
+            Stop-Process -Id $p.Id -Force
+            throw 'GUI visual acceptance timed out after 90 seconds'
+          }
+          if ($p.ExitCode -ne 0) { throw "GUI visual acceptance failed with exit code $($p.ExitCode)" }
+
+      - name: Upload acceptance diagnostic log
+        if: always()
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        with:
+          name: LAT-CES-GUI-Acceptance-Diagnostic
+          path: |
+            acceptance.log
+            acceptance-error.log
+          if-no-files-found: warn
 
       - name: Install Inno Setup
         shell: pwsh
@@ -81,34 +140,36 @@ jobs:
           if ($iscc) { $isccPath = $iscc.Source }
           if (-not $isccPath) {
             $candidates = @(
-              "$env:ChocolateyToolsLocation\\innosetup\\tools\\ISCC.exe",
-              "$env:ChocolateyInstall\\bin\\ISCC.exe",
-              "$env:ProgramFiles\\Inno Setup 6\\ISCC.exe",
-              "${env:ProgramFiles(x86)}\\Inno Setup 6\\ISCC.exe"
+              "$env:ChocolateyToolsLocation\innosetup\tools\ISCC.exe",
+              "$env:ChocolateyInstall\bin\ISCC.exe",
+              "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+              "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
             )
             $isccPath = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
           }
+          if (-not $isccPath) {
+            $isccPath = Get-ChildItem 'C:\ProgramData\chocolatey\lib\innosetup' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
+          }
           if (-not $isccPath) { throw 'Inno Setup compiler ISCC.exe not found' }
-          & $isccPath 'installer\\LATSES.iss'
+          & $isccPath 'installer\LATSES.iss'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (!(Test-Path '.\\installer-output\\LAT-CES-Setup.exe')) {
-            if (Test-Path '.\\installer\\installer-output\\LAT-CES-Setup.exe') {
+          if (!(Test-Path '.\installer-output\LAT-CES-Setup.exe')) {
+            if (Test-Path '.\installer\installer-output\LAT-CES-Setup.exe') {
               New-Item -ItemType Directory -Force -Path 'installer-output' | Out-Null
-              Copy-Item '.\\installer\\installer-output\\LAT-CES-Setup.exe' '.\\installer-output\\LAT-CES-Setup.exe'
+              Copy-Item '.\installer\installer-output\LAT-CES-Setup.exe' '.\installer-output\LAT-CES-Setup.exe'
             } else { throw 'LAT-CES-Setup.exe was not created' }
           }
 
       - name: Smoke test installer artifact
         shell: pwsh
         run: |
-          $size = (Get-Item '.\\installer-output\\LAT-CES-Setup.exe').Length
+          $size = (Get-Item '.\installer-output\LAT-CES-Setup.exe').Length
           if ($size -lt 1000000) { throw "Installer unexpectedly small: $size bytes" }
-          Get-FileHash '.\\installer-output\\LAT-CES-Setup.exe' -Algorithm SHA256 | Format-List
+          Get-FileHash '.\installer-output\LAT-CES-Setup.exe' -Algorithm SHA256 | Format-List
 
       - name: Upload standard installer
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
         with:
           name: LAT-CES-Windows-Installer
           path: installer-output/LAT-CES-Setup.exe
           if-no-files-found: error
-          retention-days: 30

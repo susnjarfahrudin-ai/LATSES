@@ -1,10 +1,8 @@
 """Canonical 2-D floor-plan primitives for the BuildingModel.
 
-The floor plan is intentionally solver-neutral. It describes topology and
-geometry only; structural, fluid, thermal, acoustic and electrical domains
-consume the same wall/opening/room representation later.
+The floor plan is solver-neutral topology and geometry. Scientific modules
+consume these same wall/opening objects; they do not define copies.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -49,7 +47,7 @@ class Opening:
 
 @dataclass
 class Wall:
-    """A linear wall with topology, material and preliminary structural metadata."""
+    """Canonical wall object shared by GUI and scientific consumers."""
 
     name: str
     segment: Segment2D
@@ -59,6 +57,8 @@ class Wall:
     load_bearing: bool = False
     material_id: str | None = None
     tributary_width_m: float = 0.0
+    exterior: bool = False
+    room_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name.strip():
@@ -135,4 +135,6 @@ class FloorPlan:
                     )
             if wall.load_bearing and wall.tributary_width_m <= 0.0:
                 findings.append(f"Load-bearing wall {wall.wall_id} has no tributary width")
+            if len(set(wall.room_ids)) != len(wall.room_ids):
+                findings.append(f"Wall {wall.wall_id} has duplicate room identity")
         return findings

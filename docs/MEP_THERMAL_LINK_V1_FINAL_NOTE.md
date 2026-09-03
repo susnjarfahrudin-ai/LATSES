@@ -1,0 +1,1 @@
+This PR links canonical Thermal room heat loss to the existing canonical HeatingZone by Room ID. No second room or heating model is created.

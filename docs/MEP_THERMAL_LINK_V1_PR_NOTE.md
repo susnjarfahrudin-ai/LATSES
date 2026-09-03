@@ -1,0 +1,1 @@
+The canonical link is BuildingModel Room ID -> Thermal room heat loss -> existing HeatingZone.room_heat_load_w; missing thermal inputs remain INPUT_REQUIRED.
