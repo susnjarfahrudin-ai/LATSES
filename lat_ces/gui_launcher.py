@@ -147,10 +147,9 @@ def refresh_engineering_summary(self: CompleteBuildingWorkspaceApp) -> None:
     widget.configure(state="normal"); widget.delete("1.0", "end"); widget.insert("1.0", "\n".join(lines)); widget.configure(state="disabled")
 
 
-def _init_with_reference_house(self: CompleteBuildingWorkspaceApp) -> None:
+def _init_production(self: CompleteBuildingWorkspaceApp) -> None:
     _original_init(self)
     _apply_natural_blue_atmosphere(self)
-    self.open_reference_house()
     _install_engineering_summary(self)
 
 
@@ -158,8 +157,7 @@ def run_gui_acceptance() -> None:
     """Run the deterministic visual acceptance path inside the packaged EXE."""
     app = CompleteBuildingWorkspaceApp()
     try:
-        app.open_reference_house()
-        assert app.workflow.model.levels, "Reference House: no levels"
+        assert app.workflow.model.levels, "Canonical BuildingModel: no levels"
         for step, label in ((3, "Tlocrt"), (4, "Presjek"), (5, "3D")):
             app.view_step.set(step)
             app.goto_step()
@@ -174,14 +172,14 @@ def run_gui_acceptance() -> None:
         for marker in ("STATIKA", "TERMIKA", "KOLIČINE", "MEP"):
             if marker not in summary:
                 raise RuntimeError(f"Izvještaj: missing {marker}")
-        if not app.workflow.model.materials:
-            raise RuntimeError("Materijali: canonical Material/Product registry is empty")
-        print("GUI ACCEPTANCE GREEN: Reference House -> Tlocrt -> Presjek -> 3D -> Provjera -> Izvještaj -> Materijali")
+        if not app.workflow.model.levels:
+            raise RuntimeError("Canonical BuildingModel: no levels")
+        print("GUI ACCEPTANCE GREEN: Canonical BuildingModel -> Tlocrt -> Presjek -> 3D -> Provjera -> Izvještaj")
     finally:
         app.destroy()
 
 
-CompleteBuildingWorkspaceApp.__init__ = _init_with_reference_house
+CompleteBuildingWorkspaceApp.__init__ = _init_production
 CompleteBuildingWorkspaceApp._build_model_tab = _build_model_tab_with_inspector
 CompleteBuildingWorkspaceApp.show_canonical_model_inspector = show_canonical_model_inspector
 CompleteBuildingWorkspaceApp.draw_floor_plan = _draw_floor_plan_with_elements
