@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from lat_ces.building_model.core import BuildingModel
+from lat_ces.building.model import BuildingModel
 from lat_ces.structural.canonical_result import CanonicalStructuralResult
 
 
