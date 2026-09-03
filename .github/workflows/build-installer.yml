@@ -50,7 +50,6 @@ jobs:
         shell: pwsh
         run: |
           pyinstaller --noconfirm --clean --onefile --windowed --name LATSES `
-            --add-data "lat_ces/reference_house_model.json;lat_ces" `
             lat_ces/gui_product_engineering_dashboard.py
           if (!(Test-Path '.\dist\LATSES.exe')) { throw 'LATSES.exe was not created' }
           if ((Get-Item '.\dist\LATSES.exe').Length -lt 1000000) { throw 'LATSES.exe is unexpectedly small' }
@@ -67,7 +66,6 @@ jobs:
         shell: pwsh
         run: |
           pyinstaller --noconfirm --clean --onefile --console --name LATCES-Acceptance-Diagnostic `
-            --add-data "lat_ces/reference_house_model.json;lat_ces" `
             lat_ces/gui_product_engineering_dashboard.py
           if (!(Test-Path '.\dist\LATCES-Acceptance-Diagnostic.exe')) { throw 'LATCES-Acceptance-Diagnostic.exe was not created' }
 
