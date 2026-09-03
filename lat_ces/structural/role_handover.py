@@ -118,41 +118,49 @@ class TakeoverSignal:
 
 @dataclass(frozen=True)
 class RecoveryStateMachine:
-    """Small deterministic state machine for takeover and recovery."""
+    """Deterministic coordinator state for active-role takeover and recovery."""
 
     state: RecoveryState = RecoveryState.ACTIVE
-    role: ExecutionRole = ExecutionRole.PROCESS
+    active_role: ExecutionRole = ExecutionRole.PROCESS
+    recovering_role: ExecutionRole | None = None
     checkpoint: RecoveryCheckpoint | None = None
 
     def on_failure(self, health: HealthState) -> "RecoveryStateMachine":
-        """Enter TAKEOVER only for an observed degraded/unavailable active role."""
+        """Move the active role to TAKEOVER and identify only the standby role."""
         if self.state is not RecoveryState.ACTIVE:
             raise ValueError("failure can only be handled from ACTIVE")
         if health is HealthState.HEALTHY:
             raise ValueError("healthy role cannot trigger takeover")
         return RecoveryStateMachine(
             state=RecoveryState.TAKEOVER,
-            role=self.role,
+            active_role=self.active_role,
+            recovering_role=self.recovering_role or self._other_role(self.active_role),
             checkpoint=self.checkpoint,
         )
 
     def activate_standby(self) -> "RecoveryStateMachine":
-        """Transfer active responsibility to the waiting role without model coupling."""
+        """Make the standby role active while the failed role becomes recoverable."""
         if self.state is not RecoveryState.TAKEOVER:
             raise ValueError("standby activation requires TAKEOVER state")
+        if self.recovering_role is None:
+            raise ValueError("TAKEOVER requires a standby role")
         return RecoveryStateMachine(
             state=RecoveryState.ACTIVE,
-            role=self._other_role(),
+            active_role=self.recovering_role,
+            recovering_role=self.active_role,
             checkpoint=self.checkpoint,
         )
 
     def begin_recovery(self, checkpoint: RecoveryCheckpoint) -> "RecoveryStateMachine":
-        """Recover the inactive peer from the supplied verified checkpoint evidence."""
+        """Recover the inactive role while the newly activated role remains active."""
         if self.state is not RecoveryState.ACTIVE:
             raise ValueError("recovery can begin only while a role is ACTIVE")
+        if self.recovering_role is None:
+            raise ValueError("recovery requires an inactive role")
         return RecoveryStateMachine(
             state=RecoveryState.RECOVERING,
-            role=self.role,
+            active_role=self.active_role,
+            recovering_role=self.recovering_role,
             checkpoint=checkpoint,
         )
 
@@ -164,24 +172,29 @@ class RecoveryStateMachine:
             raise ValueError("checkpoint verification requires a recovery checkpoint")
         return RecoveryStateMachine(
             state=RecoveryState.CHECKPOINT_VERIFIED,
-            role=self.role,
+            active_role=self.active_role,
+            recovering_role=self.recovering_role,
             checkpoint=self.checkpoint,
         )
 
     def mark_ready(self) -> "RecoveryStateMachine":
-        """Mark the recovered role ready for a future takeover."""
+        """Mark the recovered standby role ready for a future takeover."""
         if self.state is not RecoveryState.CHECKPOINT_VERIFIED:
             raise ValueError("READY requires a verified checkpoint")
+        if self.recovering_role is None:
+            raise ValueError("READY requires an inactive recovered role")
         return RecoveryStateMachine(
             state=RecoveryState.READY,
-            role=self.role,
+            active_role=self.active_role,
+            recovering_role=self.recovering_role,
             checkpoint=self.checkpoint,
         )
 
-    def _other_role(self) -> ExecutionRole:
+    @staticmethod
+    def _other_role(role: ExecutionRole) -> ExecutionRole:
         return (
             ExecutionRole.REVISION_RECOVERY
-            if self.role is ExecutionRole.PROCESS
+            if role is ExecutionRole.PROCESS
             else ExecutionRole.PROCESS
         )
 
