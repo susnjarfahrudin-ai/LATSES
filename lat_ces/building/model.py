@@ -5,9 +5,10 @@ adapters. Geometry lives in Level/FloorPlan; material/product identity lives
 in shared Material records; downstream modules consume read-only views.
 """
 from __future__ import annotations
-
 from dataclasses import dataclass, field
 from uuid import uuid4
+
+from lat_ces.structural.canonical_result import CanonicalStructuralResult
 
 from .floor_plan import FloorPlan
 from .geometry import Box3D
@@ -233,6 +234,7 @@ class BuildingModel:
     roof: Roof | None = None
     orientation: BuildingOrientation = field(default_factory=BuildingOrientation)
     load_bearing_mode: str = "all_walls"
+    structural_results: dict[str, CanonicalStructuralResult] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.name.strip():
@@ -259,6 +261,12 @@ class BuildingModel:
     def set_orientation(self, orientation: BuildingOrientation) -> BuildingOrientation:
         self.orientation = orientation
         return orientation
+
+    def add_structural_result(self, result: CanonicalStructuralResult) -> None:
+        """Store canonical solver evidence without changing validation state."""
+        if result.result_id in self.structural_results:
+            raise ValueError(f"duplicate structural result id: {result.result_id}")
+        self.structural_results[result.result_id] = result
 
     @property
     def floor_area(self) -> float:
