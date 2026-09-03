@@ -126,24 +126,38 @@ class RecoveryStateMachine:
     checkpoint: RecoveryCheckpoint | None = None
 
     def on_failure(self, health: HealthState) -> "RecoveryStateMachine":
-        """Move the active role to TAKEOVER and identify only the standby role."""
-        if self.state is not RecoveryState.ACTIVE:
-            raise ValueError("failure can only be handled from ACTIVE")
+        """Move the active role to TAKEOVER after a degraded/unavailable signal."""
+        if self.state not in {RecoveryState.ACTIVE, RecoveryState.READY}:
+            raise ValueError("failure can only be handled from ACTIVE or READY")
         if health is HealthState.HEALTHY:
             raise ValueError("healthy role cannot trigger takeover")
+        standby_role = self.recovering_role or self._other_role(self.active_role)
         return RecoveryStateMachine(
             state=RecoveryState.TAKEOVER,
             active_role=self.active_role,
-            recovering_role=self.recovering_role or self._other_role(self.active_role),
+            recovering_role=standby_role,
             checkpoint=self.checkpoint,
         )
 
     def activate_standby(self) -> "RecoveryStateMachine":
-        """Make the standby role active while the failed role becomes recoverable."""
+        """Move the selected replacement into explicit STANDBY state."""
         if self.state is not RecoveryState.TAKEOVER:
             raise ValueError("standby activation requires TAKEOVER state")
         if self.recovering_role is None:
             raise ValueError("TAKEOVER requires a standby role")
+        return RecoveryStateMachine(
+            state=RecoveryState.STANDBY,
+            active_role=self.active_role,
+            recovering_role=self.recovering_role,
+            checkpoint=self.checkpoint,
+        )
+
+    def promote_standby(self) -> "RecoveryStateMachine":
+        """Promote the standby role to active responsibility."""
+        if self.state is not RecoveryState.STANDBY:
+            raise ValueError("standby promotion requires STANDBY state")
+        if self.recovering_role is None:
+            raise ValueError("STANDBY requires a replacement role")
         return RecoveryStateMachine(
             state=RecoveryState.ACTIVE,
             active_role=self.recovering_role,
@@ -152,7 +166,7 @@ class RecoveryStateMachine:
         )
 
     def begin_recovery(self, checkpoint: RecoveryCheckpoint) -> "RecoveryStateMachine":
-        """Recover the inactive role while the newly activated role remains active."""
+        """Recover the inactive role while the newly promoted role remains active."""
         if self.state is not RecoveryState.ACTIVE:
             raise ValueError("recovery can begin only while a role is ACTIVE")
         if self.recovering_role is None:
