@@ -1,23 +1,44 @@
-"""Canonical Measurement contract tests."""
-
-from datetime import datetime, timezone
-
 import pytest
 
-from lat_ces.scientific.measurement.measurement import (
+from lat_ces.scientific.dimensions.dimension import LENGTH, TEMPERATURE
+from lat_ces.scientific.measurement import (
+    CalibrationRecord,
+    Instrument,
     Measurement,
-    MeasurementError,
+    MeasurementProvenance,
+    MeasurementRegistry,
     MeasurementValidationError,
+    Uncertainty,
 )
-from lat_ces.scientific.measurement.provenance import MeasurementProvenance
-from lat_ces.scientific.measurement.uncertainty import Uncertainty
-from lat_ces.scientific.quantity import Quantity
-from lat_ces.scientific.units.units import celsius, meter
-from lat_ces.scientific.core.dimensions import TEMPERATURE
+from lat_ces.scientific.units.core import meter, celsius
+
+
+class Quantity:
+    """Minimal structural quantity contract used by the SCI validation test."""
+
+    def __init__(self, dimension):
+        self.dimension = dimension
 
 
 def valid_instrument():
-    return "SENSOR-TEMP-001"
+    return Instrument(
+        instrument_id="SENSOR-TEMP-001",
+        name="Room Temperature Sensor",
+        measurement_range=(-40.0, 125.0),
+        accuracy=0.2,
+        unit=celsius,
+        calibration_required=False,
+    )
+
+
+def valid_calibration():
+    return CalibrationRecord(
+        calibration_id="CAL-2026-01",
+        instrument_id="SENSOR-TEMP-001",
+        standard="REF-TEMP-001",
+        date="2026-01-15",
+        certificate="CERT-2026-001",
+    )
 
 
 def valid_measurement():
@@ -25,9 +46,10 @@ def valid_measurement():
         quantity=Quantity(TEMPERATURE),
         value=23.4,
         unit=celsius,
-        uncertainty=Uncertainty(0.2, "sensor accuracy"),
+        uncertainty=Uncertainty(0.2, "sensor accuracy", confidence=95),
         instrument=valid_instrument(),
-        calibration="CAL-2026-01",
+        calibration=valid_calibration(),
+        source="instrument:SENSOR-TEMP-001",
         provenance=MeasurementProvenance.now(
             source="instrument:SENSOR-TEMP-001",
             recorded_by="LAT-CES-test",
@@ -93,9 +115,14 @@ def test_measurement_rejects_dimension_mismatch():
         provenance=MeasurementProvenance.now(
             source="instrument:SENSOR-TEMP-001", recorded_by="LAT-CES-test"
         ),
-        building_model_id="BUILDING-001",
     )
-    with pytest.raises(MeasurementValidationError):
+    with pytest.raises(MeasurementValidationError, match="MEAS-002"):
         measurement.validate()
 
 
+def test_registry_requires_valid_measurements_and_preserves_identity():
+    registry = MeasurementRegistry()
+    measurement = valid_measurement()
+    registry.register(measurement)
+    assert len(registry) == 1
+    assert registry.get(measurement.measurement_id) is measurement
