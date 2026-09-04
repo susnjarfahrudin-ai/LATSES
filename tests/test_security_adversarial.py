@@ -84,6 +84,13 @@ def test_ipc_rejects_non_dict_payload_even_when_mac_is_valid() -> None:
         channel.unpack(forged)
 
 
+def test_ipc_rejects_text_packet_even_when_it_contains_a_valid_mac() -> None:
+    channel = SignedIPCChannel(b"shared-secret")
+    packet = channel.pack({"attack": "packet-type"}, sender_id="attacker-probe")
+    with pytest.raises(SecurityError):
+        channel.unpack(packet.decode("utf-8"))
+
+
 def test_recovery_record_rejects_each_authoritative_metadata_mutation() -> None:
     record = ModelRecoveryRecord.create(
         record_id="REC-ATTACK",
