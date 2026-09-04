@@ -5,6 +5,7 @@ import pytest
 from lat_ces.security.adaptive_defense import AdaptiveDefense
 from lat_ces.security.atomic_persistence import atomic_write_bytes
 from lat_ces.security.cyber_fortress import CyberFortress
+from lat_ces.security.defense_history import DefenseHistory
 from lat_ces.security.keyring import KeyRing
 from lat_ces.security.process_security import current_process_identity
 from lat_ces.security.rate_limit import TokenBucketRateLimiter
@@ -70,7 +71,6 @@ def test_replay_guard_capacity_attack_is_caught_by_unified_suite():
     assert guard.check_and_add("victim", now=100.0)
     assert guard.check_and_add("a", now=100.0)
     assert guard.check_and_add("b", now=100.0)
-    # While the nonce is inside TTL, bounded-cache pressure must not make it valid again.
     assert not guard.check_and_add("victim", now=100.0)
 
 
@@ -117,11 +117,9 @@ def test_process_identity_has_stable_pid_and_start_fingerprint():
 def test_adaptive_defense_a_failure_quarantine_b_then_verified_return_to_a():
     a = AdaptiveDefense()
     b = AdaptiveDefense()
-
     failure = a.observe_failure("ipc:malformed IPC nonce", "ipc-rejection", "zero-width-space", source="A")
     b.quarantine(failure)
     assert b.is_quarantined(failure.invariant_id)
-
     verified = b.promote(failure, verification_sha="verification-sha-001")
     assert verified.verified
     assert verified.digest
@@ -138,3 +136,27 @@ def test_unverified_adaptive_defense_cannot_be_promoted_or_imported():
         b.import_verified(record)
     with pytest.raises(ValueError):
         b.promote(record, verification_sha="")
+
+
+def test_defense_history_reads_evidence_but_exposes_only_verified_lessons(tmp_path):
+    path = tmp_path / "history.jsonl"
+    records = [
+        {"record_id": "observed-1", "status": "contained", "attack_class": "probe", "invariant": "fixed baseline", "dimensions": ["frequency", "volume", "concurrency", "novelty"], "baseline": {"frequency": 100, "volume": 100, "concurrency": 100, "novelty": 100}, "observation": {"deviation": 0.19}, "response": {"action": "throttle"}, "verification_sha": None},
+        {"record_id": "verified-1", "status": "learned", "attack_class": "flow-edge", "invariant": "20% admission stop", "dimensions": ["frequency"], "baseline": {"frequency": 100, "volume": 100, "concurrency": 100, "novelty": 100}, "observation": {"deviation": 0.20, "duration_seconds": 1.0}, "response": {"action": "admission-stop"}, "verification_sha": "verification-sha-002"},
+    ]
+    path.write_text("\n".join(json.dumps(item, sort_keys=True) for item in records) + "\n", encoding="utf-8")
+    history = DefenseHistory(path)
+    assert len(history.records()) == 2
+    assert [item.record_id for item in history.verified_lessons()] == ["verified-1"]
+    with pytest.raises(TypeError):
+        history.records()[0].baseline["frequency"] = 200
+    assert not hasattr(history, "append")
+    assert not hasattr(history, "write")
+
+
+def test_defense_history_fails_closed_on_unverified_record_marked_learned(tmp_path):
+    path = tmp_path / "history.jsonl"
+    record = {"record_id": "bad-1", "status": "learned", "attack_class": "probe", "invariant": "x", "dimensions": ["frequency"], "baseline": {"frequency": 100, "volume": 100, "concurrency": 100, "novelty": 100}, "observation": {}, "response": {}, "verification_sha": None}
+    path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="verification_sha"):
+        DefenseHistory(path)
