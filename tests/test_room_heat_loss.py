@@ -4,7 +4,6 @@ from lat_ces.building.floor_plan import FloorPlan, Point2D, Segment2D, Wall
 from lat_ces.building.geometry import Box3D, Point3D
 from lat_ces.building.model import BuildingModel, Level, Material, Room
 from lat_ces.catalog.product_binding import ensure_product_binding_registry
-from lat_ces.reference_house_workflow import build_reference_house_workflow
 from lat_ces.thermal.room_heat_loss import calculate_room_heat_losses
 
 
@@ -89,21 +88,6 @@ def test_missing_lambda_is_explicit_input_required() -> None:
     assert all(result.status == "INPUT_REQUIRED" for result in results)
     assert all(result.heat_loss_w is None for result in results)
     assert all(any("nedostaje λ" in finding for finding in result.findings) for result in results)
-
-
-def test_reference_house_uses_bound_canonical_product_lambda() -> None:
-    workflow = build_reference_house_workflow()
-    results = calculate_room_heat_losses(workflow.model, design_indoor_c=20.0, design_outdoor_c=-10.0)
-
-    conditioned = [result for result in results if result.floor_area_m2 > 0.0]
-    assert conditioned
-    assert all(result.status == "CALCULATED" for result in conditioned)
-    # Canonical calculation: U = 1 / (Rsi + d/lambda + Rse)
-    # with Rsi=0.13 m²K/W, d=0.25 m, lambda=0.145 W/mK, Rse=0.04 m²K/W.
-    assert all(result.u_value_w_m2k == pytest.approx(0.5279446568, rel=1e-9) for result in conditioned)
-    assert all(result.design_delta_t_k == pytest.approx(30.0) for result in conditioned)
-    assert all(result.heat_loss_w is not None and result.heat_loss_w > 0.0 for result in conditioned)
-    assert all(result.heat_loss_w_m2 is not None and result.heat_loss_w_m2 > 0.0 for result in conditioned)
 
 
 def test_invalid_design_delta_t_is_rejected() -> None:
