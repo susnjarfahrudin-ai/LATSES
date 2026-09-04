@@ -1,6 +1,7 @@
 """Security-hardening primitives for the LAT-CES runtime boundary."""
 
 from .adaptive_defense import AdaptiveDefense, DefenseRecord
+from .defense_history import DefenseHistory, DefenseHistoryRecord
 from .flow_guard import FLOW_DIMENSIONS, FlowDecision, FlowGuard
 from .secure_memory import secure_zero
 from .atomic_persistence import atomic_write_bytes
@@ -11,9 +12,10 @@ from .threat_score import ThreatScoreEngine, ThreatScorePolicy
 from .rate_limit import TokenBucket, TokenBucketRateLimiter
 
 __all__ = [
-    "AdaptiveDefense", "DefenseRecord", "FLOW_DIMENSIONS", "FlowDecision", "FlowGuard",
-    "KeyRing", "ProcessIdentity", "ProcessIsolationResult", "ReplayGuard",
-    "SecurityError", "SecretStore", "SignedIPCChannel", "ThreatScoreEngine", "ThreatScorePolicy",
-    "TokenBucket", "TokenBucketRateLimiter", "activate_process_isolation", "atomic_write_bytes",
-    "current_process_identity", "hkdf_sha256", "is_process_alive", "secure_zero",
+    "AdaptiveDefense", "DefenseHistory", "DefenseHistoryRecord", "DefenseRecord",
+    "FLOW_DIMENSIONS", "FlowDecision", "FlowGuard", "KeyRing", "ProcessIdentity",
+    "ProcessIsolationResult", "ReplayGuard", "SecurityError", "SecretStore", "SignedIPCChannel",
+    "ThreatScoreEngine", "ThreatScorePolicy", "TokenBucket", "TokenBucketRateLimiter",
+    "activate_process_isolation", "atomic_write_bytes", "current_process_identity",
+    "hkdf_sha256", "is_process_alive", "secure_zero",
 ]
