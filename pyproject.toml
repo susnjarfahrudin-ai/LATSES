@@ -10,6 +10,9 @@ readme = "README.md"
 requires-python = ">=3.9"
 dependencies = []
 
+[project.optional-dependencies]
+security = ["keyring>=25"]
+
 [project.scripts]
 lat-ces = "lat_ces.cli:main"
 lat-ces-gui = "lat_ces.gui_building_model:main"
