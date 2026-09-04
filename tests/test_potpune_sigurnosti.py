@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from lat_ces.security.adaptive_defense import AdaptiveDefense
 from lat_ces.security.atomic_persistence import atomic_write_bytes
 from lat_ces.security.cyber_fortress import CyberFortress
 from lat_ces.security.keyring import KeyRing
@@ -110,3 +111,29 @@ def test_process_identity_has_stable_pid_and_start_fingerprint():
     assert identity.pid > 0
     assert identity.kernel_start_token
     assert identity.fingerprint.startswith(f"{identity.pid}:")
+
+
+def test_adaptive_defense_a_failure_quarantine_b_then_verified_return_to_a():
+    a = AdaptiveDefense()
+    b = AdaptiveDefense()
+
+    failure = a.observe_failure("ipc:malformed IPC nonce", "ipc-rejection", "zero-width-space", source="A")
+    b.quarantine(failure)
+    assert b.is_quarantined(failure.invariant_id)
+
+    verified = b.promote(failure, verification_sha="verification-sha-001")
+    assert verified.verified
+    assert verified.digest
+    a.import_verified(verified)
+    assert a.is_quarantined(verified.invariant_id)
+    assert a.export_verified() == (verified,)
+
+
+def test_unverified_adaptive_defense_cannot_be_promoted_or_imported():
+    a = AdaptiveDefense()
+    b = AdaptiveDefense()
+    record = a.observe_failure("ipc:test", "ipc-rejection", "proof", source="A")
+    with pytest.raises(ValueError):
+        b.import_verified(record)
+    with pytest.raises(ValueError):
+        b.promote(record, verification_sha="")
