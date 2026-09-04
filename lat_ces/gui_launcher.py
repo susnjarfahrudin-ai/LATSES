@@ -12,7 +12,6 @@ from lat_ces.building_model.quantities import to_quantity_view
 from lat_ces.gui_complete import CompleteBuildingWorkspaceApp
 from lat_ces.thermal.building_model_adapter import to_thermal_input
 
-
 _original_init = CompleteBuildingWorkspaceApp.__init__
 _original_build_model_tab = CompleteBuildingWorkspaceApp._build_model_tab
 _original_draw_floor_plan = CompleteBuildingWorkspaceApp.draw_floor_plan
@@ -32,19 +31,32 @@ def _apply_natural_blue_atmosphere(self: CompleteBuildingWorkspaceApp) -> None:
         style.configure("Natural.TButton", padding=(9, 5))
     except tk.TclError:
         pass
-
     self.configure(background="#eaf4fb")
     self.option_add("*Font", ("Segoe UI", 9))
     if hasattr(self, "canvas"):
         self.canvas.configure(background="#f6fbfe", highlightbackground="#a9c9dc")
-
-    # Keep the existing widget hierarchy and model untouched; only style it.
     for child in self.winfo_children():
         if isinstance(child, ttk.Frame):
             try:
                 child.configure(style="Natural.TFrame")
             except tk.TclError:
                 pass
+
+
+def _draw_sky_and_umbrella(self: CompleteBuildingWorkspaceApp) -> None:
+    """Render the visible sky and umbrella decoration behind the engineering view."""
+    canvas = getattr(self, "canvas", None)
+    if canvas is None:
+        return
+    width = max(canvas.winfo_width(), 700)
+    height = max(canvas.winfo_height(), 450)
+    canvas.create_rectangle(0, 0, width, height, fill="#dff3ff", outline="", tags="natural-atmosphere")
+    for x, y, r in ((110, 70, 34), (220, 105, 24), (330, 62, 30), (500, 92, 27)):
+        canvas.create_oval(x-r, y-r, x+r, y+r, fill="#ffffff", outline="", tags="natural-atmosphere")
+    cx, cy = width - 105, 92
+    canvas.create_arc(cx-58, cy-30, cx+58, cy+42, start=0, extent=180, fill="#f5b84b", outline="#7a4b00", width=2, tags="natural-atmosphere")
+    canvas.create_line(cx, cy+6, cx, cy+82, fill="#4b5563", width=3, tags="natural-atmosphere")
+    canvas.create_arc(cx-10, cy+72, cx+12, cy+95, start=270, extent=180, style="arc", outline="#4b5563", width=3, tags="natural-atmosphere")
 
 
 def _build_model_tab_with_inspector(self: CompleteBuildingWorkspaceApp, tab: ttk.Frame) -> None:
@@ -106,6 +118,7 @@ def _draw_canonical_elements(self: CompleteBuildingWorkspaceApp) -> None:
 
 def _draw_floor_plan_with_elements(self: CompleteBuildingWorkspaceApp) -> None:
     _original_draw_floor_plan(self)
+    _draw_sky_and_umbrella(self)
     _draw_canonical_elements(self)
 
 
@@ -127,8 +140,7 @@ def refresh_engineering_summary(self: CompleteBuildingWorkspaceApp) -> None:
     model = self.workflow.model
     q = to_quantity_view(model)
     registry = ensure_mep_registry(model)
-    lines = ["CANONICAL BUILDING MODEL — ENGINEERING SUMMARY", ""]
-    lines += ["STATIKA"]
+    lines = ["CANONICAL BUILDING MODEL — ENGINEERING SUMMARY", "", "STATIKA"]
     try:
         structural = calculate_structural_loads(model)
         lines += [f"Status: {structural.status}", f"Vertikalno linijsko opterećenje: {structural.total_vertical_line_load_kn_m:.3f} kN/m", f"Zidovi: {len(structural.walls)}", ""]
