@@ -24,3 +24,5 @@ def test_reference_house_115x8_builds_and_exposes_mep() -> None:
         opening.design_flow_m3_h for opening in registry.all_ventilation_openings
     )
     assert total_ventilation_flow_m3_h > 0
+
+# CI execution marker: this test is intentionally the first runtime probe for the fixture.
