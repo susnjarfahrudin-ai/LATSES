@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import math
 import secrets
 import threading
 import time
@@ -92,6 +93,8 @@ class SignedIPCChannel:
                 raise SecurityError("IPC authentication failed")
             now = time.time()
             timestamp = float(envelope["timestamp"])
+            if not math.isfinite(timestamp):
+                raise SecurityError("IPC message expired or timestamp is invalid")
             age = now - timestamp
             if age > self._max_age or age < -self._max_future_skew:
                 raise SecurityError("IPC message expired or timestamp is invalid")
