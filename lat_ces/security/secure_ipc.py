@@ -106,7 +106,10 @@ class SignedIPCChannel:
                 raise SecurityError("malformed IPC nonce")
             if not self._replay_guard.check_and_add(nonce, now=now):
                 raise SecurityError("IPC replay detected")
-            return envelope["payload"]
+            payload = envelope["payload"]
+            if not isinstance(payload, dict):
+                raise SecurityError("malformed IPC payload")
+            return payload
         except SecurityError:
             raise
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
