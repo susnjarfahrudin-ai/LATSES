@@ -42,10 +42,10 @@ def approved_artifact() -> ScientificArtifact:
 
 def test_ontology_identity_relations_and_provenance():
     graph = Ontology()
-    graph.add_entity(OntologyEntity("building", "object", "building", "A building", provenance=("scope",)))
-    graph.add_entity(OntologyEntity("room", "object", "building", "A room", provenance=("scope",)))
-    graph.relate("building", "contains", "room")
-    assert graph.validate().relations()[0].relation == "contains"
+    graph.add_entity(OntologyEntity("building", "object", "building", entity_id="building", domain="A building", provenance=("scope",)))
+    graph.add_entity(OntologyEntity("room", "object", "building", entity_id="room", domain="A room", provenance=("scope",)))
+    graph.relate("room", "PART_OF", "building")
+    assert graph.validate().relations()[0].relation_type == "PART_OF"
 
 
 def test_reasoning_requires_traceability():

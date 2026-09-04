@@ -10,6 +10,8 @@ from dataclasses import dataclass
 import tkinter as tk
 from tkinter import ttk
 
+from .architecture_visualization import EngineeringArchitectureView
+
 
 @dataclass(frozen=True)
 class EngineeringModule:
@@ -22,6 +24,7 @@ class EngineeringModule:
 
 ENGINEERING_MODULES = (
     EngineeringModule("model", "Objekt", "⌂", "Jedinstvena geometrija, etaže, orijentacija i BuildingModel."),
+    EngineeringModule("architecture", "Architecture", "▦", "Usvojena LAT-ARCH-3D-001 arhitektura: model, engineering, mjerenja, validacija i visualization."),
     EngineeringModule("draft", "Tlocrt", "□", "Prostorije, zidovi, vrata, prozori i live dimensioning."),
     EngineeringModule("air", "Zrak", "↝", "Airflow Through Space: dovod, odsis, uzgon i zona čovjeka."),
     EngineeringModule("heat", "Grijanje", "♨", "Podno, radijatorsko, zidno, stropno, zračno i kombinirano."),
@@ -63,13 +66,13 @@ class BuildingEngineeringWorkspace(tk.Frame):
         side = ttk.Frame(self, padding=(10, 4, 8, 10))
         side.grid(row=1, column=0, sticky="nsw")
         ttk.Label(side, text="MODEL", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 4))
-        for module in ENGINEERING_MODULES[:2]:
+        for module in ENGINEERING_MODULES[:3]:
             self._nav_button(side, module)
         ttk.Label(side, text="SISTEMI", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(14, 4))
-        for module in ENGINEERING_MODULES[2:10]:
+        for module in ENGINEERING_MODULES[3:11]:
             self._nav_button(side, module)
         ttk.Label(side, text="ANALIZA", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(14, 4))
-        for module in ENGINEERING_MODULES[10:]:
+        for module in ENGINEERING_MODULES[11:]:
             self._nav_button(side, module)
 
         self.main = ttk.Frame(self, padding=(4, 4, 14, 10))
@@ -89,6 +92,8 @@ class BuildingEngineeringWorkspace(tk.Frame):
         self._clear()
         if key == "model":
             self._model()
+        elif key == "architecture":
+            self._architecture()
         elif key == "draft":
             self._drafting()
         elif key == "air":
@@ -97,6 +102,10 @@ class BuildingEngineeringWorkspace(tk.Frame):
             self._system(key)
         else:
             self._analysis(key)
+
+    def _architecture(self) -> None:
+        view = EngineeringArchitectureView(self.main)
+        view.grid(row=0, column=0, rowspan=4, sticky="nsew")
 
     def _header(self, title: str, subtitle: str) -> None:
         ttk.Label(self.main, text=title, font=("Segoe UI", 18, "bold")).grid(row=0, column=0, sticky="w")

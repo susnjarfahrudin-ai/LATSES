@@ -1,14 +1,24 @@
 import pytest
 
+from lat_ces.building.geometry import Box3D, Point3D
+from lat_ces.building.model import Room
 from lat_ces.building.underfloor_routing import route_room_serpentine
-from lat_ces.reference_house_workflow import build_reference_house_workflow
 
 
-def test_underfloor_route_is_deterministic_and_inside_room() -> None:
-    workflow = build_reference_house_workflow()
-    level = next(iter(workflow.model.levels.values()))
-    room = next(iter(level.rooms.values()))
+@pytest.fixture
+def room() -> Room:
+    return Room(
+        name="UFH test room",
+        footprint=Box3D(
+            origin=Point3D(0.0, 0.0, 0.0),
+            length=4.0,
+            width=3.0,
+            height=2.8,
+        ),
+    )
 
+
+def test_underfloor_route_is_deterministic_and_inside_room(room: Room) -> None:
     route_a = route_room_serpentine(room, spacing_m=0.15)
     route_b = route_room_serpentine(room, spacing_m=0.15)
 
@@ -25,8 +35,6 @@ def test_underfloor_route_is_deterministic_and_inside_room() -> None:
     assert all(x0 <= x <= x1 and y0 <= y <= y1 and z == 0.0 for x, y, z in route_a.points_m)
 
 
-def test_underfloor_route_spacing_must_be_positive() -> None:
-    workflow = build_reference_house_workflow()
-    room = next(iter(next(iter(workflow.model.levels.values())).rooms.values()))
+def test_underfloor_route_spacing_must_be_positive(room: Room) -> None:
     with pytest.raises(ValueError):
         route_room_serpentine(room, spacing_m=0.0)
