@@ -20,8 +20,31 @@ def _canonical_json(value: dict[str, Any]) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
 
-def _digest(payload: dict[str, Any]) -> str:
-    return hashlib.sha256(_canonical_json(payload)).hexdigest()
+def _integrity_material(
+    *,
+    record_id: str,
+    model_id: str,
+    revision: int,
+    parent_revision: int | None,
+    created_at: str,
+    lifecycle_status: str,
+    selector_role: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "record_id": record_id,
+        "model_id": model_id,
+        "revision": revision,
+        "parent_revision": parent_revision,
+        "created_at": created_at,
+        "lifecycle_status": lifecycle_status,
+        "selector_role": selector_role,
+        "payload": payload,
+    }
+
+
+def _digest(value: dict[str, Any]) -> str:
+    return hashlib.sha256(_canonical_json(value)).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -56,20 +79,43 @@ class ModelRecoveryRecord:
             raise ValueError("parent_revision must be lower than revision")
         if not model_id:
             raise ValueError("model_id is required")
+        created_at = datetime.now(timezone.utc).isoformat()
         return cls(
             record_id=record_id,
             model_id=model_id,
             revision=revision,
             parent_revision=parent_revision,
-            created_at=datetime.now(timezone.utc).isoformat(),
-            integrity=_digest(payload),
+            created_at=created_at,
+            integrity=_digest(
+                _integrity_material(
+                    record_id=record_id,
+                    model_id=model_id,
+                    revision=revision,
+                    parent_revision=parent_revision,
+                    created_at=created_at,
+                    lifecycle_status=lifecycle_status,
+                    selector_role=selector_role,
+                    payload=payload,
+                )
+            ),
             lifecycle_status=lifecycle_status,
             selector_role=selector_role,
             payload=payload,
         )
 
     def verify_integrity(self) -> bool:
-        return _digest(self.payload) == self.integrity
+        return _digest(
+            _integrity_material(
+                record_id=self.record_id,
+                model_id=self.model_id,
+                revision=self.revision,
+                parent_revision=self.parent_revision,
+                created_at=self.created_at,
+                lifecycle_status=self.lifecycle_status,
+                selector_role=self.selector_role,
+                payload=self.payload,
+            )
+        ) == self.integrity
 
     def to_dict(self) -> dict[str, Any]:
         return {
