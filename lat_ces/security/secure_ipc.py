@@ -83,6 +83,8 @@ class SignedIPCChannel:
 
     def unpack(self, packet: bytes) -> dict[str, Any]:
         try:
+            if not isinstance(packet, (bytes, bytearray)):
+                raise SecurityError("malformed IPC packet")
             outer = json.loads(packet.decode("utf-8"))
             envelope = outer["envelope"]
             received = outer["mac"]
