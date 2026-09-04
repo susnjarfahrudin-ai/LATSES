@@ -30,7 +30,7 @@ def test_production_entrypoint_is_canonical_gui_complete() -> None:
     installer = (root / ".github" / "workflows" / "build-installer.yml").read_text(encoding="utf-8")
 
     assert 'lat-ces-gui = "lat_ces.gui_complete:main"' in pyproject
-    assert "lat_ces/gui_complete.py" in installer
+    assert "lat_ces/gui_product_engineering_dashboard.py" in installer
     assert "gui_functional.py" not in installer
     assert "gui_release.py" not in installer
     assert "gui_master.py" not in installer
