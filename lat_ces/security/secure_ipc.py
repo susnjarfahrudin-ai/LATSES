@@ -104,7 +104,7 @@ class SignedIPCChannel:
             if not isinstance(sender_id, str) or not sender_id.strip():
                 raise SecurityError("malformed IPC sender identity")
             nonce = envelope["nonce"]
-            if not isinstance(nonce, str) or not nonce:
+            if not isinstance(nonce, str) or not nonce.strip():
                 raise SecurityError("malformed IPC nonce")
             if not self._replay_guard.check_and_add(nonce, now=now):
                 raise SecurityError("IPC replay detected")
