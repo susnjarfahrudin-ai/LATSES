@@ -93,18 +93,26 @@ class SMCROMSelector:
         """Select an eligible candidate explicitly; no scientific-truth claim is made."""
         if not candidate.eligible:
             return self.reject(candidate, reason="eligibility-failed")
-        if self._active_candidate_id is not None and self._active_candidate_id != candidate.candidate_id:
-            self.bench(candidate)
-        else:
-            self._states[candidate.candidate_id] = CandidateState.ACTIVE
-            self._active_candidate_id = candidate.candidate_id
-        decision = SelectorDecision("select", candidate.candidate_id, CandidateState.ACTIVE, candidate.provenance)
+        previous = self._active_candidate_id
+        if previous is not None and previous != candidate.candidate_id:
+            self._states[previous] = CandidateState.SUPERSEDED
+        if candidate.candidate_id in self._bench:
+            self._bench.remove(candidate.candidate_id)
+        self._states[candidate.candidate_id] = CandidateState.ACTIVE
+        self._active_candidate_id = candidate.candidate_id
+        decision = SelectorDecision(
+            "select", candidate.candidate_id, CandidateState.ACTIVE,
+            candidate.provenance, supersedes_candidate_id=previous,
+        )
         self._history.append(decision)
         return decision
 
     def reject(self, candidate: CandidateRecord, reason: str) -> SelectorDecision:
         """Reject a candidate without deleting its historical decision record."""
-        decision = SelectorDecision("reject", candidate.candidate_id, CandidateState.INVALID, f"{candidate.provenance}:{reason}")
+        decision = SelectorDecision(
+            "reject", candidate.candidate_id, CandidateState.INVALID,
+            f"{candidate.provenance}:{reason}",
+        )
         self._states[candidate.candidate_id] = CandidateState.INVALID
         self._history.append(decision)
         return decision
@@ -113,6 +121,8 @@ class SMCROMSelector:
         """Place an eligible candidate on a bounded FIFO operational bench."""
         if not candidate.eligible:
             return self.reject(candidate, reason="eligibility-failed")
+        if candidate.candidate_id == self._active_candidate_id:
+            raise ValueError("active candidate cannot be placed on the bench")
         if candidate.candidate_id in self._bench:
             self._bench.remove(candidate.candidate_id)
         self._bench.append(candidate.candidate_id)
@@ -136,11 +146,8 @@ class SMCROMSelector:
         if candidate.candidate_id in self._bench:
             self._bench.remove(candidate.candidate_id)
         decision = SelectorDecision(
-            "replace",
-            candidate.candidate_id,
-            CandidateState.ACTIVE,
-            candidate.provenance,
-            supersedes_candidate_id=previous,
+            "replace", candidate.candidate_id, CandidateState.ACTIVE,
+            candidate.provenance, supersedes_candidate_id=previous,
         )
         self._history.append(decision)
         return decision
@@ -153,8 +160,10 @@ class SMCROMSelector:
             CandidateState.SUPERSEDED,
         }:
             raise ValueError("recovery requires an inactive candidate")
-        self._states[candidate_id] = CandidateState.BENCHED
+        if candidate_id in self._bench:
+            self._bench.remove(candidate_id)
         self._bench.append(candidate_id)
+        self._states[candidate_id] = CandidateState.BENCHED
         while len(self._bench) > self._bench_capacity:
             evicted = self._bench.popleft()
             self._states[evicted] = CandidateState.RETIRED
@@ -162,20 +171,25 @@ class SMCROMSelector:
         self._history.append(decision)
         return decision
 
-    def reconstruct(self, candidate_ids: tuple[str, ...], active_candidate_id: str | None, provenance: str) -> ReconstructionResult:
+    def reconstruct(
+        self,
+        bench_candidate_ids: tuple[str, ...],
+        active_candidate_id: str | None,
+        provenance: str,
+    ) -> ReconstructionResult:
         """Reconstruct bounded operational state from neutral preserved identifiers."""
-        if len(candidate_ids) > self._bench_capacity:
+        if len(bench_candidate_ids) > self._bench_capacity:
             raise ValueError("reconstructed bench exceeds capacity")
-        if active_candidate_id is not None and active_candidate_id not in candidate_ids:
-            raise ValueError("active candidate must be part of reconstructed candidate set")
+        if active_candidate_id is not None and active_candidate_id in bench_candidate_ids:
+            raise ValueError("active candidate cannot be part of reconstructed bench")
         self._bench.clear()
-        self._bench.extend(candidate_ids)
+        self._bench.extend(bench_candidate_ids)
         self._active_candidate_id = active_candidate_id
-        for candidate_id in candidate_ids:
-            self._states[candidate_id] = (
-                CandidateState.ACTIVE if candidate_id == active_candidate_id else CandidateState.BENCHED
-            )
-        return ReconstructionResult(candidate_ids, active_candidate_id, provenance)
+        if active_candidate_id is not None:
+            self._states[active_candidate_id] = CandidateState.ACTIVE
+        for candidate_id in bench_candidate_ids:
+            self._states[candidate_id] = CandidateState.BENCHED
+        return ReconstructionResult(bench_candidate_ids, active_candidate_id, provenance)
 
 
 __all__ = [
