@@ -99,6 +99,14 @@ def test_ipc_rejects_whitespace_only_sender_id_even_when_mac_is_valid() -> None:
         channel.unpack(forged)
 
 
+def test_ipc_rejects_whitespace_only_nonce_even_when_mac_is_valid() -> None:
+    channel = SignedIPCChannel(b"shared-secret")
+    packet = channel.pack({"attack": "nonce-whitespace"}, sender_id="attacker-probe")
+    forged = _resign(packet, lambda envelope: envelope.__setitem__("nonce", "   \t\n"))
+    with pytest.raises(SecurityError):
+        channel.unpack(forged)
+
+
 def test_recovery_record_rejects_each_authoritative_metadata_mutation() -> None:
     record = ModelRecoveryRecord.create(
         record_id="REC-ATTACK",
