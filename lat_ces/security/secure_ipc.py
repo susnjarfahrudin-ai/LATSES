@@ -98,7 +98,9 @@ class SignedIPCChannel:
             age = now - timestamp
             if age > self._max_age or age < -self._max_future_skew:
                 raise SecurityError("IPC message expired or timestamp is invalid")
-            nonce = str(envelope["nonce"])
+            nonce = envelope["nonce"]
+            if not isinstance(nonce, str) or not nonce:
+                raise SecurityError("malformed IPC nonce")
             if not self._replay_guard.check_and_add(nonce, now=now):
                 raise SecurityError("IPC replay detected")
             return envelope["payload"]
