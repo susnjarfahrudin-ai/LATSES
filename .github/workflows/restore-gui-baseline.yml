@@ -18,7 +18,7 @@ jobs:
     if: github.event.pull_request.head.ref == 'foundation/gui-280832b6-sci-integration' || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26
         with:
           fetch-depth: 0
           ref: foundation/gui-280832b6-sci-integration
