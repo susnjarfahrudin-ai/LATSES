@@ -91,6 +91,12 @@ def test_ipc_rejects_text_packet_even_when_it_contains_a_valid_mac() -> None:
         channel.unpack(packet.decode("utf-8"))
 
 
+def test_ipc_rejects_invalid_utf8_packet() -> None:
+    channel = SignedIPCChannel(b"shared-secret")
+    with pytest.raises(SecurityError):
+        channel.unpack(b"\xff\xfe\xfd")
+
+
 def test_recovery_record_rejects_each_authoritative_metadata_mutation() -> None:
     record = ModelRecoveryRecord.create(
         record_id="REC-ATTACK",
