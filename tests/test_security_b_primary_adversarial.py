@@ -83,7 +83,7 @@ def test_b_primary_survives_five_minute_four_dimension_adversarial_burst() -> No
 
         packet = attack_packets[phase % len(attack_packets)]
         try:
-            b.receive("attacker-probe", packet, now=time.time())
+            b.receive("203.0.113.42", packet, now=time.time())
         except SecurityError:
             pass
 
