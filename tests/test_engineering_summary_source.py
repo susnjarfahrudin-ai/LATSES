@@ -1,10 +1,20 @@
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
 from types import SimpleNamespace
 
-from examples.test_house_115x8_model import build_test_house
 from lat_ces.building.mep import ensure_mep_registry
 from lat_ces.gui_complete import CompleteBuildingWorkspaceApp
+
+
+_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "examples" / "test_house_115x8_model.py"
+_SPEC = importlib.util.spec_from_file_location("test_house_115x8_model", _FIXTURE_PATH)
+if _SPEC is None or _SPEC.loader is None:
+    raise ImportError(f"Unable to load reference-house fixture: {_FIXTURE_PATH}")
+_REFERENCE_HOUSE = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(_REFERENCE_HOUSE)
+build_test_house = _REFERENCE_HOUSE.build_test_house
 
 
 class _TextSink:
