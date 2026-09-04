@@ -6,6 +6,7 @@ import pytest
 
 from lat_ces.security.atomic_persistence import atomic_write_bytes
 from lat_ces.security.keyring import KeyRing, hkdf_sha256
+from lat_ces.security.rate_limit import TokenBucket, TokenBucketRateLimiter
 from lat_ces.security.secure_ipc import ReplayGuard, SecurityError, SignedIPCChannel
 from lat_ces.security.secure_memory import secure_zero
 from lat_ces.security.threat_score import ThreatScoreEngine, ThreatScorePolicy
@@ -84,6 +85,38 @@ def test_signed_ipc_rejects_tampering() -> None:
     decoded["envelope"]["payload"]["value"] = 2
     with pytest.raises(SecurityError, match="authentication"):
         channel.unpack(json.dumps(decoded, separators=(",", ":")).encode())
+
+
+def test_signed_ipc_rejects_excessive_future_skew() -> None:
+    channel = SignedIPCChannel(b"shared-secret", max_future_skew_seconds=5)
+    packet = channel.pack({"value": 1}, sender_id="consul-a")
+    decoded = json.loads(packet.decode())
+    decoded["envelope"]["timestamp"] = decoded["envelope"]["timestamp"] + 10
+    envelope = decoded["envelope"]
+    import hashlib
+    import hmac
+    canonical = json.dumps(envelope, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    decoded["mac"] = hmac.new(b"shared-secret", canonical, hashlib.sha256).hexdigest()
+    with pytest.raises(SecurityError, match="timestamp"):
+        channel.unpack(json.dumps(decoded, separators=(",", ":")).encode())
+
+
+def test_rate_limiter_is_deterministic_and_refills() -> None:
+    limiter = TokenBucketRateLimiter(capacity=3, refill_per_second=1, idle_ttl_seconds=30)
+    assert limiter.allow("10.0.0.1", now=100.0)
+    assert limiter.allow("10.0.0.1", now=100.0)
+    assert limiter.allow("10.0.0.1", now=100.0)
+    assert not limiter.allow("10.0.0.1", now=100.0)
+    assert limiter.allow("10.0.0.1", now=101.0)
+    assert limiter.allow("10.0.0.2", now=101.0)
+
+
+def test_token_bucket_rejects_invalid_cost_and_policy() -> None:
+    with pytest.raises(ValueError):
+        TokenBucket(capacity=0, refill_per_second=1)
+    bucket = TokenBucket(capacity=1, refill_per_second=1, updated_at=0.0)
+    with pytest.raises(ValueError):
+        bucket.allow(now=0.0, cost=0)
 
 
 def test_threat_score_decays_and_whitelist_cannot_be_blocked() -> None:

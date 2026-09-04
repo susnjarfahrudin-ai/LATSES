@@ -32,7 +32,7 @@ class ReplayGuard:
             raise ValueError("invalid replay guard policy")
         with self._lock:
             cutoff = current - self.ttl_seconds
-            stale = [key for key, expires in self._seen.items() if expires <= cutoff]
+            stale = [key for key, seen_at in self._seen.items() if seen_at <= cutoff]
             for key in stale:
                 self._seen.pop(key, None)
             if nonce in self._seen:
@@ -49,11 +49,21 @@ class SignedIPCChannel:
 
     version = 1
 
-    def __init__(self, shared_secret: bytes | bytearray, *, max_age_seconds: float = 120.0, replay_guard: ReplayGuard | None = None) -> None:
+    def __init__(
+        self,
+        shared_secret: bytes | bytearray,
+        *,
+        max_age_seconds: float = 120.0,
+        max_future_skew_seconds: float = 5.0,
+        replay_guard: ReplayGuard | None = None,
+    ) -> None:
         if not shared_secret:
             raise ValueError("shared secret must be non-empty")
+        if max_age_seconds <= 0 or max_future_skew_seconds < 0:
+            raise ValueError("invalid IPC freshness policy")
         self._secret = bytes(shared_secret)
         self._max_age = max_age_seconds
+        self._max_future_skew = max_future_skew_seconds
         self._replay_guard = replay_guard if replay_guard is not None else ReplayGuard(ttl_seconds=max_age_seconds)
 
     def pack(self, payload: dict[str, Any], *, sender_id: str) -> bytes:
@@ -81,7 +91,8 @@ class SignedIPCChannel:
                 raise SecurityError("IPC authentication failed")
             now = time.time()
             timestamp = float(envelope["timestamp"])
-            if abs(now - timestamp) > self._max_age:
+            age = now - timestamp
+            if age > self._max_age or age < -self._max_future_skew:
                 raise SecurityError("IPC message expired or timestamp is invalid")
             nonce = str(envelope["nonce"])
             if not self._replay_guard.check_and_add(nonce, now=now):
