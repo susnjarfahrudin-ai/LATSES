@@ -91,10 +91,12 @@ def test_ipc_rejects_text_packet_even_when_it_contains_a_valid_mac() -> None:
         channel.unpack(packet.decode("utf-8"))
 
 
-def test_ipc_rejects_invalid_utf8_packet() -> None:
+def test_ipc_rejects_whitespace_only_sender_id_even_when_mac_is_valid() -> None:
     channel = SignedIPCChannel(b"shared-secret")
+    packet = channel.pack({"attack": "sender-whitespace"}, sender_id="attacker-probe")
+    forged = _resign(packet, lambda envelope: envelope.__setitem__("sender_id", "   \t\n"))
     with pytest.raises(SecurityError):
-        channel.unpack(b"\xff\xfe\xfd")
+        channel.unpack(forged)
 
 
 def test_recovery_record_rejects_each_authoritative_metadata_mutation() -> None:
