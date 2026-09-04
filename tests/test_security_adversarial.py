@@ -195,3 +195,25 @@ def test_adaptive_flow_rejects_slow_drip_baseline_poisoning() -> None:
     assert decisions[-1].throttle == 0.0
     assert decisions[-1].max_deviation > 0.20
     assert guard.baseline == baseline
+
+
+def test_flow_guard_rejects_type_coercion_in_untrusted_dimensions() -> None:
+    """Attack contract: strings/bools must not masquerade as numeric telemetry."""
+    guard = FlowGuard(
+        {
+            "frequency": 100.0,
+            "volume": 100.0,
+            "concurrency": 100.0,
+            "novelty": 100.0,
+        }
+    )
+    for value in (True, False, "100", "1e2"):
+        with pytest.raises(ValueError):
+            guard.evaluate(
+                {
+                    "frequency": value,
+                    "volume": 100.0,
+                    "concurrency": 100.0,
+                    "novelty": 100.0,
+                }
+            )
