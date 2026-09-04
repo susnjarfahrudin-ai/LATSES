@@ -5,6 +5,7 @@ import json
 import pytest
 
 from lat_ces.building.model_recovery_record import ModelRecoveryRecord
+from lat_ces.security.flow_guard import FlowGuard
 from lat_ces.security.secure_ipc import ReplayGuard, SecurityError, SignedIPCChannel
 
 
@@ -164,10 +165,33 @@ def test_recovery_record_rejects_nested_payload_mutation() -> None:
 
 
 def test_adaptive_flow_rejects_slow_drip_baseline_poisoning() -> None:
-    """Attack contract: gradual +2% steps must not redefine the healthy baseline."""
-    baseline = 100.0
-    samples = [baseline * (1.02**step) for step in range(13)]
-    assert samples[-1] > baseline * 1.25
-    # No production Flow Guard exists yet. This intentionally fails as the
-    # attack probe until the four-dimensional guard defines its baseline policy.
-    assert max(samples) <= baseline * 1.25
+    """Attack contract: gradual +2% steps cannot redefine the trusted baseline."""
+    guard = FlowGuard(
+        {
+            "frequency": 100.0,
+            "volume": 100.0,
+            "concurrency": 100.0,
+            "novelty": 100.0,
+        }
+    )
+    baseline = guard.baseline
+    samples = [100.0 * (1.02**step) for step in range(13)]
+    assert samples[-1] > 125.0
+
+    decisions = []
+    for sample in samples:
+        decisions.append(
+            guard.evaluate(
+                {
+                    "frequency": sample,
+                    "volume": 100.0,
+                    "concurrency": 100.0,
+                    "novelty": 100.0,
+                }
+            )
+        )
+
+    assert decisions[-1].allowed is False
+    assert decisions[-1].throttle == 0.0
+    assert decisions[-1].max_deviation > 0.20
+    assert guard.baseline == baseline
