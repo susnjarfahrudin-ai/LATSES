@@ -58,8 +58,7 @@ jobs:
             'LATSES',
             'lat_ces/gui_product_engineering_dashboard.py',
             '--add-data',
-            'lat_ces/reference_house_model.json;lat_ces',
-            'lat_ces/gui_launcher.py'
+            'lat_ces/reference_house_model.json;lat_ces'
           )
           & pyinstaller @pyinstallerArgs
           if (!(Test-Path '.\dist\LATSES.exe')) { throw 'LATSES.exe was not created' }
@@ -85,8 +84,7 @@ jobs:
             'LATCES-Acceptance-Diagnostic',
             'lat_ces/gui_product_engineering_dashboard.py',
             '--add-data',
-            'lat_ces/reference_house_model.json;lat_ces',
-            'lat_ces/gui_launcher.py'
+            'lat_ces/reference_house_model.json;lat_ces'
           )
           & pyinstaller @pyinstallerArgs
           if (!(Test-Path '.\dist\LATCES-Acceptance-Diagnostic.exe')) { throw 'LATCES-Acceptance-Diagnostic.exe was not created' }
