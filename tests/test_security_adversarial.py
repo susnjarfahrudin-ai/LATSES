@@ -76,6 +76,14 @@ def test_ipc_rejects_malformed_envelope_types() -> None:
         channel.unpack(malformed)
 
 
+def test_ipc_rejects_non_dict_payload_even_when_mac_is_valid() -> None:
+    channel = SignedIPCChannel(b"shared-secret")
+    packet = channel.pack({"attack": "payload-type"}, sender_id="attacker-probe")
+    forged = _resign(packet, lambda envelope: envelope.__setitem__("payload", []))
+    with pytest.raises(SecurityError):
+        channel.unpack(forged)
+
+
 def test_recovery_record_rejects_each_authoritative_metadata_mutation() -> None:
     record = ModelRecoveryRecord.create(
         record_id="REC-ATTACK",
