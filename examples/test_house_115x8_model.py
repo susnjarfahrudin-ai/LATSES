@@ -65,16 +65,6 @@ def _level(level_id: str, name: str) -> Level:
 
 def _add_mep(model: object) -> None:
     mep = ensure_mep_registry(model)
-def build_test_house() -> tuple[BuildingModel, BuildingConcept]:
-    model = BuildingModel(name="Reference House 11.5 x 8 m")
-    model.materials["masonry"] = Material("masonry envelope", density_kg_m3=1800.0, conductivity_w_mk=0.70)
-    model.add_level(_level("ground", "Prizemlje"))
-    model.add_level(_level("floor1", "Sprat"))
-
-    mep = ensure_mep_registry(model)
-
-    # Visualization fixture: 100 mm branches at 1 m/s. This is deliberately
-    # explicit so CFD/flow adapters can consume real opening identities.
     for level_id in ("ground", "floor1"):
         room_id = f"{level_id}-open-zone"
         for index in range(8):
@@ -140,9 +130,6 @@ def build_test_house() -> tuple[BuildingModel, BuildingConcept]:
 
     _add_mep(model)
 
-    # The current canonical BuildingModel -> Concept adapter preserves the
-    # building identity. Roof metadata is attached at the concept boundary,
-    # where RoofModel is already a first-class canonical concept type.
     concept = to_concept(model)
     concept.roof = RoofModel(
         length_m=HOUSE_LENGTH_M,
