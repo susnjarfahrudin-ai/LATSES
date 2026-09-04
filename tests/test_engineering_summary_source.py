@@ -33,6 +33,7 @@ def test_engineering_summary_uses_exact_workflow_model() -> None:
     workflow = SimpleNamespace(model=model)
     app = SimpleNamespace(workflow=workflow, calculation_output=_TextSink())
     app._refresh_mep_tab = lambda: None
+    app._set_text = lambda *_args, **_kwargs: None
 
     CompleteBuildingWorkspaceApp._calculate_building_report(app)
 
