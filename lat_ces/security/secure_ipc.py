@@ -38,8 +38,7 @@ class ReplayGuard:
             if nonce in self._seen:
                 return False
             if len(self._seen) >= self.max_entries:
-                oldest = min(self._seen, key=self._seen.get)
-                self._seen.pop(oldest, None)
+                return False
             self._seen[nonce] = current
             return True
 
