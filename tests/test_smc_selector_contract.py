@@ -60,10 +60,16 @@ def test_recover_returns_inactive_candidate_to_bench_not_active() -> None:
 
 def test_reconstruct_restores_bounded_operational_state() -> None:
     selector = SMCROMSelector(bench_capacity=3)
-    result = selector.reconstruct(("A", "B", "C"), "A", "restart/session-1")
-    assert result.candidate_ids == ("A", "B", "C")
+    result = selector.reconstruct(("B", "C"), "A", "restart/session-1")
+    assert result.candidate_ids == ("B", "C")
     assert selector.active_candidate_id == "A"
-    assert selector.bench_ids == ("A", "B", "C")
+    assert selector.bench_ids == ("B", "C")
+
+
+def test_reconstruct_rejects_active_candidate_in_bench() -> None:
+    selector = SMCROMSelector(bench_capacity=3)
+    with pytest.raises(ValueError, match="active candidate cannot be part"):
+        selector.reconstruct(("A", "B"), "A", "restart/session-1")
 
 
 def test_reconstruct_rejects_unbounded_state() -> None:
