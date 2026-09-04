@@ -51,6 +51,23 @@ def test_model_recovery_record_rejects_tampered_payload():
         ModelRecoveryRecord.from_dict(data)
 
 
+def test_model_recovery_record_rejects_tampered_authoritative_metadata():
+    record = ModelRecoveryRecord.create(
+        record_id="REC-ATTACK",
+        model_id="BLDG-ATTACK",
+        revision=4,
+        parent_revision=3,
+        payload={"model": {"model_id": "BLDG-ATTACK"}},
+    )
+    data = record.to_dict()
+    data["model_id"] = "BLDG-IMPOSTOR"
+    data["revision"] = 99
+    data["selector_role"] = "LKG"
+
+    with pytest.raises(ValueError, match="integrity"):
+        ModelRecoveryRecord.from_dict(data)
+
+
 def test_model_recovery_record_rejects_invalid_lineage():
     with pytest.raises(ValueError, match="parent_revision"):
         ModelRecoveryRecord.create(
