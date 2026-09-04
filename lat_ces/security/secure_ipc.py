@@ -101,7 +101,7 @@ class SignedIPCChannel:
             if age > self._max_age or age < -self._max_future_skew:
                 raise SecurityError("IPC message expired or timestamp is invalid")
             sender_id = envelope["sender_id"]
-            if not isinstance(sender_id, str) or not sender_id:
+            if not isinstance(sender_id, str) or not sender_id.strip():
                 raise SecurityError("malformed IPC sender identity")
             nonce = envelope["nonce"]
             if not isinstance(nonce, str) or not nonce:
