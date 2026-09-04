@@ -42,6 +42,7 @@ def test_fortress_rejects_unauthenticated_ipc_and_records_threat():
     with pytest.raises(SecurityError):
         fortress.receive("10.0.0.9", forged_packet, now=100.0)
     assert fortress.threat.score("10.0.0.9", now=100.0) >= 25.0
+    assert fortress.adaptive_defense.records()[0].attack_class == "ipc-rejection"
 
 
 def test_fortress_rate_limit_is_before_ipc():
