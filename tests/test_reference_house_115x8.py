@@ -13,10 +13,6 @@ _fixture_spec.loader.exec_module(_fixture_module)
 build_test_house = _fixture_module.build_test_house
 
 
-from examples.test_house_115x8_model import build_test_house
-from lat_ces.building.mep import ensure_mep_registry
-
-
 def test_reference_house_115x8_builds_and_exposes_mep() -> None:
     model, concept = build_test_house()
     registry = ensure_mep_registry(model)
