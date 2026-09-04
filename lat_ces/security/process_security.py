@@ -37,7 +37,7 @@ def _linux_start_token(pid: int) -> str:
     fields = remainder.split()
     if len(fields) <= 19:
         raise RuntimeError("/proc process stat record is incomplete")
-    return fields[19]  # field 22 overall: process starttime in clock ticks
+    return fields[19]
 
 
 def _windows_start_token(pid: int) -> str:
@@ -102,16 +102,16 @@ def is_process_alive(pid: int, expected_fingerprint: str) -> bool:
 
 
 def activate_process_isolation(*, strict: bool = False) -> ProcessIsolationResult:
-    """Apply native process hardening available on the current platform.
+    """Apply native hardening available on the current platform.
 
     Linux disables the dumpable flag, which also blocks normal ptrace attach.
     Windows uses supported process-mitigation policies that reduce dynamic-code
-    and extension-point injection. Neither platform claim is equivalent to
-    protection from a privileged kernel attacker.
+    and extension-point injection. This is not protection from a privileged
+    kernel attacker.
     """
     if sys.platform.startswith("linux"):
         libc = ctypes.CDLL("libc.so.6", use_errno=True)
-        result = libc.prctl(13, 0, 0, 0, 0)  # PR_SET_DUMPABLE = 13
+        result = libc.prctl(13, 0, 0, 0, 0)
         if result != 0:
             error = ctypes.get_errno()
             if strict:
@@ -128,10 +128,10 @@ def activate_process_isolation(*, strict: bool = False) -> ProcessIsolationResul
         kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
         kernel32.SetProcessMitigationPolicy.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_size_t]
         kernel32.SetProcessMitigationPolicy.restype = ctypes.c_int
-        dynamic_code = ctypes.c_uint32(1)       # ProhibitDynamicCode
-        extension_points = ctypes.c_uint32(1)   # DisableExtensionPoints
+        dynamic_code = ctypes.c_uint32(1)
+        extension_points = ctypes.c_uint32(1)
         dynamic_ok = bool(kernel32.SetProcessMitigationPolicy(2, ctypes.byref(dynamic_code), ctypes.sizeof(dynamic_code)))
-        extension_ok = bool(kernel32.SetProcessMitigationPolicy(7, ctypes.byref(extension_points), ctypes.sizeof(extension_points)))
+        extension_ok = bool(kernel32.SetProcessMitigationPolicy(6, ctypes.byref(extension_points), ctypes.sizeof(extension_points)))
         if strict and not (dynamic_ok and extension_ok):
             raise OSError(ctypes.get_last_error(), "Windows process mitigation could not be applied")
         return ProcessIsolationResult("windows", False, dynamic_ok, extension_ok)
