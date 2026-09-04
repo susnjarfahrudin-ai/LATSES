@@ -64,7 +64,9 @@ def test_thermal_room_load_is_bound_to_existing_heating_zone() -> None:
     assert len(results) == 1
     assert results[0].room_id == room_id
     assert results[0].status == "CALCULATED"
-    assert results[0].room_heat_load_w == pytest.approx(1357.027, rel=1e-6)
+    # Q = U * A * ΔT, with R_si=0.13, R_wall=0.25/0.35, R_se=0.04,
+    # A=20 m * 2.80 m, and ΔT=30 K.
+    assert results[0].room_heat_load_w == pytest.approx(1899.8384491114698, rel=1e-6)
     zone = model.mep.heating_zones["HZ-TEST-001"]
     assert zone.room_id == room_id
     assert zone.room_heat_load_w == pytest.approx(results[0].room_heat_load_w, rel=1e-12)

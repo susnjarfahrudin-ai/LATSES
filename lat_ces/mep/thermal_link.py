@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from lat_ces.mep import HeatingZone, ensure_mep_registry
+from lat_ces.building.mep import HeatingZone, ensure_mep_registry
 from lat_ces.thermal.room_heat_loss import RoomHeatLossResult, calculate_room_heat_losses
 
 

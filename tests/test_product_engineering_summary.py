@@ -56,7 +56,7 @@ def test_missing_product_data_remains_input_required() -> None:
     wall.load_bearing = True
     wall.tributary_width_m = 2.5
     wall.material_id = None
-    ensure_product_binding_registry(model).bind(wall.wall_id, "wall", "MASONRY-THERMAL-25X25X30")
+    ensure_product_binding_registry(model).bind(wall.wall_id, "wall", "MASONRY-THERMAL-25X25X30-MISSING")
 
     report = build_product_engineering_report(model)
     record = next(item for item in report.records if item.target_id == wall.wall_id)
