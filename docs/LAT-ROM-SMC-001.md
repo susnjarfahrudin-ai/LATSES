@@ -109,24 +109,63 @@ The replacement role becomes active without receiving the failed role's private 
 
 ## 7. Neutral ROM coordinator boundary
 
-The current implementation contract exposes `ROMCoordinator` as a read-only, immutable coordinator record. It contains only:
+The implementation may expose a ROM coordinator as a read-only, immutable coordination record. It contains only neutral operational evidence and may not contain a model implementation reference, a peer-model reference, or mutable execution authority.
 
-- current active role;
-- last verified recovery checkpoint;
-- neutral health input;
-- role-local takeover output.
+Its output is a role-local takeover signal containing only the recipient role, failure/degradation cause, verified checkpoint, and provenance.
 
-It shall not contain a `BuildingModel`, `peer_model`, implementation reference, or mutable execution state.
+## 8. SMC-ROM selector contract
 
-Its output is a `TakeoverSignal` containing only the recipient role, failure/degradation cause, verified checkpoint, and provenance.
+The selector operates only on neutral candidate evidence.
 
-## 8. Provenance and history
+```text
+CandidateRecord
+    |
+    +-- applicability_passed
+    +-- contract_passed
+    +-- provenance
+    |
+    v
+SMC-ROM selector
+    |
+    +--> select
+    +--> reject
+    +--> bench
+    +--> replace
+    +--> recover
+    +--> reconstruct
+```
+
+### 8.1 Select
+
+`select()` may activate only a candidate whose applicability and contract evidence both pass. Selection is an operational decision and does not assert scientific truth.
+
+### 8.2 Reject
+
+`reject()` marks an ineligible candidate as operationally invalid while preserving the decision record. Rejection must not erase historical evidence.
+
+### 8.3 Bench
+
+`bench()` places an eligible inactive candidate on the bounded operational bench. The bench is FIFO and capacity-limited.
+
+### 8.4 Replace
+
+`replace()` may activate an eligible candidate and mark the previous active candidate as `SUPERSEDED`. The supersession relationship is retained in provenance.
+
+### 8.5 Recover
+
+`recover()` may return an inactive candidate to the operational bench from preserved checkpoint evidence. Recovery does not automatically activate the recovered candidate.
+
+### 8.6 Reconstruct
+
+`reconstruct()` rebuilds bounded operational state after restart from preserved neutral identifiers. It must reject a reconstructed bench that exceeds the constitutional capacity or contains the active candidate.
+
+## 9. Provenance and history
 
 Every significant selection, rejection, replacement, retirement, supersession, or recovery decision must remain reconstructable from independent evidence. Operational cleanup may bound active state but shall not delete historical records.
 
 A later decision supersedes or corrects an earlier decision; it does not rewrite the historical record.
 
-## 9. Bounded operational bench
+## 10. Bounded operational bench
 
 The SMC-ROM operational bench is bounded. The constitutional capacity is:
 
@@ -136,11 +175,11 @@ BENCH_CAPACITY = 10
 
 The operational eviction policy is FIFO. Eviction affects operational state only; historical evidence remains preserved.
 
-## 10. Human decision principle
+## 11. Human decision principle
 
 LAT provides analysis, evidence, applicability, confidence, disagreement, alternatives, warnings, and provenance. The human remains responsible for the final decision.
 
-## 11. Current `role_handover` mapping
+## 12. Current `role_handover` mapping
 
 The existing implementation is classified against this contract as follows.
 
@@ -153,14 +192,14 @@ The existing implementation is classified against this contract as follows.
 | `HandoverRequest` | KEEP | Coordinator-side transfer request; implementation-neutral. |
 | `HandoverDecision` | KEEP | Immutable acceptance record with revision identity preservation. |
 | `TakeoverSignal` | KEEP | Role-local signal with no peer-model identity. |
-| `RecoveryStateMachine` | ADAPT | Retain as implementation of the lifecycle contract, but make SMC-ROM the formal owner of selection/lifecycle semantics. |
-| `ROMCoordinator` | ADAPT | Retain as read-only/immutable coordination mechanism; it must remain model-free and must not become a scientific or constitutional authority. |
-| hard-coded `_other_role()` pairing | REJECT | Final SMC architecture must select candidates through neutral applicability/contract evidence, not a fixed peer identity. |
+| `RecoveryStateMachine` | ADAPT | Retain as implementation of lifecycle execution, while SMC-ROM owns lifecycle semantics. |
+| `ROMCoordinator` | ADAPT | Retain as model-free, immutable coordination mechanism. |
+| hard-coded `_other_role()` pairing | REJECT | Final architecture must select candidates through neutral evidence, not fixed peer identity. |
 | direct model references | REJECT | Forbidden by the information-isolation boundary. |
-| automatic leader election | REJECT | Leadership/activation must remain an explicit contract decision, not emergent from model internals. |
+| automatic leader election | REJECT | Activation must follow an explicit contract decision. |
 | history deletion during recovery/eviction | REJECT | Operational cleanup must never erase provenance or evidence. |
 
-## 12. Architectural invariants
+## 13. Architectural invariants
 
 The following must remain true:
 
@@ -184,7 +223,7 @@ SMC-ROM     X  bypasses LAT-ROM
 SMC model  X  identifies or depends on peer model implementation
 ```
 
-## 13. Acceptance criteria for subsequent implementation work
+## 14. Acceptance criteria for subsequent implementation work
 
 A change is constitutionally acceptable only when:
 
@@ -194,8 +233,10 @@ A change is constitutionally acceptable only when:
 4. replacement can occur without deleting history;
 5. operational state remains bounded;
 6. provenance remains reconstructable;
-7. human decision authority is preserved.
+7. human decision authority is preserved;
+8. selector operations use only neutral evidence;
+9. restart reconstruction cannot exceed the bounded bench capacity.
 
-## 14. Status
+## 15. Status
 
-This document is the formal contract boundary for subsequent SMC implementation work. It does not itself execute selection, recovery, or scientific analysis.
+This document is the formal contract boundary for subsequent SMC implementation work. It does not itself execute scientific analysis or define scientific truth.
