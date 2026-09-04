@@ -86,7 +86,7 @@ class SignedIPCChannel:
             outer = json.loads(packet.decode("utf-8"))
             envelope = outer["envelope"]
             received = outer["mac"]
-            if envelope["v"] != self.version:
+            if type(envelope["v"]) is not int or envelope["v"] != self.version:
                 raise SecurityError("unsupported IPC envelope version")
             expected = hmac.new(self._secret, _canonical(envelope), hashlib.sha256).hexdigest()
             if not hmac.compare_digest(received, expected):
