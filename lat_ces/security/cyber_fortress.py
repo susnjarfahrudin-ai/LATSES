@@ -1,14 +1,10 @@
-"""Unified orchestration boundary for existing LAT-CES security primitives.
-
-This module intentionally contains policy orchestration only. Cryptographic,
-process, memory, persistence, rate-limit, replay, and threat-score primitives
-remain owned by their canonical modules.
-"""
+"""Unified orchestration boundary for existing LAT-CES security primitives."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
 
+from .adaptive_defense import AdaptiveDefense
 from .process_security import ProcessIdentity, ProcessIsolationResult, activate_process_isolation, current_process_identity
 from .rate_limit import TokenBucketRateLimiter
 from .secure_ipc import SecurityError, SignedIPCChannel
@@ -25,12 +21,13 @@ class SecurityAdmission:
 
 
 class CyberFortress:
-    """Coordinate existing security primitives at one runtime boundary."""
+    """Coordinate canonical security primitives and adaptive defense knowledge."""
 
-    def __init__(self, ipc_channel: SignedIPCChannel, *, rate_limiter: TokenBucketRateLimiter | None = None, threat_engine: ThreatScoreEngine | None = None) -> None:
+    def __init__(self, ipc_channel: SignedIPCChannel, *, rate_limiter: TokenBucketRateLimiter | None = None, threat_engine: ThreatScoreEngine | None = None, adaptive_defense: AdaptiveDefense | None = None) -> None:
         self.ipc = ipc_channel
         self.rate_limiter = rate_limiter if rate_limiter is not None else TokenBucketRateLimiter()
         self.threat = threat_engine if threat_engine is not None else ThreatScoreEngine()
+        self.adaptive_defense = adaptive_defense if adaptive_defense is not None else AdaptiveDefense()
 
     @staticmethod
     def establish_process_boundary(*, strict: bool = False) -> ProcessIsolationResult:
@@ -55,9 +52,22 @@ class CyberFortress:
             raise SecurityError(admission.reason)
         try:
             return self.ipc.unpack(packet)
-        except SecurityError:
+        except SecurityError as exc:
             self.threat.record(address, 25.0, now=now)
+            self.adaptive_defense.observe_failure(
+                f"ipc:{str(exc)}",
+                "ipc-rejection",
+                str(exc),
+                source="A",
+            )
             raise
+
+    def handoff_verified_defense(self, standby: "CyberFortress") -> int:
+        """Copy only explicitly verified defense records to a standby boundary."""
+        records = self.adaptive_defense.export_verified()
+        for record in records:
+            standby.adaptive_defense.import_verified(record)
+        return len(records)
 
 
 __all__ = ["CyberFortress", "SecurityAdmission"]
