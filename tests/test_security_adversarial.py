@@ -161,3 +161,13 @@ def test_recovery_record_rejects_nested_payload_mutation() -> None:
     tampered["payload"]["geometry"]["wall"]["thickness"] = 99.0
     with pytest.raises(ValueError):
         ModelRecoveryRecord.from_dict(tampered)
+
+
+def test_adaptive_flow_rejects_slow_drip_baseline_poisoning() -> None:
+    """Attack contract: gradual +2% steps must not redefine the healthy baseline."""
+    baseline = 100.0
+    samples = [baseline * (1.02**step) for step in range(13)]
+    assert samples[-1] > baseline * 1.25
+    # No production Flow Guard exists yet. This intentionally fails as the
+    # attack probe until the four-dimensional guard defines its baseline policy.
+    assert max(samples) <= baseline * 1.25
