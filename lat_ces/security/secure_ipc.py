@@ -37,8 +37,10 @@ class ReplayGuard:
                 self._seen.pop(key, None)
             if nonce in self._seen:
                 return False
-            if len(self._seen) >= self.max_entries:
-                return False
+            # Active nonces must never be evicted merely to admit a new nonce:
+            # eviction would turn an accepted nonce back into an acceptable one
+            # while it is still inside the replay TTL. Capacity is therefore a
+            # monitoring/pressure threshold, not a security eviction policy.
             self._seen[nonce] = current
             return True
 
@@ -99,8 +101,5 @@ class SignedIPCChannel:
             return envelope["payload"]
         except SecurityError:
             raise
-        except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise SecurityError("invalid IPC packet") from exc
-
-
-__all__ = ["ReplayGuard", "SecurityError", "SignedIPCChannel"]
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise SecurityError("malformed IPC envelope") from exc
