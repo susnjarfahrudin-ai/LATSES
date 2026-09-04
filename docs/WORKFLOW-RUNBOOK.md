@@ -20,7 +20,7 @@ Merged to `main` as:
 
 `a835f0fdcaeb4aa3829b154b52d3df30adbe98ce`
 
-The security boundary contains the established root-of-trust, key derivation, secure mutable-buffer handling, crash-safe atomic persistence, process identity, HMAC IPC freshness/replay protection, threat scoring/CIDR allowlists, Linux/Windows process hardening, focused tests and LAT-SEC-001 documentation.
+The security boundary contains the established root-of-trust, key derivation, secure mutable-buffer handling, crash-safe atomic persistence, process identity, HMAC IPC freshness/replay protection, threat scoring/CIDR allowlists, Linux/Windows process hardening, focused tests and LAT-SEC-001 documentation. fileciteturn707file0L7-L10
 
 Pre-merge release evidence for the exact PR #252 head:
 
@@ -32,6 +32,26 @@ Pre-merge release evidence for the exact PR #252 head:
 - Artifact ZIP SHA-256: `ef658788a2a798bf3bf1fe18ad5aea5c0bbecb5585ea59c332078e3240095f6e`
 
 This security foundation is part of the existing canonical security boundary. A second parallel `cyber_fortress.py` authority using a plaintext `master.key`, independent Fernet state and ad-hoc Manager processes must not be merged as-is. New security work must reuse or extend the existing boundary rather than create competing key, evidence or replay authorities.
+
+## Security Delta v2 — current development gate
+
+Working branch: `agent/security-delta-v2-20260904`
+
+Base: `main @ ed77ac73206b9ddf08fe09524bc6c2e4370dd85a`.
+
+Scope is intentionally narrow:
+
+1. Preserve #252 OS-keyring root secret custody; no plaintext `master.key` path.
+2. Preserve the existing receiver-side nonce replay guard and make IPC freshness reject timestamps beyond an explicit future-skew allowance. The existing channel already authenticates the envelope and checks the nonce before delivery. fileciteturn709file0L2-L2
+3. Add a reusable deterministic token-bucket admission primitive for per-key rate limiting. It is a boundary primitive only; threat scoring/allowlisting remains the separate policy authority.
+4. Keep atomic persistence as the established write → fsync → replace → POSIX directory fsync implementation; do not introduce a second persistence path. fileciteturn710file0L2-L2
+5. Extend regression tests so the new security behavior is executable under the existing Verification pipeline. The CI command must fail on pytest failure; no print-only acceptance function is allowed.
+
+### Security Delta acceptance contract
+
+`Security primitive → focused regression test → existing Verification pipeline → first concrete failure → minimal fix → GREEN → PR review → merge → post-merge Verification`
+
+No GUI, engineering-model semantics, BuildingModel identity, or installer architecture changes belong in this delta.
 
 ## GUI acceptance contract
 
@@ -62,3 +82,36 @@ Domain PRs that contain potentially reusable engineering work remain **ACTIVE/BL
 ## Architectural rule
 
 `BuildingModel` is the source of truth. GUI, structural, thermal, MEP, quantity and visualization views are downstream projections and must not create competing physical models.
+
+## Persistent handoff — next development cycle
+
+### Completed before the Security Delta gate
+
+- PR #252 security-hardening foundation merged.
+- PR #253 canonical GUI/acceptance closure merged.
+- `main @ ed77ac73206b9ddf08fe09524bc6c2e4370dd85a` verified after merge.
+- Verification #1429: **GREEN**.
+- Windows EXE #563: **GREEN**.
+- Windows Installer #1240: **GREEN**.
+- GUI visual acceptance on the installer: **GREEN**.
+- Release artifacts and SHA-256 evidence recorded in the current release history.
+
+### Security Delta v2 implemented on this branch
+
+- `lat_ces/security/rate_limit.py`: deterministic per-key token bucket with idle cleanup.
+- `lat_ces/security/secure_ipc.py`: explicit maximum future clock skew in addition to age and nonce replay checks.
+- `tests/test_security_hardening.py`: regression coverage for future-skew rejection and deterministic rate limiting/refill behavior.
+- No duplicate security authority, plaintext root-key file, or alternate evidence store introduced.
+
+### Planned next steps after GREEN merge
+
+1. Inspect the merged security delta for integration opportunities with the constitutional registry / station IPC layer; do not migrate consumers speculatively.
+2. Add persistent rate-limit/threat-score policy only where a concrete caller exists and the ownership boundary is explicit.
+3. Add security acceptance evidence to the release runbook, binding the exact merge SHA to the successful Verification run.
+4. Only after that, return to blocked domain PRs and revalidate one candidate at a time against current `main`.
+
+### Failure rule for future work
+
+`first concrete failure → identify exact assertion/log → smallest canonical fix → rerun the same gate → GREEN → continue`
+
+Never stack unrelated fixes on a red verification. Never reuse stale evidence from another commit. Never introduce a parallel source of truth for BuildingModel, security keys, replay state, persistence, GUI packaging, or release evidence.
