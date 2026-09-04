@@ -1,0 +1,57 @@
+name: Security Session Memory — FAIL-SAFE REMINDER
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_fail_reminder:
+        description: "Set true only when you want the workflow to stop with the session reminder"
+        required: true
+        default: "false"
+        type: boolean
+
+jobs:
+  session-memory:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish today's security session memory
+        run: |
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          ## 2026-09-04 security session — mandatory memory
+
+          ### Completed today
+          - Security foundation from PR #252 remains the canonical root.
+          - Adversarial IPC hardening: finite timestamp, replay-capacity semantics,
+            strict envelope version, nonce/sender/payload type checks, bytes-only
+            packet boundary, whitespace/control-character rejection.
+          - Adaptive A/B defense boundary introduced: immutable DefenseRecord,
+            quarantine, verification-gated promotion/import; no autonomous code mutation.
+          - Four-dimensional FlowGuard: frequency, volume, concurrency, novelty.
+            Fixed baseline; proportional throttling starts at 12%; admission stop at 20%.
+          - Slow-drip baseline-poisoning adversarial test added; baseline must not learn
+            from untrusted traffic.
+          - FlowGuard type-confusion attack found string/bool coercion and was minimally
+            fixed by strict int/float type checking; subsequent verification was GREEN.
+          - Read-only defense-history direction established: runtime does not append,
+            update, delete, or learn from unverified observations.
+          - PR #272 remains a DRAFT; GREEN CI alone is not merge evidence.
+
+          ### Still open before main
+          1. Analyze the actual five-minute four-dimensional oscillatory attack output.
+          2. Verify B's real behavior: detection, quarantine, containment, provenance,
+             replay resistance, no baseline poisoning, and verification-gated learning.
+          3. Confirm whether B is actually wired into the live CyberFortress receive path;
+             current code proves A records IPC failures, while B quarantine is exercised
+             explicitly by tests rather than automatically invoked there.
+          4. Apply only the first concrete failure, with the smallest canonical fix.
+          5. Re-run the same adversarial gate and then the normal Verification pipeline.
+          6. Only after evidence is clean: PR review -> merge -> post-merge Verification.
+
+          ### Hard rule
+          Do NOT merge to main from this reminder. Do NOT stack speculative fixes.
+          EOF
+
+      - name: Fail-safe stop (opt-in)
+        if: ${{ inputs.force_fail_reminder }}
+        run: |
+          echo "FAIL-SAFE: today's security session is intentionally stopped here."
+          exit 1
