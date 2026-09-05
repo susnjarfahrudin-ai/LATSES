@@ -2,6 +2,8 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
+from lat_ces.structural.canonical_result import CanonicalStructuralResult
+
 
 @dataclass(frozen=True)
 class Material:
@@ -181,6 +183,7 @@ class BuildingModel:
     levels: Dict[str, Level] = field(default_factory=dict)
     materials: Dict[str, Material] = field(default_factory=dict)
     load_bearing_mode: str = "all_walls"
+    structural_results: Dict[str, CanonicalStructuralResult] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.load_bearing_mode not in {"all_walls", "exterior_only"}:
@@ -190,6 +193,12 @@ class BuildingModel:
         if level.id in self.levels:
             raise ValueError(f"duplicate level id: {level.id}")
         self.levels[level.id] = level
+
+    def add_structural_result(self, result: CanonicalStructuralResult) -> None:
+        """Store canonical solver evidence without changing validation state."""
+        if result.result_id in self.structural_results:
+            raise ValueError(f"duplicate structural result id: {result.result_id}")
+        self.structural_results[result.result_id] = result
 
     def total_volume_m3(self) -> float:
         return sum(r.volume_m3 for l in self.levels.values() for r in l.rooms.values())

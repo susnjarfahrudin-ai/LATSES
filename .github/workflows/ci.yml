@@ -91,5 +91,5 @@ jobs:
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
 
-# CI trigger comment: SMC-004 acceptance verification.
+# CI trigger comment: SMC-004 acceptance verification (branch synchronization).
 # Scientific contract acceptance is a prerequisite for EXE/installer packaging.

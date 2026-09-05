@@ -10,9 +10,13 @@ readme = "README.md"
 requires-python = ">=3.9"
 dependencies = []
 
+[project.optional-dependencies]
+security = ["keyring>=25"]
+
 [project.scripts]
 lat-ces = "lat_ces.cli:main"
-lat-ces-gui = "lat_ces.gui_building_model:main"
+lat-ces-gui = "lat_ces.gui_complete:main"
+lat-ces-gui-interface = "lat_ces.gui_interface:main"
 lat-ces-gui-legacy = "lat_ces.gui_drafting:main"
 lat-ces-gui-mep = "lat_ces.gui_mep:main"
 lat-ces-gui-water = "lat_ces.gui_water:main"
@@ -28,7 +32,6 @@ namespaces = true
 
 [tool.setuptools.package-data]
 "lat_ces.materials" = ["*.json"]
-lat_ces = ["reference_house_model.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
