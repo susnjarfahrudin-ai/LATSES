@@ -38,8 +38,10 @@ class ReplayGuard:
                 self._seen.pop(key, None)
             if nonce in self._seen:
                 return False
-            if len(self._seen) >= self.max_entries:
-                return False
+            # Active nonces must never be evicted merely to admit a new nonce:
+            # eviction would turn an accepted nonce back into an acceptable one
+            # while it is still inside the replay TTL. Capacity is therefore a
+            # monitoring/pressure threshold, not a security eviction policy.
             self._seen[nonce] = current
             return True
 
