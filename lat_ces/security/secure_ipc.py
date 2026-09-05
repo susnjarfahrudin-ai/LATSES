@@ -4,9 +4,11 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import math
 import secrets
 import threading
 import time
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -37,9 +39,10 @@ class ReplayGuard:
                 self._seen.pop(key, None)
             if nonce in self._seen:
                 return False
-            if len(self._seen) >= self.max_entries:
-                oldest = min(self._seen, key=self._seen.get)
-                self._seen.pop(oldest, None)
+            # Active nonces must never be evicted merely to admit a new nonce:
+            # eviction would turn an accepted nonce back into an acceptable one
+            # while it is still inside the replay TTL. Capacity is therefore a
+            # monitoring/pressure threshold, not a security eviction policy.
             self._seen[nonce] = current
             return True
 
@@ -81,27 +84,40 @@ class SignedIPCChannel:
 
     def unpack(self, packet: bytes) -> dict[str, Any]:
         try:
+            if not isinstance(packet, (bytes, bytearray)):
+                raise SecurityError("malformed IPC packet")
             outer = json.loads(packet.decode("utf-8"))
             envelope = outer["envelope"]
             received = outer["mac"]
-            if envelope["v"] != self.version:
+            if type(envelope["v"]) is not int or envelope["v"] != self.version:
                 raise SecurityError("unsupported IPC envelope version")
             expected = hmac.new(self._secret, _canonical(envelope), hashlib.sha256).hexdigest()
             if not hmac.compare_digest(received, expected):
                 raise SecurityError("IPC authentication failed")
             now = time.time()
             timestamp = float(envelope["timestamp"])
+            if not math.isfinite(timestamp):
+                raise SecurityError("IPC message expired or timestamp is invalid")
             age = now - timestamp
             if age > self._max_age or age < -self._max_future_skew:
                 raise SecurityError("IPC message expired or timestamp is invalid")
-            nonce = str(envelope["nonce"])
+            sender_id = envelope["sender_id"]
+            if not isinstance(sender_id, str) or not sender_id.strip():
+                raise SecurityError("malformed IPC sender identity")
+            nonce = envelope["nonce"]
+            if (
+                not isinstance(nonce, str)
+                or not nonce.strip()
+                or any(unicodedata.category(char) in {"Cc", "Cf"} for char in nonce)
+            ):
+                raise SecurityError("malformed IPC nonce")
             if not self._replay_guard.check_and_add(nonce, now=now):
                 raise SecurityError("IPC replay detected")
-            return envelope["payload"]
+            payload = envelope["payload"]
+            if not isinstance(payload, dict):
+                raise SecurityError("malformed IPC payload")
+            return payload
         except SecurityError:
             raise
-        except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise SecurityError("invalid IPC packet") from exc
-
-
-__all__ = ["ReplayGuard", "SecurityError", "SignedIPCChannel"]
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise SecurityError("malformed IPC envelope") from exc
