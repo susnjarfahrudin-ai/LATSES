@@ -95,6 +95,12 @@ CATALOG: tuple[ProductSpec, ...] = (
     ProductSpec("VENT-EC-DUCT-FAN", "EC kanalni ventilator", "Ventilacija", status="MISSING", source="Exact airflow/pressure curve required"),
     ProductSpec("VENT-HRV-RESIDENTIAL", "Kućni rekuperator", "Ventilacija", status="MISSING", source="Exact airflow/efficiency required"),
     ProductSpec("VENT-DUCT-100", "Ventilacioni kanal", "Ventilacija", dimensions="Ø100 mm", status="MISSING", source="Exact product required"),
+    ProductSpec("ESTRICH-CEMENT-50", "Cementni estrih", "Estrih", dimensions="50 mm referentna debljina", status="REFERENCE", source="LAT-CES reference floor-build-up option"),
+    ProductSpec("ESTRICH-ANHYDRITE-50", "Anhidritni estrih", "Estrih", dimensions="50 mm referentna debljina", status="REFERENCE", source="LAT-CES reference floor-build-up option"),
+    ProductSpec("FINISH-CERAMIC-GRES-10", "Keramika / gres", "Završni sloj", dimensions="10 mm referentna debljina", status="REFERENCE", source="LAT-CES reference floor-finish option"),
+    ProductSpec("FINISH-LAMINATE-10", "Laminat", "Završni sloj", dimensions="10 mm referentna debljina", status="REFERENCE", source="LAT-CES reference floor-finish option"),
+    ProductSpec("FINISH-PARKET-15", "Parket", "Završni sloj", dimensions="15 mm referentna debljina", status="REFERENCE", source="LAT-CES reference floor-finish option"),
+    ProductSpec("FINISH-VINYL-5", "Vinil", "Završni sloj", dimensions="5 mm referentna debljina", status="REFERENCE", source="LAT-CES reference floor-finish option"),
 )
 
 
