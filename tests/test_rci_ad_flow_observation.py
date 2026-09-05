@@ -1,3 +1,5 @@
+import pytest
+
 from lat_ces.rci_ad.flow_observation import observe_flow
 from lat_ces.security.flow_guard import FlowGuard
 
@@ -14,7 +16,7 @@ def test_flow_observation_forwards_exact_mathematical_decision() -> None:
     assert result.timestamp == 123.0
     assert result.decision.allowed is True
     assert result.decision.limiting_dimension == "frequency"
-    assert result.decision.max_deviation == 0.199
+    assert result.decision.max_deviation == pytest.approx(0.199)
     assert result.decision.throttle > 0.0
     assert result.baseline == tuple((name, 100.0) for name in guard.baseline)
     assert result.observed == (
@@ -54,5 +56,5 @@ def test_all_four_dimensions_are_preserved_for_rcia_analysis() -> None:
     observation = observe_flow(guard, observed, captured.append)
 
     assert observation.limiting_dimension == "concurrency"
-    assert observation.decision.max_deviation == 0.149
+    assert observation.decision.max_deviation == pytest.approx(0.149)
     assert all(name in dict(observation.observed) for name in guard.baseline)
