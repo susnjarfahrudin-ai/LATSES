@@ -21,10 +21,27 @@ class ProjectOverviewApp(CompleteBuildingWorkspaceApp):
 
     def __init__(self) -> None:
         super().__init__()
+        self._repair_visual_workspace_layout()
         self._install_project_overview()
         self._install_catalog_tab()
         self._refresh_project_overview()
         self._select_overview_tab()
+
+    def _repair_visual_workspace_layout(self) -> None:
+        """Keep the main visual workspace large and above the control notebook."""
+        canvas_parent = self.canvas
+        while canvas_parent.master is not self:
+            canvas_parent = canvas_parent.master
+        body = canvas_parent
+        notebook = getattr(self, "complete_tabs", None)
+        if body is None or notebook is None:
+            return
+
+        body.pack_forget()
+        body.pack(fill="both", expand=True, padx=18, pady=(0, 8))
+        notebook.pack_forget()
+        notebook.pack(fill="x", padx=18, pady=(0, 8))
+        self.update_idletasks()
 
     def _select_overview_tab(self) -> None:
         for index in range(self.complete_tabs.index("end")):
@@ -228,9 +245,11 @@ class ProjectOverviewApp(CompleteBuildingWorkspaceApp):
         registry = ensure_mep_registry(model)
         self.overview_identity.configure(text=f"{model.name} · {len(model.levels)} etaže")
         self.overview_model.configure(
-            text=f"Aktivna etaža: {self.active_level.name}\n"
-            f"Gabarit: {self.active_level.length_m:.2f} × {self.active_level.width_m:.2f} m\n"
-            f"Visina etaže: {self.active_level.height:.2f} m"
+            text=(
+                f"Aktivna etaža: {self.active_level.name}\n"
+                f"Gabarit: {self.active_level.length_m:.2f} × {self.active_level.width_m:.2f} m\n"
+                f"Visina etaže: {self.active_level.height:.2f} m"
+            )
         )
         lines = [
             "OBJEKTI",
@@ -263,6 +282,7 @@ def run_dashboard_acceptance() -> None:
     """Deterministic packaged-EXE smoke for the overview dashboard."""
     app = ProjectOverviewApp()
     try:
+        app.update_idletasks()
         tabs = [app.complete_tabs.tab(i, "text") for i in range(app.complete_tabs.index("end"))]
         assert tabs[0] == "Pregled projekta", f"Dashboard not first tab: {tabs}"
         assert "Katalog proizvoda" in tabs
@@ -273,6 +293,10 @@ def run_dashboard_acceptance() -> None:
         assert "MEP" in tabs
         catalog_items = sum(len(products_for_category(category)) for category in categories())
         assert catalog_items >= 10, f"Catalog too small: {catalog_items}"
+        canvas_top = app.canvas.winfo_rooty()
+        controls_top = app.complete_tabs.winfo_rooty()
+        assert canvas_top < controls_top, "Visual workspace must be above engineering controls"
+        assert app.canvas.winfo_height() >= 250, f"Visual workspace too small: {app.canvas.winfo_height()} px"
         for step, title in ((3, "Tlocrt"), (4, "Presjek"), (5, "3D")):
             app.view_step.set(step)
             app.goto_step()
@@ -289,6 +313,7 @@ def run_dashboard_acceptance() -> None:
             assert marker in summary, f"Engineering Summary missing {marker}"
         assert app.workflow.model.materials, "Material registry is empty"
         print("GUI DASHBOARD GREEN: overview + catalog + Reference House + Tlocrt + Presjek + 3D + Provjera + Izvještaj + Materijali + MEP")
+        print("GUI DASHBOARD GREEN: overview + large visual workspace + Reference House + Tlocrt + Presjek + 3D + Provjera + Izvještaj + Materijali + MEP")
     finally:
         app.destroy()
 
