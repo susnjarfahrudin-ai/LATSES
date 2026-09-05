@@ -115,3 +115,49 @@ Domain PRs that contain potentially reusable engineering work remain **ACTIVE/BL
 `first concrete failure → identify exact assertion/log → smallest canonical fix → rerun the same gate → GREEN → continue`
 
 Never stack unrelated fixes on a red verification. Never reuse stale evidence from another commit. Never introduce a parallel source of truth for BuildingModel, security keys, replay state, persistence, GUI packaging, or release evidence.
+
+## 2026-09-05 — RCI-AD + FlowGuard mathematical observation gate
+
+Development branch: `feature/rci-ad-flow-observation-20260905`  
+Draft PR: `#281`  
+Base: `main @ 7873ea9515b396cce79f23cffa6de1f9973c7ece`  
+Verified RCI-AD predecessor: `e54031c5ba325fd277feead50205f3021ce87264`
+
+### Purpose
+
+Connect the fixed-baseline FlowGuard mathematics to RCI-AD as an observation path only. The mathematical guard remains the decision owner; RCI-AD receives an immutable observation record and has no return path into the guard.
+
+### Information-flow contract
+
+`FlowGuard.evaluate()` → `observe_flow()` → caller-supplied `FlowObserver`
+
+The observation contains the four named dimensions, trusted baseline, observed values and the exact mathematical decision. RCI-AD does not store an observer, mutate the baseline, recalculate the decision, or alter admission thresholds.
+
+### Mathematical boundary
+
+- dimensions: `frequency`, `volume`, `concurrency`, `novelty`
+- fixed trusted baseline; no baseline learning from untrusted traffic
+- proportional throttling begins above 12% deviation
+- hard stop at 20% deviation
+- strongest dimension determines the decision
+- observation layer is read-only with respect to the mathematical guard
+
+### Analysis workflow
+
+`.github/workflows/rci-ad-flowguard-analysis.yml` is `workflow_dispatch` only and is intentionally outside the normal Verification path.
+
+The manual profile runs one dimension at:
+
+`+24.9% → +19.9% → +14.9% → +12.9%`
+
+for 5 minutes at each level, forwards each decision through the RCI-AD observation bridge, and publishes a compact JSONL artifact. The workflow does not modify limiter code.
+
+### Current integrity warning
+
+The ReplayGuard fix that passed on the RCI-AD branch is **not yet present on current `main`**. Current `main` still contains the old bounded-cache eviction implementation. Therefore GREEN evidence from `#279` / `#281` must not be relabeled as post-merge `main` security evidence until the exact fix is independently merged and reverified.
+
+### Acceptance rule
+
+`RCI-AD observation → focused regression → mathematical profile → evidence artifact → review → only then any policy/decision integration`
+
+No change to the existing rate limiter, no new persistence authority, no new key/replay authority, and no GUI changes are allowed in this gate.
