@@ -9,7 +9,10 @@ from __future__ import annotations
 import json
 import os
 import platform
-import resource
+try:
+    import resource
+except ImportError:  # Windows and other platforms without POSIX resource
+    resource = None
 import threading
 import time
 from collections import Counter
@@ -69,7 +72,9 @@ def _runtime_fingerprint() -> dict[str, object]:
     }
 
 
-def _rss_bytes() -> int:
+def _rss_bytes() -> int | None:
+    if resource is None:
+        return None
     # Linux reports ru_maxrss in KiB; macOS reports bytes.
     value = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return int(value * 1024 if platform.system() == "Linux" else value)
@@ -105,7 +110,13 @@ def test_instrumented_one_dimension_sustained_five_minute_limiter_profile() -> N
             blocked += int(not decision.allowed)
             samples += 1
 
-            peak_rss = max(peak_rss, _rss_bytes())
+            current_rss = _rss_bytes()
+            if current_rss is not None:
+                peak_rss = (
+                    current_rss
+                    if peak_rss is None
+                    else max(peak_rss, current_rss)
+                )
             available = _mem_available_bytes()
             if available is not None:
                 min_available = (
