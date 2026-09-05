@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
+from lat_ces.rci_ad.observation import TelemetryObserver, observe_host_telemetry
 from lat_ces.scientific.analysis.plenum import PlenumAnalysisEngine
 from lat_ces.scientific.dimensions.dimension import DIMENSIONLESS, LENGTH, MASS, TIME
 from lat_ces.scientific.quantity import PhysicalQuantity
@@ -52,8 +53,12 @@ def analyze_config(
     project_default: str,
     plenum_default: str,
     equation_default: str,
+    telemetry_observer: TelemetryObserver | None = None,
 ) -> Tuple[Any, SKOReportExporter]:
-    """Run the canonical LAT-CES analysis and construct its report exporter."""
+    """Run canonical analysis and optionally forward one host observation."""
+    if telemetry_observer is not None:
+        observe_host_telemetry(telemetry_observer)
+
     inputs = {
         name: parse_quantity_dict(quantity)
         for name, quantity in config.get("inputs", {}).items()
