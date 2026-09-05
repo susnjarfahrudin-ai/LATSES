@@ -9,6 +9,8 @@ on:
         default: "false"
         type: boolean
 
+permissions: {}
+
 jobs:
   session-memory:
     runs-on: ubuntu-latest
