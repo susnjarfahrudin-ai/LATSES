@@ -7,6 +7,7 @@ consume values derived from those objects.
 from dataclasses import dataclass
 from typing import Dict, List
 
+from lat_ces.building.mep import ensure_mep_registry
 from .airflow import AirflowResult, calculate_airflow
 from .core import BuildingModel
 from .heating import HeatingResult, calculate_heat_load
@@ -51,15 +52,20 @@ def analyze_building(
 ) -> BuildingEngineeringReport:
     """Run an integrated first engineering pass from one BuildingModel.
 
-    Explicit MEP openings/branches/zones are inputs. If omitted, the function
-    preserves the earlier first-order defaults, which keeps the API compatible.
+    Explicit MEP openings/branches/zones are inputs. If heating zones are
+    omitted, the canonical ``model.mep`` registry is used. This keeps explicit
+    scenario/partial analyses supported while closing the default path through
+    the BuildingModel-owned MEP state.
     """
     if airflow_ach < 0:
         raise ValueError("airflow_ach cannot be negative")
 
     ventilation_openings = list(ventilation_openings or [])
     water_branches = list(water_branches or [])
-    heating_zones = list(heating_zones or [])
+    if heating_zones is None:
+        heating_zones = list(ensure_mep_registry(model).all_heating_zones)
+    else:
+        heating_zones = list(heating_zones)
     validation = validate_model(model)
     room_area = sum(room.floor_area_m2 for level in model.levels.values() for room in level.rooms.values())
     room_volume = model.total_volume_m3()
