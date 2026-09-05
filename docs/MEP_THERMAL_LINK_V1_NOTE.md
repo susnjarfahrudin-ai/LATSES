@@ -1,1 +1,0 @@
-Canonical link: BuildingModel Room ID -> Thermal room heat loss -> existing HeatingZone.room_heat_load_w.
