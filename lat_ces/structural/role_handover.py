@@ -120,14 +120,10 @@ class RecoveryStateMachine:
         return RecoveryStateMachine(RecoveryState.STANDBY, self.active_role, self.recovering_role, self.checkpoint)
 
     def promote_standby(self) -> "RecoveryStateMachine":
-        if self.state is not RecoveryState.STANDBY or self.recovering_role is None:
-            raise ValueError("standby promotion requires STANDBY state")
-        return RecoveryStateMachine(RecoveryState.ACTIVE, self.recovering_role, self.active_role, self.checkpoint)
-
-    def promote_ready(self) -> "RecoveryStateMachine":
-        """Promote a recovered READY role when its active peer subsequently fails."""
-        if self.state is not RecoveryState.READY or self.recovering_role is None:
-            raise ValueError("READY promotion requires READY state")
+        if self.recovering_role is None:
+            raise ValueError("standby promotion requires a recovering role")
+        if self.state not in {RecoveryState.STANDBY, RecoveryState.READY}:
+            raise ValueError("standby promotion requires STANDBY or READY state")
         return RecoveryStateMachine(RecoveryState.ACTIVE, self.recovering_role, self.active_role, self.checkpoint)
 
     def begin_recovery(self, checkpoint: RecoveryCheckpoint) -> "RecoveryStateMachine":
