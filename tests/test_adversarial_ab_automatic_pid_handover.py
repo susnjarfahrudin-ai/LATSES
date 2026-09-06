@@ -234,8 +234,8 @@ def test_automatic_bidirectional_a_b_pid_handover_rotation(tmp_path: Path) -> No
     a_event_recv, a_event_out = ctx.Pipe(duplex=False)
     b_control_in, b_control_send = ctx.Pipe(duplex=False)
     b_event_recv, b_event_out = ctx.Pipe(duplex=False)
-    a_to_b_out, a_to_b_in = ctx.Pipe(duplex=False)
-    b_to_a_out, b_to_a_in = ctx.Pipe(duplex=False)
+    a_to_b_recv, a_to_b_send = ctx.Pipe(duplex=False)
+    b_to_a_recv, b_to_a_send = ctx.Pipe(duplex=False)
     a_dir = tmp_path / "A"
     b_dir = tmp_path / "B"
 
@@ -245,8 +245,8 @@ def test_automatic_bidirectional_a_b_pid_handover_rotation(tmp_path: Path) -> No
             ExecutionRole.PROCESS,
             a_control_in,
             a_event_out,
-            b_to_a_in,
-            a_to_b_out,
+            b_to_a_recv,
+            a_to_b_send,
             str(a_dir),
         ),
         name="LATCES-A",
@@ -257,8 +257,8 @@ def test_automatic_bidirectional_a_b_pid_handover_rotation(tmp_path: Path) -> No
             ExecutionRole.REVISION_RECOVERY,
             b_control_in,
             b_event_out,
-            a_to_b_in,
-            b_to_a_out,
+            a_to_b_recv,
+            b_to_a_send,
             str(b_dir),
         ),
         name="LATCES-B",
