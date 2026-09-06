@@ -144,8 +144,10 @@ def _runtime(
             if not record.verified or not record.verification_sha:
                 raise AssertionError("unverified defense crossed the A/B boundary")
             defense.import_verified(record)
-            if machine.state is not RecoveryState.STANDBY:
-                raise AssertionError(f"automatic takeover requires STANDBY, got {machine.state}")
+            if machine.state not in {RecoveryState.STANDBY, RecoveryState.READY}:
+                raise AssertionError(
+                    f"automatic takeover requires STANDBY or READY, got {machine.state}"
+                )
             machine = machine.promote_standby()
 
             checkpoint = RecoveryCheckpoint(
