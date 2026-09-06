@@ -1,8 +1,8 @@
 """Runtime-process A/B adversarial acceptance test.
 
-This is deliberately a test-only harness.  It proves OS-process separation,
+This is deliberately a test-only harness. It proves OS-process separation,
 separate state directories, one-way evidence transfer, takeover, recovery,
-and the reverse rotation.  It does not copy peer runtime/model state.
+and the reverse rotation. It does not copy peer runtime/model state.
 """
 
 from __future__ import annotations
@@ -41,13 +41,22 @@ def _runtime(
         "sha256:last-known-good",
         f"verification/{role.value}/baseline-001",
     )
-    machine = RecoveryStateMachine(active_role=role, checkpoint=baseline)
+    if role is ExecutionRole.PROCESS:
+        machine = RecoveryStateMachine(active_role=role, checkpoint=baseline)
+    else:
+        # B starts as the standby role while A is active.
+        machine = RecoveryStateMachine(
+            state=RecoveryState.STANDBY,
+            active_role=ExecutionRole.PROCESS,
+            recovering_role=role,
+            checkpoint=baseline,
+        )
+
     (root / "identity.json").write_text(
-        json.dumps({"role": role.value, "pid": pid, "state": "HEALTHY"}),
+        json.dumps({"role": role.value, "pid": pid, "state": machine.state.value}),
         encoding="utf-8",
     )
-
-    control.send({"event": "READY", "role": role.value, "pid": pid})
+    control.send({"event": "READY", "role": role.value, "pid": pid, "state": machine.state.value})
 
     while True:
         message = control.recv()
@@ -60,6 +69,7 @@ def _runtime(
             health = HealthState[message["health"]]
             transition = machine.on_failure(health)
             signal = ROMCoordinator(role, machine.checkpoint).observe_failure(health)
+            machine = transition
             (root / "attack.json").write_text(
                 json.dumps(
                     {
@@ -75,7 +85,7 @@ def _runtime(
                     "event": "FAILURE",
                     "role": role.value,
                     "pid": pid,
-                    "state": transition.state.value,
+                    "state": machine.state.value,
                     "recipient": signal.recipient_role.value,
                     "checkpoint": signal.checkpoint.revision_id,
                     "attack_id": message["attack_id"],
@@ -89,7 +99,12 @@ def _runtime(
                 message["verification_sha"],
                 message["provenance"],
             )
-            machine = machine.activate_standby().promote_standby()
+            if machine.state is RecoveryState.STANDBY:
+                machine = machine.promote_standby()
+            elif machine.state is RecoveryState.READY:
+                machine = machine.on_failure(HealthState.UNAVAILABLE).activate_standby().promote_standby()
+            else:
+                raise AssertionError(f"takeover not legal from {machine.state}")
             control.send(
                 {
                     "event": "TAKEOVER",
@@ -110,11 +125,9 @@ def _runtime(
                 message["verification_sha"],
                 message["provenance"],
             )
-            machine = (
-                machine.begin_recovery(checkpoint)
-                .verify_checkpoint()
-                .mark_ready()
-            )
+            if machine.state is RecoveryState.TAKEOVER:
+                machine = machine.activate_standby().promote_standby()
+            machine = machine.begin_recovery(checkpoint).verify_checkpoint().mark_ready()
             (root / "recovery.json").write_text(
                 json.dumps(
                     {
@@ -145,7 +158,9 @@ def _runtime(
                     "pid": pid,
                     "state": machine.state.value,
                     "active_role": machine.active_role.value,
-                    "recovering_role": machine.recovering_role.value,
+                    "recovering_role": (
+                        machine.recovering_role.value if machine.recovering_role is not None else None
+                    ),
                     "state_files": sorted(p.name for p in root.iterdir()),
                 }
             )
@@ -197,6 +212,8 @@ def test_real_pid_ab_isolation_bidirectional_role_rotation(tmp_path: Path) -> No
         assert a.pid != b.pid
         assert ready_a["pid"] != ready_b["pid"]
         assert a_dir != b_dir
+        assert ready_a["state"] == RecoveryState.ACTIVE.value
+        assert ready_b["state"] == RecoveryState.STANDBY.value
 
         # Round 1: attack A only.
         a_parent.send(
@@ -211,13 +228,14 @@ def test_real_pid_ab_isolation_bidirectional_role_rotation(tmp_path: Path) -> No
         assert failure_a["event"] == "FAILURE"
         assert failure_a["pid"] == a.pid
         assert failure_a["recipient"] == ExecutionRole.REVISION_RECOVERY.value
+        assert failure_a["checkpoint"] == "baseline-001"
 
         # B must not be affected merely because A was attacked.
         b_parent.send({"command": "SNAPSHOT"})
         b_before = _recv(b_parent)
         assert b_before["pid"] == b.pid
-        assert b_before["state"] == RecoveryState.ACTIVE.value
-        assert b_before["active_role"] == ExecutionRole.REVISION_RECOVERY.value
+        assert b_before["state"] == RecoveryState.STANDBY.value
+        assert b_before["active_role"] == ExecutionRole.PROCESS.value
         assert "attack.json" not in b_before["state_files"]
 
         # Verified evidence only crosses the boundary; peer runtime is forbidden.
@@ -249,6 +267,7 @@ def test_real_pid_ab_isolation_bidirectional_role_rotation(tmp_path: Path) -> No
         assert recovered_a["pid"] == a.pid
         assert recovered_a["state"] == RecoveryState.READY.value
         assert recovered_a["active_role"] == ExecutionRole.REVISION_RECOVERY.value
+        assert recovered_a["recovering_role"] == ExecutionRole.PROCESS.value
 
         # Round 2: attack B only.
         b_parent.send(
@@ -293,6 +312,7 @@ def test_real_pid_ab_isolation_bidirectional_role_rotation(tmp_path: Path) -> No
         assert recovered_b["pid"] == b.pid
         assert recovered_b["state"] == RecoveryState.READY.value
         assert recovered_b["active_role"] == ExecutionRole.PROCESS.value
+        assert recovered_b["recovering_role"] == ExecutionRole.REVISION_RECOVERY.value
 
         # Final invariant: both OS processes remained alive and distinct throughout.
         assert a.is_alive()
