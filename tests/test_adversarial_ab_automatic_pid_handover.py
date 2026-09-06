@@ -37,8 +37,10 @@ def _recv(conn: mp.connection.Connection) -> dict:
 
 def _runtime(
     role: ExecutionRole,
-    own_control: mp.connection.Connection,
-    peer_control: mp.connection.Connection,
+    control_in: mp.connection.Connection,
+    event_out: mp.connection.Connection,
+    peer_in: mp.connection.Connection,
+    peer_out: mp.connection.Connection,
     state_dir: str,
 ) -> None:
     pid = os.getpid()
@@ -61,22 +63,24 @@ def _runtime(
             checkpoint=baseline,
         )
 
-    own_control.send(
-        {
-            "event": "READY",
-            "role": role.value,
-            "pid": pid,
-            "state": machine.state.value,
-        }
+    event_out.send(
+        {"event": "READY", "role": role.value, "pid": pid, "state": machine.state.value}
     )
 
     while True:
-        message = own_control.recv()
+        # Parent commands and peer handover/recovery signals are both observed
+        # by the worker; takeover/recovery is never issued by the parent.
+        if peer_in.poll(0.05):
+            message = peer_in.recv()
+        elif control_in.poll(0.05):
+            message = control_in.recv()
+        else:
+            continue
         command = message["command"]
 
         if command == "ATTACK":
             if machine.active_role is not role:
-                own_control.send(
+                event_out.send(
                     {"event": "REJECTED_ATTACK", "role": role.value, "pid": pid}
                 )
                 continue
@@ -103,9 +107,9 @@ def _runtime(
                 encoding="utf-8",
             )
 
-            # The peer receives only immutable, verified defense evidence plus
-            # the takeover signal. No peer runtime/model state is sent.
-            peer_control.send(
+            # Only immutable, verified defense evidence crosses the A/B
+            # boundary. Runtime/model state is explicitly absent.
+            peer_out.send(
                 {
                     "command": "HANDOVER",
                     "from_role": role.value,
@@ -118,7 +122,7 @@ def _runtime(
                     "peer_runtime": None,
                 }
             )
-            own_control.send(
+            event_out.send(
                 {
                     "event": "FAILURE",
                     "role": role.value,
@@ -149,7 +153,7 @@ def _runtime(
                 message["checkpoint_hash"],
                 message["provenance"],
             )
-            own_control.send(
+            event_out.send(
                 {
                     "event": "TAKEOVER",
                     "role": role.value,
@@ -164,7 +168,7 @@ def _runtime(
             )
 
             # Automatic recovery signal back to the isolated source role.
-            peer_control.send(
+            peer_out.send(
                 {
                     "command": "RECOVER",
                     "checkpoint_revision": f"{role.value}-recovery-from-{record.invariant_id}",
@@ -189,7 +193,7 @@ def _runtime(
                 + "pid=" + str(pid) + "\n",
                 encoding="utf-8",
             )
-            own_control.send(
+            event_out.send(
                 {
                     "event": "RECOVERED",
                     "role": role.value,
@@ -202,7 +206,7 @@ def _runtime(
             continue
 
         if command == "SNAPSHOT":
-            own_control.send(
+            event_out.send(
                 {
                     "event": "SNAPSHOT",
                     "role": role.value,
@@ -217,7 +221,7 @@ def _runtime(
             continue
 
         if command == "STOP":
-            own_control.send({"event": "STOPPED", "role": role.value, "pid": pid})
+            event_out.send({"event": "STOPPED", "role": role.value, "pid": pid})
             return
 
         raise AssertionError(f"unknown command: {command}")
@@ -226,38 +230,53 @@ def _runtime(
 def test_automatic_bidirectional_a_b_pid_handover_rotation(tmp_path: Path) -> None:
     """Attack A -> automatic B takeover -> automatic A recovery -> reverse."""
     ctx = mp.get_context("spawn")
-    a_parent, a_child = ctx.Pipe()
-    b_parent, b_child = ctx.Pipe()
+    a_control_in, a_control_send = ctx.Pipe(duplex=False)
+    a_event_recv, a_event_out = ctx.Pipe(duplex=False)
+    b_control_in, b_control_send = ctx.Pipe(duplex=False)
+    b_event_recv, b_event_out = ctx.Pipe(duplex=False)
+    a_to_b_out, a_to_b_in = ctx.Pipe(duplex=False)
+    b_to_a_out, b_to_a_in = ctx.Pipe(duplex=False)
     a_dir = tmp_path / "A"
     b_dir = tmp_path / "B"
 
     a = ctx.Process(
         target=_runtime,
-        args=(ExecutionRole.PROCESS, a_child, b_child, str(a_dir)),
+        args=(
+            ExecutionRole.PROCESS,
+            a_control_in,
+            a_event_out,
+            b_to_a_in,
+            a_to_b_out,
+            str(a_dir),
+        ),
         name="LATCES-A",
     )
     b = ctx.Process(
         target=_runtime,
-        args=(ExecutionRole.REVISION_RECOVERY, b_child, a_child, str(b_dir)),
+        args=(
+            ExecutionRole.REVISION_RECOVERY,
+            b_control_in,
+            b_event_out,
+            a_to_b_in,
+            b_to_a_out,
+            str(b_dir),
+        ),
         name="LATCES-B",
     )
-    # The two workers intentionally share the two pipe endpoints in opposite
-    # directions: each process reads its own control endpoint and writes
-    # automatic handover/recovery commands to its peer endpoint.
     a.start()
     b.start()
 
     try:
-        ready_a = _recv(a_parent)
-        ready_b = _recv(b_parent)
+        ready_a = _recv(a_event_recv)
+        ready_b = _recv(b_event_recv)
         assert ready_a["pid"] == a.pid
         assert ready_b["pid"] == b.pid
         assert a.pid != b.pid
         assert ready_a["state"] == RecoveryState.ACTIVE.value
         assert ready_b["state"] == RecoveryState.STANDBY.value
 
-        # Round 1: inject attack into A. No TAKEOVER command is sent by parent.
-        a_parent.send(
+        # Round 1: inject attack into A. Parent sends ATTACK only.
+        a_control_send.send(
             {
                 "command": "ATTACK",
                 "attack_id": "attack-A-001",
@@ -268,8 +287,8 @@ def test_automatic_bidirectional_a_b_pid_handover_rotation(tmp_path: Path) -> No
                 "verification_sha": "sha256:defense-A-001",
             }
         )
-        failure_a = _recv(a_parent)
-        takeover_b = _recv(b_parent)
+        failure_a = _recv(a_event_recv)
+        takeover_b = _recv(b_event_recv)
         assert failure_a["event"] == "FAILURE"
         assert failure_a["pid"] == a.pid
         assert failure_a["verified"] is True
@@ -281,15 +300,14 @@ def test_automatic_bidirectional_a_b_pid_handover_rotation(tmp_path: Path) -> No
         assert takeover_b["peer_runtime_transferred"] is False
         assert takeover_b["record_imported"] is True
 
-        recovered_a = _recv(a_parent)
+        recovered_a = _recv(a_event_recv)
         assert recovered_a["event"] == "RECOVERED"
         assert recovered_a["pid"] == a.pid
         assert recovered_a["state"] == RecoveryState.READY.value
         assert recovered_a["active_role"] == ExecutionRole.REVISION_RECOVERY.value
 
-        # Round 2: inject attack into B. Again, no TAKEOVER/RECOVER command
-        # is sent by the parent; both transitions are peer-driven.
-        b_parent.send(
+        # Round 2: inject attack into B. Parent sends ATTACK only again.
+        b_control_send.send(
             {
                 "command": "ATTACK",
                 "attack_id": "attack-B-001",
@@ -300,8 +318,8 @@ def test_automatic_bidirectional_a_b_pid_handover_rotation(tmp_path: Path) -> No
                 "verification_sha": "sha256:defense-B-001",
             }
         )
-        failure_b = _recv(b_parent)
-        takeover_a = _recv(a_parent)
+        failure_b = _recv(b_event_recv)
+        takeover_a = _recv(a_event_recv)
         assert failure_b["event"] == "FAILURE"
         assert failure_b["pid"] == b.pid
         assert failure_b["verified"] is True
@@ -313,22 +331,21 @@ def test_automatic_bidirectional_a_b_pid_handover_rotation(tmp_path: Path) -> No
         assert takeover_a["peer_runtime_transferred"] is False
         assert takeover_a["record_imported"] is True
 
-        recovered_b = _recv(b_parent)
+        recovered_b = _recv(b_event_recv)
         assert recovered_b["event"] == "RECOVERED"
         assert recovered_b["pid"] == b.pid
         assert recovered_b["state"] == RecoveryState.READY.value
         assert recovered_b["active_role"] == ExecutionRole.PROCESS.value
 
-        # Final invariant: both original OS PIDs survived the rotation and no
-        # peer runtime state was copied into the other process.
+        # Both original OS processes survived the complete rotation.
         assert a.is_alive()
         assert b.is_alive()
         assert a.pid != b.pid
 
-        a_parent.send({"command": "SNAPSHOT"})
-        final_a = _recv(a_parent)
-        b_parent.send({"command": "SNAPSHOT"})
-        final_b = _recv(b_parent)
+        a_control_send.send({"command": "SNAPSHOT"})
+        final_a = _recv(a_event_recv)
+        b_control_send.send({"command": "SNAPSHOT"})
+        final_b = _recv(b_event_recv)
         assert final_a["pid"] == a.pid
         assert final_b["pid"] == b.pid
         assert final_a["active_role"] == ExecutionRole.PROCESS.value
@@ -338,10 +355,13 @@ def test_automatic_bidirectional_a_b_pid_handover_rotation(tmp_path: Path) -> No
         assert "attack.json" in final_b["state_files"]
         assert "recovery.json" in final_b["state_files"]
     finally:
-        for conn in (a_parent, b_parent):
+        for sender, receiver in (
+            (a_control_send, a_event_recv),
+            (b_control_send, b_event_recv),
+        ):
             try:
-                conn.send({"command": "STOP"})
-                _recv(conn)
+                sender.send({"command": "STOP"})
+                _recv(receiver)
             except (BrokenPipeError, EOFError, AssertionError):
                 pass
         a.join(timeout=5)
