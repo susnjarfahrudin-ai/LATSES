@@ -124,6 +124,12 @@ class RecoveryStateMachine:
             raise ValueError("standby promotion requires STANDBY state")
         return RecoveryStateMachine(RecoveryState.ACTIVE, self.recovering_role, self.active_role, self.checkpoint)
 
+    def promote_ready(self) -> "RecoveryStateMachine":
+        """Promote a recovered READY role when its active peer subsequently fails."""
+        if self.state is not RecoveryState.READY or self.recovering_role is None:
+            raise ValueError("READY promotion requires READY state")
+        return RecoveryStateMachine(RecoveryState.ACTIVE, self.recovering_role, self.active_role, self.checkpoint)
+
     def begin_recovery(self, checkpoint: RecoveryCheckpoint) -> "RecoveryStateMachine":
         if self.state is not RecoveryState.ACTIVE or self.recovering_role is None:
             raise ValueError("recovery can begin only while a role is ACTIVE")
