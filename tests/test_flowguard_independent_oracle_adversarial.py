@@ -1,11 +1,8 @@
-"""Adversarial proof that an independent FlowGuard oracle detects a broken candidate.
-
-This file is intentionally RED while the candidate uses HARD_STOP=0.21.
-It must never be merged in this form. The experiment proves that the oracle
-can reject a known mathematical mutation of the FlowGuard model.
-"""
+"""Independent mathematical oracle and adversarial falsification proof."""
 
 from __future__ import annotations
+
+import pytest
 
 from lat_ces.security.flow_guard import FlowGuard
 
@@ -34,27 +31,31 @@ def independent_oracle(baseline: dict[str, float], observed: dict[str, float]) -
     return True, throttle, max_deviation, limiting_dimension
 
 
-class BrokenFlowGuard(FlowGuard):
-    """Known-bad candidate: moves the hard stop from 20% to 21%."""
-
-    HARD_STOP = 0.21
+def _case() -> tuple[dict[str, float], dict[str, float]]:
+    return (
+        {
+            "frequency": 100.0,
+            "volume": 100.0,
+            "concurrency": 100.0,
+            "novelty": 100.0,
+        },
+        {
+            "frequency": 120.0000001,
+            "volume": 100.0,
+            "concurrency": 100.0,
+            "novelty": 100.0,
+        },
+    )
 
 
 def test_independent_oracle_rejects_broken_20_percent_boundary() -> None:
-    baseline = {
-        "frequency": 100.0,
-        "volume": 100.0,
-        "concurrency": 100.0,
-        "novelty": 100.0,
-    }
-    observed = {
-        "frequency": 120.0000001,
-        "volume": 100.0,
-        "concurrency": 100.0,
-        "novelty": 100.0,
-    }
-
+    """Falsification witness: a 21% hard stop disagrees with the oracle."""
+    baseline, observed = _case()
     expected = independent_oracle(baseline, observed)
+
+    class BrokenFlowGuard(FlowGuard):
+        HARD_STOP = 0.21
+
     actual = BrokenFlowGuard(baseline).evaluate(observed)
     actual_tuple = (
         actual.allowed,
@@ -66,3 +67,15 @@ def test_independent_oracle_rejects_broken_20_percent_boundary() -> None:
     assert expected != actual_tuple
     assert expected[0] is False
     assert actual.allowed is True
+
+
+def test_canonical_flowguard_converges_with_independent_oracle() -> None:
+    """Canonical FlowGuard must agree with the independent oracle."""
+    baseline, observed = _case()
+    expected = independent_oracle(baseline, observed)
+    actual = FlowGuard(baseline).evaluate(observed)
+
+    assert actual.allowed is expected[0]
+    assert actual.throttle == pytest.approx(expected[1])
+    assert actual.max_deviation == pytest.approx(expected[2])
+    assert actual.limiting_dimension == expected[3]
