@@ -35,6 +35,7 @@ from lat_ces.structural.role_handover import (
 
 _TIMEOUT = 15.0
 _SECRET = b"latces-integrated-runtime-test-secret"
+_ATTACKER_IP = "198.51.100.10"  # RFC 5737 TEST-NET-2; valid for threat-score IP parsing.
 _BASELINE = {name: 100.0 for name in ("frequency", "volume", "concurrency", "novelty")}
 
 
@@ -95,7 +96,7 @@ def _runtime(
                 continue
 
             packet = message["packet"]
-            payload = fortress.receive("test-attacker", packet)
+            payload = fortress.receive(_ATTACKER_IP, packet)
             observed = payload["flow"]
 
             observations = []
@@ -255,7 +256,7 @@ def _runtime(
 def _attack_packet(attack_id: str, frequency: float) -> bytes:
     return SignedIPCChannel(_SECRET).pack(
         {"attack_id": attack_id, "flow": {**_BASELINE, "frequency": frequency}},
-        sender_id="test-attacker",
+        sender_id=_ATTACKER_IP,
     )
 
 
