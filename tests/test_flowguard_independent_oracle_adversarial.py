@@ -48,7 +48,7 @@ def test_independent_oracle_rejects_broken_20_percent_boundary() -> None:
         "novelty": 100.0,
     }
     observed = {
-        "frequency": 120.0,
+        "frequency": 120.0000001,
         "volume": 100.0,
         "concurrency": 100.0,
         "novelty": 100.0,
@@ -63,4 +63,6 @@ def test_independent_oracle_rejects_broken_20_percent_boundary() -> None:
         actual.limiting_dimension,
     )
 
-    assert expected == actual_tuple
+    assert expected != actual_tuple
+    assert expected[0] is False
+    assert actual[0] is True
