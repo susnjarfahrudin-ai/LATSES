@@ -18,6 +18,8 @@ import os
 from pathlib import Path
 import time
 
+import pytest
+
 from lat_ces.rci_ad.defense_contract import bind_flow_observation_to_defense
 from lat_ces.rci_ad.flow_observation import observe_flow
 from lat_ces.security.adaptive_defense import AdaptiveDefense, DefenseRecord
@@ -344,7 +346,7 @@ def test_integrated_adversarial_rci_ad_adaptive_defense_ab_rotation(tmp_path: Pa
         assert failure_b["event"] == "FAILURE"
         assert failure_b["pid"] == b.pid
         assert failure_b["limiting_dimension"] == "frequency"
-        assert failure_b["max_deviation"] == 0.30
+        assert failure_b["max_deviation"] == pytest.approx(0.30)
         assert failure_b["verified"] is True
         assert takeover_a["event"] == "TAKEOVER"
         assert takeover_a["pid"] == a.pid
