@@ -65,4 +65,4 @@ def test_independent_oracle_rejects_broken_20_percent_boundary() -> None:
 
     assert expected != actual_tuple
     assert expected[0] is False
-    assert actual[0] is True
+    assert actual.allowed is True
