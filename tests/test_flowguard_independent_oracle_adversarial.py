@@ -1,4 +1,4 @@
-"""Independent mathematical oracle and adversarial falsification proof."""
+"""Independent mathematical oracle, falsification witness, and convergence proof."""
 
 from __future__ import annotations
 
@@ -48,8 +48,8 @@ def _case() -> tuple[dict[str, float], dict[str, float]]:
     )
 
 
-def test_independent_oracle_rejects_broken_20_percent_boundary() -> None:
-    """Falsification witness: a 21% hard stop disagrees with the oracle."""
+def test_independent_oracle_rejects_broken_hard_stop() -> None:
+    """Falsification witness: a 21% hard stop disagrees with the 20% oracle."""
     baseline, observed = _case()
     expected = independent_oracle(baseline, observed)
 
