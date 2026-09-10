@@ -195,6 +195,8 @@ class AssuranceEngine:
             reasons.append("missing integrity hash")
         if artifact.uncertainty is not None and artifact.uncertainty < 0:
             reasons.append("negative uncertainty")
+        if artifact.evidence_state not in {EvidenceState.VERIFIED, EvidenceState.MEASURED}:
+            reasons.append("evidence not verified/measured")
         if artifact.state not in {LifecycleState.VALIDATED, LifecycleState.APPROVED}:
             reasons.append("artifact not validated/approved")
         level = "HIGH" if not reasons else "LOW"
