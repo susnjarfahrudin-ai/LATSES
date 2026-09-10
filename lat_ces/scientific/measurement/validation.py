@@ -56,7 +56,11 @@ def validate_hardened_measurement(hardened) -> object:
     if not hardened.evidence:
         raise MeasurementValidationError("Missing evidence")
     from .integrity import verify_integrity
-    if not verify_integrity(hardened.measurement, hardened.integrity_hash):
+    if not verify_integrity(
+        hardened.measurement,
+        hardened.integrity_hash,
+        hardened.evidence.evidence_state,
+    ):
         raise MeasurementValidationError("Integrity verification failed")
     if hardened.evidence.measurement_id != hardened.measurement.measurement_id:
         raise MeasurementValidationError("Evidence measurement_id does not match measurement")

@@ -20,7 +20,7 @@ def _canonical(value: Any) -> Any:
     return value
 
 
-def measurement_hash(measurement) -> str:
+def measurement_hash(measurement, evidence_state=None) -> str:
     """Generate the SCI-CORE-0050 integrity hash over stable measurement fields."""
     data = {
         "id": measurement.measurement_id,
@@ -32,12 +32,14 @@ def measurement_hash(measurement) -> str:
         "calibration": _canonical(measurement.calibration),
         "timestamp": measurement.timestamp,
     }
+    if evidence_state is not None:
+        data["evidence_state"] = _canonical(evidence_state.value if hasattr(evidence_state, "value") else evidence_state)
     encoded = json.dumps(_canonical(data), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
-def verify_integrity(measurement, stored_hash: str) -> bool:
-    return bool(stored_hash) and measurement_hash(measurement) == stored_hash
+def verify_integrity(measurement, stored_hash: str, evidence_state=None) -> bool:
+    return bool(stored_hash) and measurement_hash(measurement, evidence_state) == stored_hash
 
 
 @dataclass(frozen=True)
@@ -60,7 +62,7 @@ def harden_measurement(measurement, *, audit, evidence) -> HardenedMeasurement:
         raise ValueError("Evidence measurement_id must match measurement identity")
     return HardenedMeasurement(
         measurement=measurement,
-        integrity_hash=measurement_hash(measurement),
+        integrity_hash=measurement_hash(measurement, evidence.evidence_state),
         revision=revision_label(measurement.revision),
         audit=audit,
         evidence=evidence,
