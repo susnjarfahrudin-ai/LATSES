@@ -127,8 +127,8 @@ class FahroTerenskaDashboard(core.LATMasterDashboardV3):
 
         self.fluid_viscosity = QtWidgets.QDoubleSpinBox()
         self.fluid_viscosity.setRange(0.000000001, 1000.0)
-        self.fluid_viscosity.setValue(0.001)
         self.fluid_viscosity.setDecimals(6)
+        self.fluid_viscosity.setValue(0.001)
         self.fluid_viscosity.setSuffix(" Pa·s")
 
         self.fluid_result = self._make_result_box()
