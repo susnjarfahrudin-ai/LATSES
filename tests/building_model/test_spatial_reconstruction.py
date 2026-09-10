@@ -18,7 +18,7 @@ def minimal_spatial_house() -> BuildingModel:
              placement=WallPlacement(0.0, 0.0, 10.0, 0.0)),
         Wall("W2", 8.0, 0.25, 2.8, exterior=True, load_bearing=True,
              placement=WallPlacement(10.0, 0.0, 10.0, 8.0)),
-        Wall("W3", 8.0, 0.25, 2.8, exterior=True, load_bearing=True,
+        Wall("W3", 10.0, 0.25, 2.8, exterior=True, load_bearing=True,
              placement=WallPlacement(10.0, 8.0, 0.0, 8.0)),
         Wall("W4", 8.0, 0.25, 2.8, exterior=True, load_bearing=True,
              placement=WallPlacement(0.0, 8.0, 0.0, 0.0)),
