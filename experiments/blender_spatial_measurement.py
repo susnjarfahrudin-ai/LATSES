@@ -8,11 +8,14 @@ import sys
 import tempfile
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from lat_ces.adapters import adapt_building
 from tests.building_model.test_spatial_reconstruction import minimal_spatial_house
 
 
-ROOT = Path(__file__).resolve().parents[1]
 BLENDER_SCRIPT = ROOT / "experiments" / "blender_spatial_renderer.py"
 
 
