@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from ..evidence_state import EvidenceState
 from .governance import IntegrityTrustEngine, ScientificArtifact
 
 
@@ -15,6 +16,7 @@ class BuildingScientificResult:
     kind: str
     version: int
     state: str
+    evidence_state: str
     content: dict[str, Any]
     provenance: tuple[str, ...]
     uncertainty: float | None
@@ -34,6 +36,7 @@ def to_building_result(artifact: ScientificArtifact) -> BuildingScientificResult
         kind=artifact.kind,
         version=artifact.version,
         state=artifact.state.value,
+        evidence_state=artifact.evidence_state.value,
         content=dict(artifact.content),
         provenance=tuple(artifact.provenance),
         uncertainty=artifact.uncertainty,
