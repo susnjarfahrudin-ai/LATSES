@@ -59,4 +59,6 @@ def test_production_gui_building_model_projects_to_canonical_3d_without_loss() -
     assert scene_roof.geometry.length_m == roof.length_m
     assert scene_roof.geometry.width_m == roof.width_m
     assert scene_roof.geometry.height_m == roof.height_m
-    assert scene_roof.geometry.origin_z_m == model.levels["LEVEL-001"].top_elevation
+    assert scene_roof.geometry.origin_z_m == max(
+        level.top_elevation for level in model.levels.values()
+    )
