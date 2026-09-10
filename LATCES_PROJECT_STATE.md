@@ -6,7 +6,7 @@ Exact failing run: `Fahro Terenska Aplikacija - Installer` #17, run `33037789303
 
 Verified: checkout, CPython 3.10.11 and dependencies succeeded. First concrete failure: `verify_all()` → `verify_gui_domain_access()` at `assert reynolds_result and "GREŠKA:" not in reynolds_result`.
 
-Exact source path: `_run_reynolds()` passes GUI values density/velocity/length/viscosity to `compute_reynolds_number()`; exception becomes `GREŠKA: {exc}` in `fluid_result`. Intended GUI defaults: 1000 kg/m³, 2 m/s, 0.05 m, 0.001 Pa·s. Viscosity calls `setValue(0.001)` before `setDecimals(6)`. Engine computes `Re=rho*v*L/mu`, rejects `mu<=0` with `ValueError("Dynamic viscosity must be positive")`. Non-GUI check gives Re=100000 for intended inputs.
+Exact source path: `_run_reynolds()` passes GUI values density/velocity/length/viscosity to `compute_reynolds_number()`; exception becomes `GREŠKA: {exc}` in `fluid_result`. Intended defaults: 1000 kg/m³, 2 m/s, 0.05 m, 0.001 Pa·s. Viscosity calls `setValue(0.001)` before `setDecimals(6)`. Engine computes `Re=rho*v*L/mu`, rejects `mu<=0` with `ValueError("Dynamic viscosity must be positive")`. Non-GUI check gives Re=100000 for intended inputs.
 
 Unproven hypothesis: Qt spin-box precision/order may quantize 0.001 to 0.0, causing the engine error.
 
