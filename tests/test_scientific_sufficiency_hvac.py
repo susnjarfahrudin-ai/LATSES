@@ -17,6 +17,7 @@ def test_hvac_sufficiency_is_revoked_by_relevant_unknown_factor():
 
     initially = evaluate_sufficiency(baseline, decision_margin=2.0)
     assert initially.status is SufficiencyStatus.SUFFICIENT
+    assert initially.confidence_eligible is True
 
     adversarial = baseline + (
         # The factor was absent from the initial conclusion. Its allowed
@@ -27,5 +28,6 @@ def test_hvac_sufficiency_is_revoked_by_relevant_unknown_factor():
     revised = evaluate_sufficiency(adversarial, decision_margin=2.0)
 
     assert revised.status is SufficiencyStatus.INSUFFICIENT
+    assert revised.confidence_eligible is False
     assert revised.limiting_factor == "infiltration_air_change"
     assert revised.status is not initially.status
