@@ -5,8 +5,29 @@ from datetime import datetime, timezone
 from enum import Enum
 import hashlib
 import json
+from types import MappingProxyType
 from typing import Any, Mapping
 from uuid import uuid4
+
+
+def _freeze_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return MappingProxyType({str(key): _freeze_value(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_value(item) for item in value)
+    if isinstance(value, set):
+        return frozenset(_freeze_value(item) for item in value)
+    return value
+
+
+def _thaw_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {str(key): _thaw_value(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_thaw_value(item) for item in value]
+    if isinstance(value, (set, frozenset)):
+        return sorted(_thaw_value(item) for item in value)
+    return value
 
 
 class LifecycleState(str, Enum):
@@ -41,6 +62,11 @@ class ScientificArtifact:
     uncertainty: float | None = None
     content_hash: str = ""
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "content", _freeze_value(self.content))
+        object.__setattr__(self, "provenance", tuple(self.provenance))
+        object.__setattr__(self, "parents", tuple(self.parents))
+
     def canonical_payload(self) -> dict[str, Any]:
         return {
             "artifact_id": self.artifact_id,
@@ -48,9 +74,9 @@ class ScientificArtifact:
             "kind": self.kind,
             "version": self.version,
             "state": self.state.value,
-            "content": self.content,
-            "provenance": self.provenance,
-            "parents": self.parents,
+            "content": _thaw_value(self.content),
+            "provenance": list(self.provenance),
+            "parents": list(self.parents),
             "uncertainty": self.uncertainty,
         }
 
