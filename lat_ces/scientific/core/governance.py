@@ -9,6 +9,8 @@ from types import MappingProxyType
 from typing import Any, Mapping
 from uuid import uuid4
 
+from ..evidence_state import EvidenceState
+
 
 def _freeze_value(value: Any) -> Any:
     if isinstance(value, Mapping):
@@ -61,11 +63,14 @@ class ScientificArtifact:
     parents: tuple[str, ...] = ()
     uncertainty: float | None = None
     content_hash: str = ""
+    evidence_state: EvidenceState = EvidenceState.UNKNOWN
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "content", _freeze_value(self.content))
         object.__setattr__(self, "provenance", tuple(self.provenance))
         object.__setattr__(self, "parents", tuple(self.parents))
+        if not isinstance(self.evidence_state, EvidenceState):
+            object.__setattr__(self, "evidence_state", EvidenceState(self.evidence_state))
 
     def canonical_payload(self) -> dict[str, Any]:
         return {
@@ -74,6 +79,7 @@ class ScientificArtifact:
             "kind": self.kind,
             "version": self.version,
             "state": self.state.value,
+            "evidence_state": self.evidence_state.value,
             "content": _thaw_value(self.content),
             "provenance": list(self.provenance),
             "parents": list(self.parents),
@@ -152,6 +158,7 @@ class EvolutionEngine:
             provenance=tuple(provenance),
             parents=(artifact.artifact_id,),
             uncertainty=artifact.uncertainty,
+            evidence_state=EvidenceState.UNKNOWN,
         ).with_hash()
 
 
