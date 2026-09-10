@@ -40,15 +40,17 @@ def main() -> int:
             str(report_path),
         ]
         completed = subprocess.run(command, cwd=ROOT, check=False)
+
+        if report_path.exists():
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            print(json.dumps(report, indent=2, sort_keys=True))
+            failures = [item for item in report["checks"] if item["status"] != "PASS"]
+            if failures:
+                print(f"Blender spatial measurement FAILED: {len(failures)} check(s)", file=sys.stderr)
+                return 1
+
         if completed.returncode != 0:
             return completed.returncode
-
-        report = json.loads(report_path.read_text(encoding="utf-8"))
-        print(json.dumps(report, indent=2, sort_keys=True))
-        failures = [item for item in report["checks"] if item["status"] != "PASS"]
-        if failures:
-            print(f"Blender spatial measurement FAILED: {len(failures)} check(s)", file=sys.stderr)
-            return 1
 
         print("Blender spatial measurement PASSED")
         return 0
