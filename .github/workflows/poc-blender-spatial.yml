@@ -1,0 +1,35 @@
+name: LAT-CES Blender Spatial Measurement POC
+
+on:
+  pull_request:
+    paths:
+      - "experiments/blender_spatial_measurement.py"
+      - "experiments/blender_spatial_renderer.py"
+      - ".github/workflows/poc-blender-spatial.yml"
+      - "lat_ces/adapters/**"
+      - "lat_ces/building_model/**"
+      - "tests/building_model/test_spatial_reconstruction.py"
+  workflow_dispatch:
+
+jobs:
+  blender-spatial-measurement:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install LAT-CES
+        run: python -m pip install -e .
+
+      - name: Install Blender
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender
+
+      - name: Measure Blender reconstruction
+        run: python experiments/blender_spatial_measurement.py
