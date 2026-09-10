@@ -156,6 +156,30 @@ def to_building_scene_3d(model: BuildingModel) -> BuildingScene3D:
                     )
                 )
 
+    roof = model.roof
+    if roof is not None:
+        top_elevation = max(
+            (level.top_elevation for level in model.levels.values()),
+            default=0.0,
+        )
+        objects.append(
+            SceneObject3D(
+                visual_object_id=f"roof:{roof.roof_id}",
+                source_element_id=roof.roof_id,
+                element_type="roof",
+                geometry=SceneBox3D(
+                    origin_x_m=0.0,
+                    origin_y_m=0.0,
+                    origin_z_m=top_elevation,
+                    length_m=roof.length_m,
+                    width_m=roof.width_m,
+                    height_m=roof.height_m,
+                ),
+                material_ref=roof.covering,
+                name=roof.roof_type,
+            )
+        )
+
     return BuildingScene3D(
         building_model_id=model.model_id,
         source_ref=f"building-model:{model.model_id}",
