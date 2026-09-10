@@ -20,30 +20,16 @@
 - CPython **3.10.11** setup succeeded.
 - Build dependencies installed successfully.
 - Failure occurred in `Compile and verify field application`, inside `verify_all()` → `verify_gui_domain_access()`.
-- The first concrete failure was:
-  `assert reynolds_result and "GREŠKA:" not in reynolds_result`
+- The first concrete failure was: `assert reynolds_result and "GREŠKA:" not in reynolds_result`.
 - Packaging/installer steps were skipped after this failure.
 - Therefore this failure is **not evidence of a Python setup failure or an Actions SHA problem**.
 
 ## Exact GUI/Reynolds path on `bcec0d7`
-`standalone_test/standalone_entry.py` contains:
+`standalone_test/standalone_entry.py` contains `_run_reynolds()` calling `core.HardenedFluidMechanicsEngine.compute_reynolds_number()` with `self.fluid_density.value()`, `self.fluid_velocity.value()`, `self.fluid_length.value()`, and `self.fluid_viscosity.value()`.
 
-`_run_reynolds()` calls:
-`core.HardenedFluidMechanicsEngine.compute_reynolds_number(`
-`    self.fluid_density.value(),`
-`    self.fluid_velocity.value(),`
-`    self.fluid_length.value(),`
-`    self.fluid_viscosity.value(),`
-`)`
+On exception it executes `self.fluid_result.setPlainText(f"GREŠKA: {exc}")`.
 
-On exception it executes:
-`self.fluid_result.setPlainText(f"GREŠKA: {exc}")`
-
-The strengthened verification then does:
-`reynolds_result = window.fluid_result.toPlainText().strip()`
-`assert reynolds_result and "GREŠKA:" not in reynolds_result`
-`value_text = reynolds_result.split(":", 1)[-1].strip().split()[0]`
-`assert float(value_text) > 0.0`
+The strengthened verification then strips `fluid_result`, rejects empty/`GREŠKA:` output, parses the numeric value after `:`, and requires `float(value_text) > 0.0`.
 
 ## GUI default Reynolds inputs found in source
 At `bcec0d7`:
@@ -52,30 +38,23 @@ At `bcec0d7`:
 - characteristic length = **0.05 m**
 - dynamic viscosity intended value = **0.001 Pa·s**
 
-The GUI creates the viscosity spin box and does:
-`self.fluid_viscosity.setValue(0.001)`
-then:
-`self.fluid_viscosity.setDecimals(6)`
+The GUI creates the viscosity spin box and calls `setValue(0.001)` **before** `setDecimals(6)`.
 
 ## Reynolds engine
-`HardenedFluidMechanicsEngine.compute_reynolds_number()` is:
+`HardenedFluidMechanicsEngine.compute_reynolds_number()` uses:
 `Re = density_kg_m3 * velocity_m_s * characteristic_length_m / dynamic_visc_pa_s`
 
-It rejects:
-`dynamic_visc_pa_s <= 0`
-with:
-`ValueError("Dynamic viscosity must be positive")`
+It rejects `dynamic_visc_pa_s <= 0` with `ValueError("Dynamic viscosity must be positive")`.
 
 The same standalone verification suite explicitly checks:
-`compute_reynolds_number(1000.0, 2.0, 0.05, 0.001) == 100000.0`
+`compute_reynolds_number(1000.0, 2.0, 0.05, 0.001) == 100000.0`.
 
-Thus the mathematical inputs **1000, 2, 0.05, 0.001** yield **Re = 100000**, so the formula itself is not implicated.
+Thus the mathematical inputs **1000, 2, 0.05, 0.001** yield **Re = 100000**; the formula itself is not implicated.
 
 ## Current hypothesis — NOT YET FINAL PROOF
-A strong candidate is the PyQt6 `QDoubleSpinBox` precision/order:
-`setValue(0.001)` is called **before** `setDecimals(6)`.
+A strong candidate is the PyQt6 `QDoubleSpinBox` precision/order: `setValue(0.001)` occurs before `setDecimals(6)`.
 
-Hypothesis:
+Possible mechanism:
 - initial widget precision may quantize `0.001` to `0.00` when `setValue()` executes;
 - subsequent `setDecimals(6)` changes precision but may not restore the original value;
 - `_run_reynolds()` could therefore receive `dynamic_visc_pa_s == 0.0`;
@@ -88,11 +67,11 @@ Hypothesis:
 ## Next proof step — READ ONLY
 Do NOT modify source code.
 
-Need to establish one of:
+Establish one of:
 1. direct runtime value of `self.fluid_viscosity.value()` on exact commit `bcec0d7`, or
 2. exact runtime exception text written by `_run_reynolds()` / visible in the CI log.
 
-Useful evidence sources:
+Evidence sources:
 - GitHub Actions run **33037789303**
 - Job **98404288987**
 - Commit **bcec0d7fb36d012b8379b2796b83d7239c3b7d64**
@@ -100,8 +79,7 @@ Useful evidence sources:
 - `standalone_test/master_standalone.py`
 
 ## Important genealogy correction
-Do **NOT** attribute the Reynolds CI run to commit `3d0c15d5aa5b088fddedd8056be724a2187f3fa1`.
-That commit is on a divergent line. The actual Reynolds run checked out `bcec0d7fb36d012b8379b2796b83d7239c3b7d64`.
+Do **NOT** attribute the Reynolds CI run to commit `3d0c15d5aa5b088fddedd8056be724a2187f3fa1`. That commit is on a divergent line. The actual Reynolds run checked out `bcec0d7fb36d012b8379b2796b83d7239c3b7d64`.
 
 ## Working rule
 First establish the actual runtime value/output. No fix, no PR modification, no architecture change, no Python/Actions upgrade, and no interpretation beyond the evidence until this proof step is complete.
