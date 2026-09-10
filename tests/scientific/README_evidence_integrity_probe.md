@@ -1,0 +1,1 @@
+This probe accompanies the adversarial evidence-integrity contract test.
