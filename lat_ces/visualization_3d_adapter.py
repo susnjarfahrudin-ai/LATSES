@@ -156,6 +156,10 @@ def to_building_scene_3d(model: BuildingModel) -> BuildingScene3D:
                     )
                 )
 
+    # Preserve the existing canonical Roof instead of silently dropping the
+    # GUI-visible roof at the BuildingModel -> 3-D boundary.  The current
+    # neutral SceneBox3D carries its footprint/elevation/height; covering is
+    # retained as the renderer material reference and roof_type as its name.
     roof = model.roof
     if roof is not None:
         top_elevation = max(
