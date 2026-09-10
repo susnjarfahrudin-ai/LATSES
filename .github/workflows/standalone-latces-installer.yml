@@ -79,11 +79,15 @@ jobs:
             $iscc = Get-ChildItem 'C:\ProgramData\chocolatey\lib\innosetup' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
           }
           if (-not $iscc) { throw 'Inno Setup compiler ISCC.exe not found' }
-          Copy-Item '.\installer\Standalone-LATCES-Test.iss' '.\installer\Fahro-Terenska-Aplikacija.iss' -Force
+          $iss = Get-Content '.\installer\Standalone-LATCES-Test.iss' -Raw
+          $iss = $iss.Replace('LAT-CES Standalone Test', 'Fahro Terenska Aplikacija')
+          $iss = $iss.Replace('LAT-CES-Standalone-Test.exe', 'Fahro-Terenska-Aplikacija.exe')
+          $iss = $iss.Replace('LAT-CES-Standalone-Test-Setup', 'Fahro-Terenska-Aplikacija-Setup')
+          Set-Content -Path '.\installer\Fahro-Terenska-Aplikacija.iss' -Value $iss -Encoding UTF8
           & $iscc 'installer\Fahro-Terenska-Aplikacija.iss'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (!(Test-Path '.\installer-output-standalone\LAT-CES-Standalone-Test-Setup.exe')) { throw 'Fahro installer was not produced' }
-          Move-Item '.\installer-output-standalone\LAT-CES-Standalone-Test-Setup.exe' '.\installer-output-fahro\Fahro-Terenska-Aplikacija-Setup.exe' -Force
+          if (!(Test-Path '.\installer-output-standalone\Fahro-Terenska-Aplikacija-Setup.exe')) { throw 'Fahro installer was not produced' }
+          Move-Item '.\installer-output-standalone\Fahro-Terenska-Aplikacija-Setup.exe' '.\installer-output-fahro\Fahro-Terenska-Aplikacija-Setup.exe' -Force
           if ((Get-Item '.\installer-output-fahro\Fahro-Terenska-Aplikacija-Setup.exe').Length -lt 1000000) { throw 'Fahro installer unexpectedly small' }
 
       - name: Check installer hash
