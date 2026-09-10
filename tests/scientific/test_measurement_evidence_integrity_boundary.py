@@ -1,5 +1,3 @@
-import pytest
-
 from lat_ces.scientific.evidence_state import EvidenceState
 from lat_ces.scientific.measurement import MeasurementEvidence, harden_measurement
 from tests.scientific.test_measurement_contract import valid_measurement
