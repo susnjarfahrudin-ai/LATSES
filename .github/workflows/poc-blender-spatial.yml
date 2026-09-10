@@ -11,6 +11,9 @@ on:
       - "tests/building_model/test_spatial_reconstruction.py"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   blender-spatial-measurement:
     runs-on: ubuntu-24.04
