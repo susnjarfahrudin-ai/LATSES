@@ -11,7 +11,6 @@ from uuid import uuid4
 
 
 def _freeze_value(value: Any) -> Any:
-    """Recursively isolate artifact content from later caller mutation."""
     if isinstance(value, Mapping):
         return MappingProxyType({str(key): _freeze_value(item) for key, item in value.items()})
     if isinstance(value, (list, tuple)):
@@ -22,7 +21,6 @@ def _freeze_value(value: Any) -> Any:
 
 
 def _thaw_value(value: Any) -> Any:
-    """Return plain deterministic containers for hashing/serialization."""
     if isinstance(value, Mapping):
         return {str(key): _thaw_value(item) for key, item in value.items()}
     if isinstance(value, (tuple, list)):
@@ -286,3 +284,36 @@ class FederationEngine:
 
     def accept(self, envelope: FederationEnvelope, artifact: ScientificArtifact) -> bool:
         return envelope.artifact_id == artifact.artifact_id and envelope.payload_hash == artifact.with_hash().content_hash
+
+
+@dataclass(frozen=True)
+class SecurityDecision:
+    policy_id: str
+    subject: str
+    action: str
+    allowed: bool
+    risk: float
+    reason: str
+
+
+class SecurityGovernanceEngine:
+    def evaluate(self, *, policy_id: str, subject: str, action: str, risk: float, allowed_actions: frozenset[str]) -> SecurityDecision:
+        if not policy_id.strip() or not subject.strip() or not action.strip():
+            raise ValueError("Security evaluation requires policy, subject and action")
+        if not 0.0 <= risk <= 1.0:
+            raise ValueError("Security risk must be between 0 and 1")
+        allowed = action in allowed_actions and risk < 0.8
+        reason = "policy-and-risk-accepted" if allowed else "policy-or-risk-rejected"
+        return SecurityDecision(policy_id, subject, action, allowed, risk, reason)
+
+
+class AdaptiveSecurityGovernance:
+    def adjust_risk(self, *, baseline: float, observed: float, threshold: float = 0.8) -> float:
+        if not 0.0 <= baseline <= 1.0 or not 0.0 <= observed <= 1.0 or not 0.0 < threshold <= 1.0:
+            raise ValueError("Security risk values must be between 0 and 1")
+        return min(1.0, max(baseline, observed) / threshold)
+
+
+class SecurityMaturity:
+    LEVEL_1 = "documented-and-tested"
+    LEVEL_2 = "enforced-and-audited"
