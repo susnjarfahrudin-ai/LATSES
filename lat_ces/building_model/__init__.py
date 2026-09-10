@@ -1,6 +1,7 @@
 """Unified LATCES building-model foundation."""
 
 from .core import BuildingModel, Level, Room, Wall, Opening, Material
+from .spatial import WallPlacement
 from .airflow import AirflowResult, calculate_airflow
 from .water import WaterResult, WaterQualityStatus, calculate_water_flow
 from .heating import HeatingResult, calculate_heat_load
@@ -17,7 +18,7 @@ from .concept import (
 from .concept_adapter import to_concept
 
 __all__ = [
-    "BuildingModel", "Level", "Room", "Wall", "Opening", "Material",
+    "BuildingModel", "Level", "Room", "Wall", "Opening", "Material", "WallPlacement",
     "AirflowResult", "calculate_airflow",
     "WaterResult", "WaterQualityStatus", "calculate_water_flow",
     "HeatingResult", "calculate_heat_load", "VentilationOpening", "WaterBranch",
