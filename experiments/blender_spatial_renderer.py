@@ -84,14 +84,40 @@ def _measure(expected: dict[str, dict]) -> list[dict]:
         ys = [v.co.y for v in obj.data.vertices]
         zs = [v.co.z for v in obj.data.vertices]
         local_dims = (max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs))
-        checks.append({"name": f"dimensions:{wall_id}", "status": "PASS" if all(math.isclose(a, b, abs_tol=1e-9) for a, b in zip(local_dims, (exp["length_m"], exp["thickness_m"], exp["height_m"])) ) else "FAIL", "actual": local_dims, "expected": (exp["length_m"], exp["thickness_m"], exp["height_m"])})
+        expected_dims = (exp["length_m"], exp["thickness_m"], exp["height_m"])
+        dimension_errors = tuple(a - b for a, b in zip(local_dims, expected_dims))
+        checks.append({
+            "name": f"dimensions:{wall_id}",
+            "status": "PASS" if all(math.isclose(a, b, abs_tol=1e-9) for a, b in zip(local_dims, expected_dims)) else "FAIL",
+            "actual": local_dims,
+            "expected": expected_dims,
+            "error": dimension_errors,
+            "abs_error": tuple(abs(value) for value in dimension_errors),
+            "max_abs_error": max(abs(value) for value in dimension_errors),
+        })
 
         p1 = obj.matrix_world @ Vector((-exp["length_m"] / 2.0, 0.0, 0.0))
         p2 = obj.matrix_world @ Vector((exp["length_m"] / 2.0, 0.0, 0.0))
         measured_endpoints = ((p1.x, p1.y), (p2.x, p2.y))
         expected_endpoints = ((exp["p1"][0], exp["p1"][1]), (exp["p2"][0], exp["p2"][1]))
-        endpoint_ok = all(math.isclose(a, b, abs_tol=1e-9) for pair_a, pair_b in zip(measured_endpoints, expected_endpoints) for a, b in zip(pair_a, pair_b))
-        checks.append({"name": f"endpoints:{wall_id}", "status": "PASS" if endpoint_ok else "FAIL", "actual": measured_endpoints, "expected": expected_endpoints})
+        endpoint_errors = tuple(
+            tuple(actual - expected for actual, expected in zip(pair_a, pair_b))
+            for pair_a, pair_b in zip(measured_endpoints, expected_endpoints)
+        )
+        endpoint_abs_errors = tuple(
+            tuple(abs(value) for value in pair) for pair in endpoint_errors
+        )
+        endpoint_max_abs_error = max(value for pair in endpoint_abs_errors for value in pair)
+        endpoint_ok = endpoint_max_abs_error <= 1e-9
+        checks.append({
+            "name": f"endpoints:{wall_id}",
+            "status": "PASS" if endpoint_ok else "FAIL",
+            "actual": measured_endpoints,
+            "expected": expected_endpoints,
+            "error": endpoint_errors,
+            "abs_error": endpoint_abs_errors,
+            "max_abs_error": endpoint_max_abs_error,
+        })
 
         checks.append({"name": f"opening_metadata:{wall_id}", "status": "PASS" if obj.get("latces_opening_count") == exp["opening_count"] else "FAIL", "actual": obj.get("latces_opening_count"), "expected": exp["opening_count"]})
 
