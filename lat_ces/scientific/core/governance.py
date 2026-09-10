@@ -5,8 +5,31 @@ from datetime import datetime, timezone
 from enum import Enum
 import hashlib
 import json
+from types import MappingProxyType
 from typing import Any, Mapping
 from uuid import uuid4
+
+
+def _freeze_value(value: Any) -> Any:
+    """Recursively isolate artifact content from later caller mutation."""
+    if isinstance(value, Mapping):
+        return MappingProxyType({str(key): _freeze_value(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_value(item) for item in value)
+    if isinstance(value, set):
+        return frozenset(_freeze_value(item) for item in value)
+    return value
+
+
+def _thaw_value(value: Any) -> Any:
+    """Return plain deterministic containers for hashing/serialization."""
+    if isinstance(value, Mapping):
+        return {str(key): _thaw_value(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_thaw_value(item) for item in value]
+    if isinstance(value, (set, frozenset)):
+        return sorted(_thaw_value(item) for item in value)
+    return value
 
 
 class LifecycleState(str, Enum):
@@ -41,6 +64,11 @@ class ScientificArtifact:
     uncertainty: float | None = None
     content_hash: str = ""
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "content", _freeze_value(self.content))
+        object.__setattr__(self, "provenance", tuple(self.provenance))
+        object.__setattr__(self, "parents", tuple(self.parents))
+
     def canonical_payload(self) -> dict[str, Any]:
         return {
             "artifact_id": self.artifact_id,
@@ -48,9 +76,9 @@ class ScientificArtifact:
             "kind": self.kind,
             "version": self.version,
             "state": self.state.value,
-            "content": self.content,
-            "provenance": self.provenance,
-            "parents": self.parents,
+            "content": _thaw_value(self.content),
+            "provenance": list(self.provenance),
+            "parents": list(self.parents),
             "uncertainty": self.uncertainty,
         }
 
@@ -258,36 +286,3 @@ class FederationEngine:
 
     def accept(self, envelope: FederationEnvelope, artifact: ScientificArtifact) -> bool:
         return envelope.artifact_id == artifact.artifact_id and envelope.payload_hash == artifact.with_hash().content_hash
-
-
-@dataclass(frozen=True)
-class SecurityDecision:
-    policy_id: str
-    subject: str
-    action: str
-    allowed: bool
-    risk: float
-    reason: str
-
-
-class SecurityGovernanceEngine:
-    def evaluate(self, *, policy_id: str, subject: str, action: str, risk: float, allowed_actions: frozenset[str]) -> SecurityDecision:
-        if not policy_id.strip() or not subject.strip() or not action.strip():
-            raise ValueError("Security evaluation requires policy, subject and action")
-        if not 0.0 <= risk <= 1.0:
-            raise ValueError("Security risk must be between 0 and 1")
-        allowed = action in allowed_actions and risk < 0.8
-        reason = "policy-and-risk-accepted" if allowed else "policy-or-risk-rejected"
-        return SecurityDecision(policy_id, subject, action, allowed, risk, reason)
-
-
-class AdaptiveSecurityGovernance:
-    def adjust_risk(self, *, baseline: float, observed: float, threshold: float = 0.8) -> float:
-        if not 0.0 <= baseline <= 1.0 or not 0.0 <= observed <= 1.0 or not 0.0 < threshold <= 1.0:
-            raise ValueError("Security risk values must be between 0 and 1")
-        return min(1.0, max(baseline, observed) / threshold)
-
-
-class SecurityMaturity:
-    LEVEL_1 = "documented-and-tested"
-    LEVEL_2 = "enforced-and-audited"
