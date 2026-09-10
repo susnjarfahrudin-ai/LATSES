@@ -1,7 +1,8 @@
 """Minimal integration proof for the production GUI BuildingModel -> canonical 3-D scene."""
 
 from lat_ces.gui import LATCESApp
-from lat_ces.building.geometry3d import build_geometry\nfrom lat_ces.visualization_3d_adapter import to_building_scene_3d
+from lat_ces.building.geometry3d import build_geometry
+from lat_ces.visualization_3d_adapter import to_building_scene_3d
 
 
 def test_production_gui_building_model_projects_to_canonical_3d_without_loss() -> None:
