@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from lat_ces.adapters.building_visualization import BuildingVisualizationAdapter
+from lat_ces.building.workflow import BuildingWorkflow
 from lat_ces.building_model import BuildingModel, Level, Wall, WallPlacement
 from lat_ces.gui_scene1 import Scene1CompleteBuildingWorkspaceApp
 from lat_ces.presentation_controller import PresentationController
@@ -67,8 +68,9 @@ def test_scene1_show_uses_canonical_snapshot_and_does_not_write_model():
     assert scene["schema"] == "latces.visualization.scene.v1"
 
     app = Scene1CompleteBuildingWorkspaceApp.__new__(Scene1CompleteBuildingWorkspaceApp)
-    app.workflow = type("Workflow", (), {"model": model})()
-    app.active_level = type("ActiveLevel", (), {"level_id": level.id})()
+    workflow = BuildingWorkflow(model=model)
+    workflow.set_active_level(level.id)
+    app.workflow = workflow
     app._presentation_controller = PresentationController()
     app.canvas = _FakeCanvas([], [], [])
     app.status_var = type("Status", (), {"value": "", "set": lambda self, value: setattr(self, "value", value)})()
