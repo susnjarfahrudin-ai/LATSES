@@ -14,6 +14,7 @@ def valid_package(**overrides):
         "package_id": "pkg-001",
         "model_id": "model-001",
         "model_revision": "rev-001",
+        "created_at": "2026-09-11T00:00:00Z",
         "units": {"length": "m"},
         "coordinate_system": "LOCAL_CARTESIAN_XYZ",
         "provenance": {
