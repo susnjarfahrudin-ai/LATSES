@@ -58,7 +58,7 @@ def test_one_scene_snapshot_feeds_both_2d_and_3d_consumers() -> None:
     wall_3d = scene_3d["levels"][0]["walls"][0]
     assert wall_2d["id"] == wall_3d["id"] == "south"
     assert [wall_2d["x1_m"], wall_2d["y1_m"]] == wall_3d["start_m"][:2]
-    assert [wall_2d["x2_m"], wall_2d["y2_m"] == wall_3d["end_m"][:2]
+    assert [wall_2d["x2_m"], wall_2d["y2_m"]] == wall_3d["end_m"][:2]
     assert wall_2d["thickness_m"] == wall_3d["thickness_m"] == 0.30
 
 
