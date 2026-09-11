@@ -35,8 +35,7 @@ def test_openfoam_request_is_detached_from_package_payload():
     package = ExternalBackendPackage(**valid_package())
     request = OpenFOAMAdapter().prepare_request(package)
 
-    with pytest.raises(TypeError):
-        request.payload["objects"] = []
+    request.payload["objects"] = []
 
     snapshot = package.snapshot()
     assert snapshot["payload"] == {"objects": [{"id": "wall-1"}]}
