@@ -1,7 +1,7 @@
 """Renderer-neutral projection of authoritative BuildingModel geometry."""
 from typing import Any, Dict
 
-from lat_ces.building_model import BuildingModel
+from lat_ces.building.model import BuildingModel
 
 
 class BuildingVisualizationAdapter:
