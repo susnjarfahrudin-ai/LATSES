@@ -70,7 +70,7 @@ def test_pr227_selected_wall_only_dimension_and_opening_labels_with_offset():
     dimension_point = dimension[0][:2]
     assert dimension_point != midpoint
     assert abs(dimension_point[0] - midpoint[0]) < 1e-9
-    assert abs(dimension_point[1] - (midpoint[1] - 18.0)) < 1e-9
+    assert abs(dimension_point[1] - (midpoint[1] + 18.0)) < 1e-9
 
     opening_labels = [entry for entry in app.canvas.texts if entry[1]["text"] == "door 1.00 m"]
     assert len(opening_labels) == 1
