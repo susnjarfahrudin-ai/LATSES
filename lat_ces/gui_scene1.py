@@ -1,19 +1,18 @@
 """Scene 1 integration for the existing Complete LAT-CES workspace.
 
 This module reuses the existing Tkinter workspace; it does not create a
-second GUI architecture. Scene 1 receives a fresh renderer-neutral snapshot
-from BuildingModel and draws only presentation primitives onto the existing
-canvas.
+second GUI architecture. The GUI asks the presentation controller to route a
+canonical scene snapshot, then renders the returned 2D presentation payload
+onto the existing canvas.
 """
 
 from __future__ import annotations
 
-import tkinter as tk
 from tkinter import ttk
 
 from lat_ces.adapters.building_visualization import BuildingVisualizationAdapter
-from lat_ces.adapters.visualization_2d import adapt_scene_2d
 from lat_ces.gui_complete import CompleteBuildingWorkspaceApp
+from lat_ces.presentation_controller import PresentationController
 
 
 class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
@@ -21,6 +20,7 @@ class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
 
     def __init__(self) -> None:
         super().__init__()
+        self._presentation_controller = PresentationController()
         self._install_scene1_control()
 
     def _install_scene1_control(self) -> None:
@@ -34,9 +34,9 @@ class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
         )
 
     def show_scene1(self) -> None:
-        """Render the current BuildingModel snapshot on the existing canvas."""
+        """Render the current canonical scene snapshot on the existing canvas."""
         scene = BuildingVisualizationAdapter().adapt(self.workflow.model)
-        scene_2d = adapt_scene_2d(scene)
+        scene_2d = self._presentation_controller.present_scene_1(scene)
 
         self.canvas.delete("scene1")
         width = max(self.canvas.winfo_width(), 400)
@@ -75,7 +75,12 @@ class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
             x1, y1 = point(wall["x1_m"], wall["y1_m"])
             x2, y2 = point(wall["x2_m"], wall["y2_m"])
             self.canvas.create_line(
-                x1, y1, x2, y2, width=max(1, wall["thickness_m"] * scale), tags="scene1"
+                x1,
+                y1,
+                x2,
+                y2,
+                width=max(1, wall["thickness_m"] * scale),
+                tags="scene1",
             )
 
         self.canvas.create_text(
@@ -85,7 +90,7 @@ class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
             text=f"Scene 1 · {level['name']} · BuildingModel snapshot",
             tags="scene1",
         )
-        self.status_var.set("Scene 1: prikazan direktno iz BuildingModel → scene.v1 → 2D")
+        self.status_var.set("Scene 1: BuildingModel → scene.v1 → controller → 2D")
 
 
 def main() -> None:
