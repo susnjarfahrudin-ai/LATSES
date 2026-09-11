@@ -1,7 +1,5 @@
 from math import isclose
 
-import pytest
-
 from lat_ces.adapters import adapt_building
 from lat_ces.building.floor_plan import FloorPlan, Opening, Point2D, Segment2D, Wall
 from lat_ces.building.geometry import Box3D, Point3D
@@ -111,7 +109,8 @@ def test_spatial_representation_is_minimal_but_not_renderer_specific():
 
 def test_canonical_wall_length_is_derived_from_authoritative_segment():
     model = minimal_spatial_house()
-    wall = next(iter(model.levels[model.levels.keys().__iter__().__next__()].floor_plan.walls.values()))
+    level = next(iter(model.levels.values()))
+    wall = next(iter(level.floor_plan.walls.values()))
     wall.segment = Segment2D(Point2D(0.0, 0.0), Point2D(9.0, 0.0))
 
     scene = adapt_building(model)
@@ -122,8 +121,8 @@ def test_canonical_wall_length_is_derived_from_authoritative_segment():
 def test_adversarial_orientation_change_changes_authoritative_scene():
     baseline = minimal_spatial_house()
     changed = minimal_spatial_house()
-    wall = next(iter(changed.levels["LVL-INVALID"].floor_plan.walls.values())) if "LVL-INVALID" in changed.levels else next(iter(changed.levels.values())).floor_plan.walls
-    changed_wall = next(iter(wall.values()))
+    level = next(iter(changed.levels.values()))
+    changed_wall = next(iter(level.floor_plan.walls.values()))
     changed_wall.segment = Segment2D(Point2D(0.0, 0.0), Point2D(0.0, 10.0))
 
     baseline_scene = adapt_building(baseline)
