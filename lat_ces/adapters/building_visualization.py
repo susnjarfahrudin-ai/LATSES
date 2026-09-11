@@ -33,10 +33,10 @@ class BuildingVisualizationAdapter:
                             for opening in wall.openings
                         ],
                         "placement": {
-                            "x1_m": start.x_m,
-                            "y1_m": start.y_m,
-                            "x2_m": end.x_m,
-                            "y2_m": end.y_m,
+                            "x1_m": start.x,
+                            "y1_m": start.y,
+                            "x2_m": end.x,
+                            "y2_m": end.y,
                         },
                     }
                     walls.append(item)
