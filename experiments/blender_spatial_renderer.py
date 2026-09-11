@@ -64,6 +64,11 @@ def _wall_geometry(scene: dict) -> dict[str, dict]:
                 "thickness_m": wall["thickness_m"],
                 "height_m": wall["height_m"],
                 "opening_count": len(wall["openings"]),
+                "angle_rad": angle,
+                "center": (
+                    (placement["x1_m"] + placement["x2_m"]) / 2.0,
+                    (placement["y1_m"] + placement["y2_m"]) / 2.0,
+                ),
             }
     return expected
 
@@ -96,8 +101,10 @@ def _measure(expected: dict[str, dict]) -> list[dict]:
             "max_abs_error": max(abs(value) for value in dimension_errors),
         })
 
-        p1 = obj.matrix_world @ Vector((-exp["length_m"] / 2.0, 0.0, 0.0))
-        p2 = obj.matrix_world @ Vector((exp["length_m"] / 2.0, 0.0, 0.0))
+        p1_local = Vector((-exp["length_m"] / 2.0, 0.0, 0.0))
+        p2_local = Vector((exp["length_m"] / 2.0, 0.0, 0.0))
+        p1 = obj.matrix_world @ p1_local
+        p2 = obj.matrix_world @ p2_local
         measured_endpoints = ((p1.x, p1.y), (p2.x, p2.y))
         expected_endpoints = ((exp["p1"][0], exp["p1"][1]), (exp["p2"][0], exp["p2"][1]))
         endpoint_errors = tuple(
@@ -117,6 +124,49 @@ def _measure(expected: dict[str, dict]) -> list[dict]:
             "error": endpoint_errors,
             "abs_error": endpoint_abs_errors,
             "max_abs_error": endpoint_max_abs_error,
+        })
+
+        # Diagnostic isolation: compare ideal double-precision analytic rotation
+        # with Blender's actual object transform. No geometry or tolerance is changed.
+        cx, cy = exp["center"]
+        half_length = exp["length_m"] / 2.0
+        c = math.cos(exp["angle_rad"])
+        s = math.sin(exp["angle_rad"])
+        analytic_endpoints = (
+            (cx - half_length * c, cy - half_length * s),
+            (cx + half_length * c, cy + half_length * s),
+        )
+        analytic_errors = tuple(
+            tuple(actual - expected for actual, expected in zip(pair_a, pair_b))
+            for pair_a, pair_b in zip(analytic_endpoints, expected_endpoints)
+        )
+        analytic_abs_errors = tuple(tuple(abs(value) for value in pair) for pair in analytic_errors)
+        analytic_max_abs_error = max(value for pair in analytic_abs_errors for value in pair)
+        blender_transform_delta = tuple(
+            tuple(actual - analytic for actual, analytic in zip(pair_a, pair_b))
+            for pair_a, pair_b in zip(measured_endpoints, analytic_endpoints)
+        )
+        blender_transform_abs = tuple(tuple(abs(value) for value in pair) for pair in blender_transform_delta)
+        blender_transform_max_abs_error = max(value for pair in blender_transform_abs for value in pair)
+        checks.append({
+            "name": f"analytic_transform:{wall_id}",
+            "status": "PASS" if analytic_max_abs_error <= 1e-12 else "FAIL",
+            "actual": analytic_endpoints,
+            "expected": expected_endpoints,
+            "error": analytic_errors,
+            "abs_error": analytic_abs_errors,
+            "max_abs_error": analytic_max_abs_error,
+            "method": "Python math.cos/sin double-precision analytic rotation",
+        })
+        checks.append({
+            "name": f"blender_transform_delta:{wall_id}",
+            "status": "PASS" if blender_transform_max_abs_error <= 1e-12 else "FAIL",
+            "actual": measured_endpoints,
+            "reference": analytic_endpoints,
+            "error": blender_transform_delta,
+            "abs_error": blender_transform_abs,
+            "max_abs_error": blender_transform_max_abs_error,
+            "method": "Blender matrix_world minus analytic double-precision transform",
         })
 
         checks.append({"name": f"opening_metadata:{wall_id}", "status": "PASS" if obj.get("latces_opening_count") == exp["opening_count"] else "FAIL", "actual": obj.get("latces_opening_count"), "expected": exp["opening_count"]})
