@@ -1,37 +1,15 @@
-"""Scene 1 integration for the existing Complete LAT-CES workspace.
-
-This module reuses the existing Tkinter workspace; it does not create a
-second GUI architecture. The GUI asks the presentation controller to route a
-canonical scene snapshot, then renders the returned 2D presentation payload
-onto the existing canvas.
-"""
-
-from __future__ import annotations
-
-from tkinter import ttk
-
 from lat_ces.adapters.building_visualization import BuildingVisualizationAdapter
+from lat_ces.building_model import BuildingModel
 from lat_ces.gui_complete import CompleteBuildingWorkspaceApp
 from lat_ces.presentation_controller import PresentationController
 
 
 class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
-    """Existing LAT-CES workspace with the real Scene 1 canvas hook."""
+    """Production Scene 1 wrapper using the canonical BuildingModel flow."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._presentation_controller = PresentationController()
-        self._install_scene1_control()
-
-    def _install_scene1_control(self) -> None:
-        """Add one Scene 1 action to the existing Model / Pogledi tab."""
-        if not hasattr(self, "complete_tabs"):
-            return
-        tab_id = self.complete_tabs.tabs()[0]
-        tab = self.nametowidget(tab_id)
-        ttk.Button(tab, text="Scene 1 — stvarni model", command=self.show_scene1).pack(
-            side="left", padx=(12, 2)
-        )
 
     def show_scene1(self) -> None:
         """Render the current canonical scene snapshot on the existing canvas."""
@@ -49,7 +27,7 @@ class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
             return
 
         level = next(
-            (item for item in levels if item["id"] == self.active_level.level_id),
+            (item for item in levels if item["id"] == self.active_level.id),
             levels[0],
         )
         walls = level.get("walls", [])
@@ -64,30 +42,20 @@ class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
         span_x = max(max_x - min_x, 0.001)
         span_y = max(max_y - min_y, 0.001)
         scale = min((width - 2 * margin) / span_x, (height - 2 * margin) / span_y)
-
-        def point(x_m: float, y_m: float) -> tuple[float, float]:
-            return (
-                margin + (x_m - min_x) * scale,
-                height - margin - (y_m - min_y) * scale,
-            )
+        offset_x = (width - span_x * scale) / 2.0
+        offset_y = (height - span_y * scale) / 2.0
 
         for wall in walls:
-            x1, y1 = point(wall["x1_m"], wall["y1_m"])
-            x2, y2 = point(wall["x2_m"], wall["y2_m"])
-            self.canvas.create_line(
-                x1,
-                y1,
-                x2,
-                y2,
-                width=max(1, wall["thickness_m"] * scale),
-                tags="scene1",
-            )
+            x1 = offset_x + (wall["x1_m"] - min_x) * scale
+            y1 = height - (offset_y + (wall["y1_m"] - min_y) * scale)
+            x2 = offset_x + (wall["x2_m"] - min_x) * scale
+            y2 = height - (offset_y + (wall["y2_m"] - min_y) * scale)
+            self.canvas.create_line(x1, y1, x2, y2, tags="scene1")
 
         self.canvas.create_text(
-            margin,
+            width / 2,
             margin / 2,
-            anchor="w",
-            text=f"Scene 1 · {level['name']} · BuildingModel snapshot",
+            text=level.get("name", level["id"]),
             tags="scene1",
         )
         self.status_var.set("Scene 1: BuildingModel → scene.v1 → controller → 2D")
@@ -96,6 +64,3 @@ class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
 def main() -> None:
     app = Scene1CompleteBuildingWorkspaceApp()
     app.mainloop()
-
-
-__all__ = ["Scene1CompleteBuildingWorkspaceApp", "main"]
