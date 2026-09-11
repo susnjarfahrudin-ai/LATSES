@@ -2,8 +2,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from lat_ces.adapters.building_visualization import BuildingVisualizationAdapter
+from lat_ces.building.floor_plan import FloorPlan, Point2D, Segment2D, Wall
+from lat_ces.building.model import BuildingModel, Level
 from lat_ces.building.workflow import BuildingWorkflow
-from lat_ces.building_model import BuildingModel, Level, Wall, WallPlacement
 from lat_ces.gui_scene1 import Scene1CompleteBuildingWorkspaceApp
 from lat_ces.presentation_controller import PresentationController
 
@@ -42,18 +43,31 @@ class _FakeCanvas:
 
 
 def _make_model() -> BuildingModel:
-    level = Level("L1", "Prizemlje", 10.0, 8.0, 2.8)
-    for wall in (
-        Wall("W1", 10.0, 0.20, 2.8, exterior=True, load_bearing=True,
-             placement=WallPlacement(0.0, 0.0, 10.0, 0.0)),
-        Wall("W2", 8.0, 0.20, 2.8, exterior=True, load_bearing=True,
-             placement=WallPlacement(10.0, 0.0, 10.0, 8.0)),
-        Wall("W3", 10.0, 0.20, 2.8, exterior=True, load_bearing=True,
-             placement=WallPlacement(10.0, 8.0, 0.0, 8.0)),
-        Wall("W4", 8.0, 0.20, 2.8, exterior=True, load_bearing=True,
-             placement=WallPlacement(0.0, 8.0, 0.0, 0.0)),
+    floor_plan = FloorPlan("Prizemlje")
+    for name, start, end in (
+        ("W1", Point2D(0.0, 0.0), Point2D(10.0, 0.0)),
+        ("W2", Point2D(10.0, 0.0), Point2D(10.0, 8.0)),
+        ("W3", Point2D(10.0, 8.0), Point2D(0.0, 8.0)),
+        ("W4", Point2D(0.0, 8.0), Point2D(0.0, 0.0)),
     ):
-        level.add_wall(wall)
+        floor_plan.add_wall(
+            Wall(
+                name,
+                Segment2D(start, end),
+                thickness=0.20,
+                exterior=True,
+                load_bearing=True,
+            )
+        )
+
+    level = Level(
+        "Prizemlje",
+        0.0,
+        2.8,
+        length_m=10.0,
+        width_m=8.0,
+        floor_plan=floor_plan,
+    )
     model = BuildingModel(name="Testni objekat")
     model.add_level(level)
     return model
@@ -62,14 +76,20 @@ def _make_model() -> BuildingModel:
 def test_scene1_show_uses_canonical_snapshot_and_does_not_write_model():
     model = _make_model()
     level = next(iter(model.levels.values()))
-    before = (model.name, tuple(model.levels), level.length_m, level.width_m, tuple(level.walls))
+    before = (
+        model.name,
+        tuple(model.levels),
+        level.length_m,
+        level.width_m,
+        tuple(level.floor_plan.walls),
+    )
 
     scene = BuildingVisualizationAdapter().adapt(model)
     assert scene["schema"] == "latces.visualization.scene.v1"
 
     app = Scene1CompleteBuildingWorkspaceApp.__new__(Scene1CompleteBuildingWorkspaceApp)
     workflow = BuildingWorkflow(model=model)
-    workflow.set_active_level(level.id)
+    workflow.set_active_level(level.level_id)
     app.workflow = workflow
     app._presentation_controller = PresentationController()
     app.canvas = _FakeCanvas([], [], [])
@@ -81,7 +101,13 @@ def test_scene1_show_uses_canonical_snapshot_and_does_not_write_model():
     assert app.canvas.texts
     assert app.canvas.deleted == ["scene1"]
     assert app.status_var.value == "Scene 1: BuildingModel → scene.v1 → controller → 2D"
-    assert (model.name, tuple(model.levels), level.length_m, level.width_m, tuple(level.walls)) == before
+    assert (
+        model.name,
+        tuple(model.levels),
+        level.length_m,
+        level.width_m,
+        tuple(level.floor_plan.walls),
+    ) == before
 
 
 def test_scene1_information_direction_is_canonical_scene_to_2d_only():
