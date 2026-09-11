@@ -54,7 +54,7 @@ class BuildingVisualizationAdapter:
                             "name": room.name,
                             "length_m": room.footprint.length,
                             "width_m": room.footprint.width,
-                            "height_m": room.height,
+                            "height_m": room.footprint.height,
                         }
                         for room in level.rooms.values()
                     ],
