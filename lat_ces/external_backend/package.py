@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Mapping
@@ -55,7 +56,7 @@ class ExternalBackendPackage:
         object.__setattr__(self, "units", MappingProxyType(dict(self.units)))
         object.__setattr__(self, "coordinate_system", MappingProxyType(dict(self.coordinate_system)))
         object.__setattr__(self, "provenance", MappingProxyType(dict(self.provenance)))
-        object.__setattr__(self, "payload", MappingProxyType(dict(self.payload)))
+        object.__setattr__(self, "payload", MappingProxyType(deepcopy(dict(self.payload))))
 
     @staticmethod
     def _require_mapping(name: str, value: Mapping[str, str], required: tuple[str, ...]) -> None:
@@ -77,5 +78,5 @@ class ExternalBackendPackage:
             "units": dict(self.units),
             "coordinate_system": dict(self.coordinate_system),
             "provenance": dict(self.provenance),
-            "payload": dict(self.payload),
+            "payload": deepcopy(dict(self.payload)),
         }
