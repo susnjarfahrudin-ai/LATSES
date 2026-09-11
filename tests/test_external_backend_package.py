@@ -1,5 +1,7 @@
 import pytest
 
+from dataclasses import FrozenInstanceError
+
 from lat_ces.external_backend import ExternalBackendPackage, ExternalBackendPackageError
 
 
@@ -39,7 +41,7 @@ def test_valid_package_is_constructed_and_serialization_is_detached():
 def test_package_is_immutable_at_boundary():
     package = ExternalBackendPackage(**valid_package())
 
-    with pytest.raises(TypeError):
+    with pytest.raises(FrozenInstanceError):
         package.model_id = "attacker-model"
 
     with pytest.raises(TypeError):
