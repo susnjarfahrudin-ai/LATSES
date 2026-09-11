@@ -49,7 +49,7 @@ class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
             return
 
         level = next(
-            (item for item in levels if item["id"] == self.active_level.level_id),
+            (item for item in levels if item["id"] == self.active_level.id),
             levels[0],
         )
         walls = level.get("walls", [])
