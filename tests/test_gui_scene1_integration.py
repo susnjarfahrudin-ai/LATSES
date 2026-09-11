@@ -67,7 +67,8 @@ def test_scene1_show_uses_canonical_snapshot_and_does_not_write_model():
     assert scene["schema"] == "latces.visualization.scene.v1"
 
     app = Scene1CompleteBuildingWorkspaceApp.__new__(Scene1CompleteBuildingWorkspaceApp)
-    app.workflow = type("Workflow", (), {"model": model, "active_level": level})()
+    app.workflow = type("Workflow", (), {"model": model})()
+    app.active_level = type("ActiveLevel", (), {"level_id": level.id})()
     app._presentation_controller = PresentationController()
     app.canvas = _FakeCanvas([], [], [])
     app.status_var = type("Status", (), {"value": "", "set": lambda self, value: setattr(self, "value", value)})()
