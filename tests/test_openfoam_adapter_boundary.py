@@ -16,7 +16,10 @@ def valid_package(**overrides):
         "model_revision": "rev-001",
         "created_at": "2026-09-11T00:00:00Z",
         "units": {"length": "m", "mass": "kg", "time": "s"},
-        "coordinate_system": "LOCAL_CARTESIAN_XYZ",
+        "coordinate_system": {
+            "name": "LOCAL_CARTESIAN_XYZ",
+            "handedness": "right",
+        },
         "provenance": {
             "source": "LATSES",
             "source_kind": "CANONICAL_BUILDING_MODEL",
