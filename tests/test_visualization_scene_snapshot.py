@@ -1,21 +1,41 @@
 """Verification of the canonical BuildingModel -> scene.v1 snapshot boundary."""
 
 from lat_ces.adapters import adapt_building, adapt_scene_2d, adapt_scene_3d
-from lat_ces.building_model import BuildingModel, Level, Room, Wall, WallPlacement
+from lat_ces.building.floor_plan import FloorPlan, Point2D, Segment2D, Wall
+from lat_ces.building.geometry import Box3D, Point3D
+from lat_ces.building.model import BuildingModel, Level, Room
 
 
 def _model() -> BuildingModel:
     model = BuildingModel(name="Snapshot House")
-    level = Level(id="ground", name="Ground", length_m=10.0, width_m=8.0, height_m=3.0)
-    level.add_room(Room("living", "Living", 5.0, 4.0, 3.0))
-    level.add_wall(
+    level = Level(
+        name="Ground",
+        elevation=0.0,
+        height=3.0,
+        level_id="ground",
+        length_m=10.0,
+        width_m=8.0,
+        floor_plan=FloorPlan(name="Ground Plan"),
+    )
+    level.add_room(
+        Room(
+            name="Living",
+            room_id="living",
+            footprint=Box3D(
+                origin=Point3D(0.0, 0.0, 0.0),
+                length=5.0,
+                width=4.0,
+                height=3.0,
+            ),
+        )
+    )
+    level.floor_plan.add_wall(
         Wall(
-            id="south",
-            length_m=10.0,
-            thickness_m=0.30,
-            height_m=3.0,
+            name="South",
+            wall_id="south",
+            segment=Segment2D(Point2D(0.0, 0.0), Point2D(10.0, 0.0)),
+            thickness=0.30,
             exterior=True,
-            placement=WallPlacement(0.0, 0.0, 10.0, 0.0),
         )
     )
     model.add_level(level)
@@ -46,9 +66,8 @@ def test_building_change_requires_a_new_scene_snapshot() -> None:
     model = _model()
     first_scene = adapt_building(model)
 
-    wall = model.levels["ground"].walls["south"]
-    wall.length_m = 12.0
-    wall.placement = WallPlacement(0.0, 0.0, 12.0, 0.0)
+    wall = model.levels["ground"].floor_plan.walls["south"]
+    wall.segment = Segment2D(Point2D(0.0, 0.0), Point2D(12.0, 0.0))
     second_scene = adapt_building(model)
 
     assert first_scene["levels"][0]["walls"][0]["length_m"] == 10.0

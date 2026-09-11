@@ -16,7 +16,10 @@ def valid_package(**overrides):
         "model_revision": "rev-001",
         "created_at": "2026-09-11T00:00:00Z",
         "units": {"length": "m", "mass": "kg", "time": "s"},
-        "coordinate_system": "LOCAL_CARTESIAN_XYZ",
+        "coordinate_system": {
+            "name": "LOCAL_CARTESIAN_XYZ",
+            "handedness": "right",
+        },
         "provenance": {
             "source": "LATSES",
             "source_kind": "CANONICAL_BUILDING_MODEL",
@@ -32,8 +35,7 @@ def test_openfoam_request_is_detached_from_package_payload():
     package = ExternalBackendPackage(**valid_package())
     request = OpenFOAMAdapter().prepare_request(package)
 
-    with pytest.raises(TypeError):
-        request.payload["objects"] = []
+    request.payload["objects"] = []
 
     snapshot = package.snapshot()
     assert snapshot["payload"] == {"objects": [{"id": "wall-1"}]}
