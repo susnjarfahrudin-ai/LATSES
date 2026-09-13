@@ -1,7 +1,7 @@
 """Renderer-neutral projection of authoritative BuildingModel geometry."""
 from typing import Any, Dict
 
-from lat_ces.building_model import BuildingModel
+from lat_ces.building.model import BuildingModel
 
 
 class BuildingVisualizationAdapter:
@@ -11,48 +11,50 @@ class BuildingVisualizationAdapter:
         levels = []
         for level in model.levels.values():
             walls = []
-            for wall in level.walls.values():
-                item: Dict[str, Any] = {
-                    "id": wall.id,
-                    "length_m": wall.length_m,
-                    "thickness_m": wall.thickness_m,
-                    "height_m": wall.height_m,
-                    "exterior": wall.exterior,
-                    "load_bearing": wall.load_bearing,
-                    "openings": [
-                        {
-                            "kind": opening.kind,
-                            "width_m": opening.width_m,
-                            "height_m": opening.height_m,
-                            "sill_height_m": opening.sill_height_m,
-                            "position_m": opening.position_m,
-                        }
-                        for opening in wall.openings
-                    ],
-                }
-                if wall.placement is not None:
-                    item["placement"] = {
-                        "x1_m": wall.placement.x1_m,
-                        "y1_m": wall.placement.y1_m,
-                        "x2_m": wall.placement.x2_m,
-                        "y2_m": wall.placement.y2_m,
+            floor_plan = level.floor_plan
+            if floor_plan is not None:
+                for wall in floor_plan.walls.values():
+                    start = wall.segment.start
+                    end = wall.segment.end
+                    item: Dict[str, Any] = {
+                        "id": wall.wall_id,
+                        "length_m": wall.segment.length,
+                        "thickness_m": wall.thickness,
+                        "height_m": level.height,
+                        "exterior": wall.exterior,
+                        "load_bearing": wall.load_bearing,
+                        "openings": [
+                            {
+                                "kind": opening.kind,
+                                "width_m": opening.width,
+                                "height_m": opening.height_m,
+                                "position_m": opening.offset,
+                            }
+                            for opening in wall.openings
+                        ],
+                        "placement": {
+                            "x1_m": start.x,
+                            "y1_m": start.y,
+                            "x2_m": end.x,
+                            "y2_m": end.y,
+                        },
                     }
-                walls.append(item)
+                    walls.append(item)
 
             levels.append(
                 {
-                    "id": level.id,
+                    "id": level.level_id,
                     "name": level.name,
                     "length_m": level.length_m,
                     "width_m": level.width_m,
-                    "height_m": level.height_m,
+                    "height_m": level.height,
                     "rooms": [
                         {
-                            "id": room.id,
+                            "id": room.room_id,
                             "name": room.name,
-                            "length_m": room.length_m,
-                            "width_m": room.width_m,
-                            "height_m": room.height_m,
+                            "length_m": room.footprint.length,
+                            "width_m": room.footprint.width,
+                            "height_m": room.footprint.height,
                         }
                         for room in level.rooms.values()
                     ],
