@@ -50,6 +50,10 @@ class ExternalBackendPackage:
         self._require_mapping("units", self.units, self.REQUIRED_UNITS)
         self._require_mapping("coordinate_system", self.coordinate_system, self.REQUIRED_COORDINATE_FIELDS)
         self._require_mapping("provenance", self.provenance, self.REQUIRED_PROVENANCE_FIELDS)
+        if self.provenance["evidence_state"] == "VERIFIED":
+            raise ExternalBackendPackageError(
+                "VERIFIED provenance requires a canonical evidence-authority path"
+            )
         if not isinstance(self.payload, Mapping):
             raise ExternalBackendPackageError("payload must be a mapping")
 
