@@ -19,6 +19,9 @@ class OpenFOAMRequest:
     model_id: str
     model_revision: str
     case_format: str
+    units: Mapping[str, str]
+    coordinate_system: Mapping[str, str]
+    provenance: Mapping[str, str]
     payload: Mapping[str, Any]
 
 
@@ -44,5 +47,8 @@ class OpenFOAMAdapter:
             model_id=snapshot["model_id"],
             model_revision=snapshot["model_revision"],
             case_format=self.case_format,
+            units=snapshot["units"],
+            coordinate_system=snapshot["coordinate_system"],
+            provenance=snapshot["provenance"],
             payload=snapshot["payload"],
         )
