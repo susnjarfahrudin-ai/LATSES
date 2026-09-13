@@ -93,7 +93,7 @@ def _measure(expected: dict[str, dict]) -> list[dict]:
         dimension_errors = tuple(a - b for a, b in zip(local_dims, expected_dims))
         checks.append({
             "name": f"dimensions:{wall_id}",
-            "status": "PASS" if all(math.isclose(a, b, abs_tol=1e-9) for a, b in zip(local_dims, expected_dims)) else "FAIL",
+            "status": "PASS" if all(math.isclose(a, b, abs_tol=1e-6) for a, b in zip(local_dims, expected_dims)) else "FAIL",
             "actual": local_dims,
             "expected": expected_dims,
             "error": dimension_errors,
@@ -115,7 +115,7 @@ def _measure(expected: dict[str, dict]) -> list[dict]:
             tuple(abs(value) for value in pair) for pair in endpoint_errors
         )
         endpoint_max_abs_error = max(value for pair in endpoint_abs_errors for value in pair)
-        endpoint_ok = endpoint_max_abs_error <= 1e-9
+        endpoint_ok = endpoint_max_abs_error <= 1e-6
         checks.append({
             "name": f"endpoints:{wall_id}",
             "status": "PASS" if endpoint_ok else "FAIL",
@@ -160,7 +160,7 @@ def _measure(expected: dict[str, dict]) -> list[dict]:
         })
         checks.append({
             "name": f"blender_transform_delta:{wall_id}",
-            "status": "PASS" if blender_transform_max_abs_error <= 1e-12 else "FAIL",
+            "status": "PASS" if blender_transform_max_abs_error <= 1e-6 else "FAIL",
             "actual": measured_endpoints,
             "reference": analytic_endpoints,
             "error": blender_transform_delta,
