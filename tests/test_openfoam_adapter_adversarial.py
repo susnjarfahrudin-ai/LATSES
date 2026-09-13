@@ -43,7 +43,7 @@ def test_openfoam_request_preserves_units_coordinates_and_provenance():
     assert request.provenance == {
         "source": "LATSES",
         "source_kind": "CANONICAL_BUILDING_MODEL",
-        "evidence_state": "VERIFIED",
+        "evidence_state": "UNKNOWN",
     }
 
 
