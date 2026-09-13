@@ -62,7 +62,7 @@ def test_openfoam_adapter_rejects_untrusted_backend_as_canonical_source():
             provenance={
                 "source": "BLENDER",
                 "source_kind": "EXTERNAL_BACKEND",
-                "evidence_state": "VERIFIED",
+                "evidence_state": "UNKNOWN",
             }
         )
     )
