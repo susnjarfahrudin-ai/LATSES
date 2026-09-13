@@ -8,20 +8,28 @@ from lat_ces.adapters import (
     Scene2PresentationBoundary,
     adapt_building,
 )
-from lat_ces.building_model import BuildingModel, Level, Wall, WallPlacement
+from lat_ces.building.floor_plan import FloorPlan, Point2D, Segment2D, Wall
+from lat_ces.building.model import BuildingModel, Level
 
 
 def _scene() -> dict:
     model = BuildingModel(name="Boundary House")
-    level = Level(id="ground", name="Ground", length_m=10.0, width_m=8.0, height_m=3.0)
-    level.add_wall(
+    level = Level(
+        name="Ground",
+        elevation=0.0,
+        height=3.0,
+        level_id="ground",
+        length_m=10.0,
+        width_m=8.0,
+        floor_plan=FloorPlan(name="Ground Plan"),
+    )
+    level.floor_plan.add_wall(
         Wall(
-            id="south",
-            length_m=10.0,
-            thickness_m=0.30,
-            height_m=3.0,
+            name="South",
+            wall_id="south",
+            segment=Segment2D(Point2D(0.0, 0.0), Point2D(10.0, 0.0)),
+            thickness=0.30,
             exterior=True,
-            placement=WallPlacement(0.0, 0.0, 10.0, 0.0),
         )
     )
     model.add_level(level)

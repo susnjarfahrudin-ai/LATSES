@@ -1,33 +1,70 @@
 from math import isclose
 
-import pytest
-
 from lat_ces.adapters import adapt_building
-from lat_ces.building_model import BuildingModel, Level, Opening, Room, Wall, WallPlacement
+from lat_ces.building.floor_plan import FloorPlan, Opening, Point2D, Segment2D, Wall
+from lat_ces.building.geometry import Box3D, Point3D
+from lat_ces.building.model import BuildingModel, Level, Room
 
 
 def minimal_spatial_house() -> BuildingModel:
     model = BuildingModel(name="Spatial Sufficiency House")
-    level = Level("L1", "Ground floor", 10.0, 8.0, 2.8)
-    level.add_room(Room("R1", "Living room", 6.0, 5.0, 2.8))
-    level.add_room(Room("R2", "Kitchen", 4.0, 3.0, 2.8))
-    level.add_room(Room("R3", "Bedroom", 4.0, 3.0, 2.8))
+    level = Level(
+        "Ground floor",
+        0.0,
+        2.8,
+        length_m=10.0,
+        width_m=8.0,
+        floor_plan=FloorPlan("Ground floor plan"),
+    )
+    level.add_room(
+        Room("Living room", Box3D(Point3D(0.0, 0.0, 0.0), 6.0, 5.0, 2.8))
+    )
+    level.add_room(
+        Room("Kitchen", Box3D(Point3D(6.0, 0.0, 0.0), 4.0, 3.0, 2.8))
+    )
+    level.add_room(
+        Room("Bedroom", Box3D(Point3D(0.0, 5.0, 0.0), 4.0, 3.0, 2.8))
+    )
 
     walls = [
-        Wall("W1", 10.0, 0.25, 2.8, exterior=True, load_bearing=True,
-             placement=WallPlacement(0.0, 0.0, 10.0, 0.0)),
-        Wall("W2", 8.0, 0.25, 2.8, exterior=True, load_bearing=True,
-             placement=WallPlacement(10.0, 0.0, 10.0, 8.0)),
-        Wall("W3", 10.0, 0.25, 2.8, exterior=True, load_bearing=True,
-             placement=WallPlacement(10.0, 8.0, 0.0, 8.0)),
-        Wall("W4", 8.0, 0.25, 2.8, exterior=True, load_bearing=True,
-             placement=WallPlacement(0.0, 8.0, 0.0, 0.0)),
-        Wall("W5", 5.0, 0.20, 2.8, load_bearing=False,
-             placement=WallPlacement(6.0, 0.0, 6.0, 5.0)),
+        Wall(
+            "W1",
+            Segment2D(Point2D(0.0, 0.0), Point2D(10.0, 0.0)),
+            thickness=0.25,
+            exterior=True,
+            load_bearing=True,
+        ),
+        Wall(
+            "W2",
+            Segment2D(Point2D(10.0, 0.0), Point2D(10.0, 8.0)),
+            thickness=0.25,
+            exterior=True,
+            load_bearing=True,
+        ),
+        Wall(
+            "W3",
+            Segment2D(Point2D(10.0, 8.0), Point2D(0.0, 8.0)),
+            thickness=0.25,
+            exterior=True,
+            load_bearing=True,
+        ),
+        Wall(
+            "W4",
+            Segment2D(Point2D(0.0, 8.0), Point2D(0.0, 0.0)),
+            thickness=0.25,
+            exterior=True,
+            load_bearing=True,
+        ),
+        Wall(
+            "W5",
+            Segment2D(Point2D(6.0, 0.0), Point2D(6.0, 5.0)),
+            thickness=0.20,
+            load_bearing=False,
+        ),
     ]
-    walls[0].add_opening(Opening("window", 1.5, 1.2, 0.9, 2.0))
+    walls[0].add_opening(Opening("window", 2.0, 1.5, 2.0))
     for wall in walls:
-        level.add_wall(wall)
+        level.floor_plan.add_wall(wall)
     model.add_level(level)
     return model
 
@@ -56,7 +93,7 @@ def test_minimal_house_has_reconstructable_authoritative_wall_geometry():
     opening = walls[0]["openings"][0]
     assert opening["position_m"] == 2.0
     assert opening["width_m"] == 1.5
-    assert opening["sill_height_m"] == 0.9
+    assert opening["height_m"] == 2.0
 
 
 def test_spatial_representation_is_minimal_but_not_renderer_specific():
@@ -70,21 +107,23 @@ def test_spatial_representation_is_minimal_but_not_renderer_specific():
         assert "godot" not in wall
 
 
-def test_wall_length_and_placement_cannot_disagree():
-    with pytest.raises(ValueError, match="placement length"):
-        Wall(
-            "bad",
-            10.0,
-            0.25,
-            2.8,
-            placement=WallPlacement(0.0, 0.0, 9.0, 0.0),
-        )
+def test_canonical_wall_length_is_derived_from_authoritative_segment():
+    model = minimal_spatial_house()
+    level = next(iter(model.levels.values()))
+    wall = next(iter(level.floor_plan.walls.values()))
+    wall.segment = Segment2D(Point2D(0.0, 0.0), Point2D(9.0, 0.0))
+
+    scene = adapt_building(model)
+
+    assert scene["levels"][0]["walls"][0]["length_m"] == 9.0
 
 
 def test_adversarial_orientation_change_changes_authoritative_scene():
     baseline = minimal_spatial_house()
     changed = minimal_spatial_house()
-    changed.levels["L1"].walls["W1"].placement = WallPlacement(0.0, 0.0, 0.0, 10.0)
+    level = next(iter(changed.levels.values()))
+    changed_wall = next(iter(level.floor_plan.walls.values()))
+    changed_wall.segment = Segment2D(Point2D(0.0, 0.0), Point2D(0.0, 10.0))
 
     baseline_scene = adapt_building(baseline)
     changed_scene = adapt_building(changed)
