@@ -15,7 +15,7 @@ def valid_package():
         provenance={
             "source": "LATSES",
             "source_kind": "CANONICAL_BUILDING_MODEL",
-            "evidence_state": "VERIFIED",
+            "evidence_state": "UNKNOWN",
         },
         payload={"objects": [{"id": "wall-1"}]},
     )
