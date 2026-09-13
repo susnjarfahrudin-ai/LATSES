@@ -47,7 +47,7 @@ def test_openfoam_adapter_rejects_non_latses_provenance():
             provenance={
                 "source": "OPENFOAM",
                 "source_kind": "EXTERNAL_BACKEND",
-                "evidence_state": "VERIFIED",
+                "evidence_state": "UNKNOWN",
             }
         )
     )
