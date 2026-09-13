@@ -23,7 +23,7 @@ def valid_package(**overrides):
         "provenance": {
             "source": "LATSES",
             "source_kind": "CANONICAL_BUILDING_MODEL",
-            "evidence_state": "VERIFIED",
+            "evidence_state": "UNKNOWN",
         },
         "payload": {"objects": [{"id": "wall-1"}]},
     }
@@ -43,7 +43,7 @@ def test_openfoam_request_preserves_units_coordinates_and_provenance():
     assert request.provenance == {
         "source": "LATSES",
         "source_kind": "CANONICAL_BUILDING_MODEL",
-        "evidence_state": "VERIFIED",
+        "evidence_state": "UNKNOWN",
     }
 
 
