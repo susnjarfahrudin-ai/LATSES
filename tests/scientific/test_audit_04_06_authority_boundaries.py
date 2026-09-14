@@ -31,6 +31,16 @@ def _engine_and_verifier() -> tuple[ScientificKnowledgeGovernanceEngine, Authori
     return engine, verifier
 
 
+def _candidate(measurement_id: str = "MEAS-1", revision: int = 2) -> MeasurementEvidence:
+    return MeasurementEvidence(
+        measurement_id=measurement_id,
+        source="sensor",
+        description="temperature",
+        reference="log-1",
+        revision=revision,
+    )
+
+
 def test_verifier_cannot_self_grant():
     with pytest.raises(ValueError, match="grant authority to itself"):
         Authority(
@@ -54,18 +64,21 @@ def test_direct_verified_scientific_evidence_is_rejected():
         )
 
 
+def test_verified_without_verification_record_must_fail():
+    with pytest.raises(ValueError, match="verification record"):
+        MeasurementEvidence(
+            measurement_id="MEAS-0",
+            source="sensor",
+            description="temperature",
+            reference="log-0",
+            evidence_state="VERIFIED",
+        )
+
+
 def test_authorized_verifier_creates_traceable_verified_measurement():
     engine, authority = _engine_and_verifier()
-    candidate = MeasurementEvidence(
-        measurement_id="MEAS-1",
-        source="sensor",
-        description="temperature",
-        reference="log-1",
-        revision=2,
-    )
-
     verified = engine.verify_evidence(
-        candidate,
+        _candidate(),
         authority=authority,
         method="sensor-check-v1",
         criteria="calibration and source identity match",
@@ -84,18 +97,100 @@ def test_authorized_verifier_creates_traceable_verified_measurement():
     assert engine.is_verified_by_record(verified)
 
 
-def test_wrong_scope_cannot_promote_evidence():
-    engine, authority = _engine_and_verifier()
-    candidate = MeasurementEvidence(
+def test_nonexistent_verification_record_must_not_validate():
+    engine, _ = _engine_and_verifier()
+    forged = MeasurementEvidence(
         measurement_id="MEAS-2",
         source="sensor",
         description="temperature",
         reference="log-2",
+        evidence_state="VERIFIED",
+        revision=1,
+        verification_record_id="VER-DOES-NOT-EXIST",
     )
 
+    assert not engine.is_verified_by_record(forged)
+
+
+def test_verification_record_wrong_measurement_id_must_not_validate():
+    engine, authority = _engine_and_verifier()
+    verified = engine.verify_evidence(
+        _candidate("MEAS-3", 4),
+        authority=authority,
+        method="sensor-check-v1",
+        criteria="criteria",
+        reference="REF",
+        integrity="HASH",
+        limitations="none",
+        domain="thermal",
+    )
+    wrong_measurement = MeasurementEvidence(
+        measurement_id="MEAS-WRONG",
+        source=verified.source,
+        description=verified.description,
+        reference=verified.reference,
+        evidence_state=verified.evidence_state,
+        revision=verified.revision,
+        verification_record_id=verified.verification_record_id,
+    )
+
+    assert not engine.is_verified_by_record(wrong_measurement)
+
+
+def test_verification_record_wrong_revision_must_not_validate():
+    engine, authority = _engine_and_verifier()
+    verified = engine.verify_evidence(
+        _candidate("MEAS-4", 7),
+        authority=authority,
+        method="sensor-check-v1",
+        criteria="criteria",
+        reference="REF",
+        integrity="HASH",
+        limitations="none",
+        domain="thermal",
+    )
+    wrong_revision = MeasurementEvidence(
+        measurement_id=verified.measurement_id,
+        source=verified.source,
+        description=verified.description,
+        reference=verified.reference,
+        evidence_state=verified.evidence_state,
+        revision=8,
+        verification_record_id=verified.verification_record_id,
+    )
+
+    assert not engine.is_verified_by_record(wrong_revision)
+
+
+def test_unauthorized_verifier_must_fail():
+    engine, authority = _engine_and_verifier()
+    unauthorized = Authority(
+        identity="UNAUTHORIZED",
+        level=authority.level,
+        scope=authority.scope,
+        action=authority.action,
+        grant_id=authority.grant_id,
+        grantor=authority.grantor,
+    )
+
+    with pytest.raises(PermissionError, match="registered grant"):
+        engine.verify_evidence(
+            _candidate("MEAS-5"),
+            authority=unauthorized,
+            method="sensor-check-v1",
+            criteria="criteria",
+            reference="REF",
+            integrity="HASH",
+            limitations="none",
+            domain="thermal",
+        )
+
+
+def test_wrong_scope_cannot_promote_evidence():
+    engine, authority = _engine_and_verifier()
     with pytest.raises(PermissionError, match="scope"):
         engine.verify_evidence(
-            candidate,
+            _candidate("MEAS-6"),
             authority=authority,
             method="other-method",
             criteria="criteria",
@@ -109,16 +204,9 @@ def test_wrong_scope_cannot_promote_evidence():
 def test_revoked_authority_cannot_promote():
     engine, authority = _engine_and_verifier()
     engine.revoke_authority(authority.grant_id, actor=_grantor())
-    candidate = MeasurementEvidence(
-        measurement_id="MEAS-3",
-        source="sensor",
-        description="temperature",
-        reference="log-3",
-    )
-
     with pytest.raises(PermissionError, match="expired or revoked"):
         engine.verify_evidence(
-            candidate,
+            _candidate("MEAS-7"),
             authority=authority,
             method="sensor-check-v1",
             criteria="criteria",
@@ -127,37 +215,6 @@ def test_revoked_authority_cannot_promote():
             limitations="none",
             domain="thermal",
         )
-
-
-def test_revision_is_bound_to_verification_record():
-    engine, authority = _engine_and_verifier()
-    candidate = MeasurementEvidence(
-        measurement_id="MEAS-4",
-        source="sensor",
-        description="temperature",
-        reference="log-4",
-        revision=7,
-    )
-    verified = engine.verify_evidence(
-        candidate,
-        authority=authority,
-        method="sensor-check-v1",
-        criteria="criteria",
-        reference="REF",
-        integrity="HASH",
-        limitations="none",
-        domain="thermal",
-    )
-    changed_revision = MeasurementEvidence(
-        measurement_id=verified.measurement_id,
-        source=verified.source,
-        description=verified.description,
-        reference=verified.reference,
-        evidence_state=verified.evidence_state,
-        revision=8,
-        verification_record_id=verified.verification_record_id,
-    )
-    assert not engine.is_verified_by_record(changed_revision)
 
 
 def test_approval_requires_explicit_approval_authority():
