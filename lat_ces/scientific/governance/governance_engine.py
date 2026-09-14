@@ -106,7 +106,9 @@ class ScientificKnowledgeGovernanceEngine:
         method: str,
     ) -> Authority:
         registered = self._authority_grants.get(authority.grant_id)
-        if registered is None or registered != authority:
+        if registered is None:
+            raise PermissionError("Verification authority is not a registered grant")
+        if registered.identity != authority.identity or registered.action != authority.action:
             raise PermissionError("Verification authority is not a registered grant")
         if not registered.is_valid_now():
             raise PermissionError("Verification authority is expired or revoked")
