@@ -16,7 +16,7 @@ def test_measurement_evidence_defaults_to_unknown():
     assert evidence.to_record()["evidence_state"] == "UNKNOWN"
 
 
-def test_measurement_evidence_cannot_self_declare_verified():
+def test_verified_without_verification_record_must_fail():
     with pytest.raises(ValueError, match="verification record"):
         MeasurementEvidence(
             measurement_id="MEAS-1",
