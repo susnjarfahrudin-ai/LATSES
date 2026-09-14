@@ -19,6 +19,7 @@ from lat_ces.building.orientation import BuildingOrientation, ViewStyle
 from lat_ces.building.project_io import load_workflow, save_workflow
 from lat_ces.building.section import SectionAxis, SectionDefinition, SectionView
 from lat_ces.building.workflow import BuildingWorkflow, make_square_floor_plan
+from lat_ces.visualization_3d_adapter import to_building_scene_3d
 
 STEPS = ((1, "Krov"), (2, "Sprat"), (3, "Tlocrt"), (4, "Presjek"), (5, "3D"))
 EDITOR_TOOLS = (("select", "Izaberi"), ("draw", "Nova linija / zid"), ("move", "Pomjeri"), ("delete", "Obriši"), ("door", "Vrata"), ("window", "Prozor"))
@@ -200,12 +201,10 @@ class LATCESApp(tk.Tk):
         ttk.Button(header, text="Učitaj", command=self.load_project).pack(side="right")
         ttk.Button(header, text="Sačuvaj", command=self.save_project).pack(side="right", padx=7)
         ttk.Button(header, text="Novi", command=self.new_project).pack(side="right")
-
         steps = ttk.Frame(self, padding=(18, 0, 18, 10))
         steps.pack(fill="x")
         for number, title in STEPS:
             ttk.Radiobutton(steps, text=f"{number}. {title}", value=number, variable=self.view_step, command=self.goto_step).pack(side="left", padx=(0, 16))
-
         body = ttk.Frame(self, padding=(18, 0, 18, 12))
         body.pack(fill="both", expand=True)
         self.workspace = ttk.LabelFrame(body, text="LAT-CES", padding=8)
@@ -227,7 +226,6 @@ class LATCESApp(tk.Tk):
         self.canvas.bind("<ButtonPress-1>", self.editor.begin_drag)
         self.canvas.bind("<B1-Motion>", self.editor.drag)
         self.canvas.bind("<ButtonRelease-1>", self.editor.end_drag)
-
         side = ttk.Frame(body, width=360)
         side.pack(side="left", fill="y", padx=(14, 0))
         side.pack_propagate(False)
@@ -247,7 +245,6 @@ class LATCESApp(tk.Tk):
         self.stage_info.pack(anchor="w", pady=(4, 8))
         self.stage_controls = ttk.Frame(stage)
         self.stage_controls.pack(fill="x")
-
         orientation = ttk.LabelFrame(side, text="Orijentacija objekta", padding=10)
         orientation.pack(fill="x", pady=(10, 0))
         ttk.Label(orientation, text="Sjeverni azimut (°)").grid(row=0, column=0, sticky="w")
@@ -255,7 +252,6 @@ class LATCESApp(tk.Tk):
         ttk.Button(orientation, text="Primijeni", command=self.apply_orientation).grid(row=0, column=2, padx=(8, 0))
         self.orientation_info = ttk.Label(orientation, wraplength=320)
         self.orientation_info.grid(row=1, column=0, columnspan=3, sticky="w", pady=(6, 0))
-
         selected = ttk.LabelFrame(side, text="Odabrani zid", padding=10)
         selected.pack(fill="x", pady=(10, 0))
         ttk.Label(selected, text="Dužina (m)").grid(row=0, column=0, sticky="w")
@@ -264,7 +260,6 @@ class LATCESApp(tk.Tk):
         ttk.Entry(selected, textvariable=self.selected_thickness_var).grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=(6, 0))
         ttk.Button(selected, text="Primijeni dimenzije", command=self.apply_wall_dimensions).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         selected.columnconfigure(1, weight=1)
-
         model_box = ttk.LabelFrame(side, text="Building Model", padding=10)
         model_box.pack(fill="x", pady=(10, 0))
         self.summary_text = tk.Text(model_box, height=9, width=40, wrap="word", state="disabled")
@@ -387,7 +382,7 @@ class LATCESApp(tk.Tk):
             name = self.level_name_var.get().strip()
             height, length, width = float(self.height_var.get()), float(self.level_length_var.get()), float(self.level_width_var.get())
             if not name or height <= 0 or length <= 0 or width <= 0:
-                raise ValueError("Naziv i dimenzije etaže moraju biti pozitivni")
+                raise ValueError("Naziv i dimenzije etaže moraju biti pozitivne")
             level = self.active_level
             level.name, level.height, level.length_m, level.width_m = name, height, length, width
             if level.floor_plan is None or not level.floor_plan.walls:
@@ -470,38 +465,20 @@ class LATCESApp(tk.Tk):
             x2, y2 = self.model_to_canvas(wall.segment.end)
             selected = wall.wall_id == self.editor.selected_wall_id
             self.canvas.create_line(x1, y1, x2, y2, width=10 if selected else 7, fill="#2563eb" if selected else "#111827")
-
-            # Keep the drawing clean: dimensions belong to the selected wall,
-            # not every wall at once.  This preserves geometry while removing
-            # the text collision that made dense plans unreadable.
             if selected:
                 dx, dy = x2 - x1, y2 - y1
                 length_px = max(math.hypot(dx, dy), 1.0)
                 nx, ny = -dy / length_px, dx / length_px
                 offset_px = 18
                 mx, my = (x1 + x2) / 2, (y1 + y2) / 2
-                self.canvas.create_text(
-                    mx + nx * offset_px,
-                    my + ny * offset_px,
-                    text=f"{wall.segment.length:.2f} m",
-                    fill="#1f2937",
-                    font=("Segoe UI", 9, "bold"),
-                    anchor="center",
-                )
-
+                self.canvas.create_text(mx + nx * offset_px, my + ny * offset_px, text=f"{wall.segment.length:.2f} m", fill="#1f2937", font=("Segoe UI", 9, "bold"), anchor="center")
             for opening in wall.openings:
                 t1, t2 = opening.offset / wall.segment.length, (opening.offset + opening.width) / wall.segment.length
                 ox1, oy1 = x1 + (x2 - x1) * t1, y1 + (y2 - y1) * t1
                 ox2, oy2 = x1 + (x2 - x1) * t2, y1 + (y2 - y1) * t2
                 self.canvas.create_line(ox1, oy1, ox2, oy2, width=10, fill="white")
                 if selected:
-                    self.canvas.create_text(
-                        (ox1 + ox2) / 2,
-                        (oy1 + oy2) / 2 + 14,
-                        text=f"{opening.kind} {opening.width:.2f} m",
-                        fill="#4b5563",
-                        font=("Segoe UI", 8),
-                    )
+                    self.canvas.create_text((ox1 + ox2) / 2, (oy1 + oy2) / 2 + 14, text=f"{opening.kind} {opening.width:.2f} m", fill="#4b5563", font=("Segoe UI", 8))
         self.draw_compass()
         self.canvas.create_text(20, height - 20, text=f"Etaža: {self.active_level.name}", anchor="sw", fill="#5f6368")
 
@@ -547,28 +524,36 @@ class LATCESApp(tk.Tk):
 
     def draw_3d(self) -> None:
         self.canvas.delete("all")
-        geometries = build_geometry(self.workflow.model)
+        scene = to_building_scene_3d(self.workflow.model)
         width, height = max(self.canvas.winfo_width(), 500), max(self.canvas.winfo_height(), 350)
         style = ViewStyle(self.view_style_var.get())
         scale = 24.0
-        for idx, geometry in enumerate(geometries):
-            z0 = sum(g.height for g in geometries[:idx])
-            for wall in geometry.walls:
-                a0 = self.project_3d(wall.x1, wall.y1, z0, scale, width, height)
-                b0 = self.project_3d(wall.x2, wall.y2, z0, scale, width, height)
-                a1 = self.project_3d(wall.x1, wall.y1, z0 + wall.height, scale, width, height)
-                b1 = self.project_3d(wall.x2, wall.y2, z0 + wall.height, scale, width, height)
-                if style is ViewStyle.CONSTRUCTIONAL_LINE:
-                    for p, q in ((a0, b0), (a1, b1), (a0, a1), (b0, b1)):
-                        self.canvas.create_line(*p, *q, fill="#374151", width=2)
-                else:
-                    self.canvas.create_polygon(*a0, *b0, *b1, *a1, fill="#d8c8ad", outline="#6b5b4b")
-        roof = self.workflow.model.roof
-        if roof and roof.height_m > 0 and geometries:
-            top = sum(g.height for g in geometries)
-            corners = ((0.0, 0.0, top), (roof.length_m, 0.0, top), (roof.length_m, roof.width_m, top), (0.0, roof.width_m, top))
+        for obj in scene.objects:
+            geometry = obj.geometry
+            if obj.element_type != "wall":
+                continue
+            angle = math.radians(geometry.rotation_z_deg)
+            dx = math.cos(angle) * geometry.length_m
+            dy = math.sin(angle) * geometry.length_m
+            x0, y0 = geometry.origin_x_m, geometry.origin_y_m
+            x1, y1 = x0 + dx, y0 + dy
+            z0 = geometry.origin_z_m
+            a0 = self.project_3d(x0, y0, z0, scale, width, height)
+            b0 = self.project_3d(x1, y1, z0, scale, width, height)
+            a1 = self.project_3d(x0, y0, z0 + geometry.height_m, scale, width, height)
+            b1 = self.project_3d(x1, y1, z0 + geometry.height_m, scale, width, height)
+            if style is ViewStyle.CONSTRUCTIONAL_LINE:
+                for p, q in ((a0, b0), (a1, b1), (a0, a1), (b0, b1)):
+                    self.canvas.create_line(*p, *q, fill="#374151", width=2)
+            else:
+                self.canvas.create_polygon(*a0, *b0, *b1, *a1, fill="#d8c8ad", outline="#6b5b4b")
+        roof = next((obj for obj in scene.objects if obj.element_type == "roof"), None)
+        if roof and roof.geometry.height_m > 0:
+            geometry = roof.geometry
+            top = geometry.origin_z_m
+            corners = ((0.0, 0.0, top), (geometry.length_m, 0.0, top), (geometry.length_m, geometry.width_m, top), (0.0, geometry.width_m, top))
             pts = [self.project_3d(x, y, z, scale, width, height) for x, y, z in corners]
-            peak = self.project_3d(roof.length_m / 2.0, roof.width_m / 2.0, top + roof.height_m, scale, width, height)
+            peak = self.project_3d(geometry.length_m / 2.0, geometry.width_m / 2.0, top + geometry.height_m, scale, width, height)
             if style is ViewStyle.CONSTRUCTIONAL_LINE:
                 for i in range(4):
                     self.canvas.create_line(*pts[i], *pts[(i + 1) % 4], fill="#7c3aed", width=2)
