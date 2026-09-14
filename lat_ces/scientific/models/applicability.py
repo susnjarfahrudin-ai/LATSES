@@ -90,7 +90,38 @@ class ApplicabilityEvaluator:
         if entry.metadata.references and not request.evidence:
             return self._result(request, entry.version, ApplicabilityStatus.INSUFFICIENT_EVIDENCE, ApplicabilityReason.INSUFFICIENT_EVIDENCE, "The model declares references requiring supporting evidence.")
 
+        if entry.metadata.references and request.evidence:
+            unverified = tuple(
+                key for key, evidence in request.evidence.items() if not self._has_verified_lineage(evidence)
+            )
+            if unverified:
+                return self._result(
+                    request,
+                    entry.version,
+                    ApplicabilityStatus.INSUFFICIENT_EVIDENCE,
+                    ApplicabilityReason.INSUFFICIENT_EVIDENCE,
+                    "Supporting evidence is present but its constitutional verification lineage is incomplete.",
+                    violations=unverified,
+                )
+
         return self._result(request, entry.version, ApplicabilityStatus.APPLICABLE, ApplicabilityReason.APPLICABLE_INPUTS_VALID, "Model applicability requirements are satisfied.", validated_inputs=tuple(sorted(required_inputs)))
+
+    @staticmethod
+    def _has_verified_lineage(evidence: object) -> bool:
+        state = getattr(evidence, "evidence_state", None)
+        integrity = getattr(evidence, "integrity_status", None)
+        record_id = getattr(evidence, "verification_record_id", "")
+        if state is not None:
+            state_value = getattr(state, "value", state)
+            return state_value == "VERIFIED" and bool(record_id)
+        if integrity is not None:
+            return integrity == "VERIFIED" and bool(record_id)
+        if isinstance(evidence, Mapping):
+            state_value = evidence.get("evidence_state", evidence.get("integrity_status"))
+            if hasattr(state_value, "value"):
+                state_value = state_value.value
+            return state_value == "VERIFIED" and bool(evidence.get("verification_record_id"))
+        return False
 
     @staticmethod
     def _result(request: ApplicabilityRequest, model_version: str | None, status: ApplicabilityStatus, reason_code: ApplicabilityReason, rationale: str, *, violations: tuple[str, ...] = (), validated_inputs: tuple[str, ...] = ()) -> ApplicabilityResult:

@@ -14,6 +14,39 @@ from lat_ces.scientific.core.knowledge_validation_sci0062_0145 import (
     ScientificKnowledgeValidator,
     ScientificMethod,
 )
+from lat_ces.scientific.governance.authority import Authority
+from lat_ces.scientific.governance.governance_engine import ScientificKnowledgeGovernanceEngine
+
+
+def _verified_evidence(evidence_id: str = "E-1") -> ScientificEvidence:
+    engine = ScientificKnowledgeGovernanceEngine()
+    grantor = Authority(
+        identity="CONSTITUTION",
+        level=3,
+        scope="*",
+        action="GRANT_VERIFICATION_AUTHORITY",
+        grant_id="ROOT-GRANT",
+        grantor="LAT-CONSTITUTION",
+    )
+    authority = engine.grant_verification_authority(
+        grantor=grantor,
+        verifier_identity="VERIFIER-1",
+        scope="scientific",
+        evidence_type="ScientificEvidence",
+        domain="Thermodynamics",
+        method="sensor-verification-v1",
+    )
+    candidate = ScientificEvidence(evidence_id, "Experimental", "Sensor campaign", "P-1", "UNKNOWN")
+    return engine.verify_evidence(
+        candidate,
+        authority=authority,
+        method="sensor-verification-v1",
+        criteria="source identity and calibration evidence match",
+        reference="CAL-1",
+        integrity="HASH-1",
+        limitations="sensor uncertainty remains explicit",
+        domain="Thermodynamics",
+    )
 
 
 def test_ontology_to_reasoning_chain_is_explicit():
@@ -29,7 +62,7 @@ def test_ontology_to_reasoning_chain_is_explicit():
 
 def test_validation_requires_evidence_method_and_provenance():
     claim = ScientificClaim("C-0062", "Heat transfer depends on temperature difference", "Thermodynamics")
-    evidence = (ScientificEvidence("E-1", "Experimental", "Sensor campaign", "P-1", "VERIFIED"),)
+    evidence = (_verified_evidence(),)
     method = ScientificMethod("M-1", "Calibrated temperature measurement", (("accuracy", "±0.2°C"),), "Limited by sensor uncertainty")
     validator = ScientificKnowledgeValidator()
     assert validator.validate(claim, evidence, method, ("P-1",))
@@ -57,7 +90,7 @@ def test_confidence_rejects_out_of_range_components():
 
 def test_sko_validation_record_is_deterministic():
     claim = ScientificClaim("C-1", "x", "Physics")
-    evidence = (ScientificEvidence("E-1", "Experimental", "source", "P-1", "VERIFIED"),)
+    evidence = (_verified_evidence(),)
     method = ScientificMethod("M-1", "procedure", (), "limitation")
     record = ScientificKnowledgeValidationRecord(claim, evidence, method, ("P-1",), state=KnowledgeState.VALIDATED, confidence=ConfidenceScore(1, 1, 1, 1))
     assert record.canonical_hash() == record.canonical_hash()
