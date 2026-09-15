@@ -23,7 +23,7 @@ def valid_package(**overrides):
         "provenance": {
             "source": "LATSES",
             "source_kind": "CANONICAL_BUILDING_MODEL",
-            "evidence_state": "VERIFIED",
+            "evidence_state": "UNKNOWN",
         },
         "payload": {"objects": [{"id": "wall-1"}]},
     }
@@ -47,7 +47,7 @@ def test_openfoam_adapter_rejects_non_latses_provenance():
             provenance={
                 "source": "OPENFOAM",
                 "source_kind": "EXTERNAL_BACKEND",
-                "evidence_state": "VERIFIED",
+                "evidence_state": "UNKNOWN",
             }
         )
     )
@@ -62,7 +62,7 @@ def test_openfoam_adapter_rejects_untrusted_backend_as_canonical_source():
             provenance={
                 "source": "BLENDER",
                 "source_kind": "EXTERNAL_BACKEND",
-                "evidence_state": "VERIFIED",
+                "evidence_state": "UNKNOWN",
             }
         )
     )
