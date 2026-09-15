@@ -12,34 +12,31 @@ class BuildingVisualizationAdapter:
         for level in model.levels.values():
             walls = []
             floor_plan = level.floor_plan
-            if floor_plan is not None:
-                for wall in floor_plan.walls.values():
-                    start = wall.segment.start
-                    end = wall.segment.end
-                    item: Dict[str, Any] = {
-                        "id": wall.wall_id,
-                        "length_m": wall.segment.length,
-                        "thickness_m": wall.thickness,
-                        "height_m": level.height,
-                        "exterior": wall.exterior,
-                        "load_bearing": wall.load_bearing,
-                        "openings": [
-                            {
-                                "kind": opening.kind,
-                                "width_m": opening.width,
-                                "height_m": opening.height_m,
-                                "position_m": opening.offset,
-                            }
-                            for opening in wall.openings
-                        ],
-                        "placement": {
-                            "x1_m": start.x,
-                            "y1_m": start.y,
-                            "x2_m": end.x,
-                            "y2_m": end.y,
-                        },
-                    }
-                    walls.append(item)
+            for wall in floor_plan.walls.values() if floor_plan is not None else ():
+                item: Dict[str, Any] = {
+                    "id": wall.wall_id,
+                    "length_m": wall.segment.length,
+                    "thickness_m": wall.thickness,
+                    "height_m": level.height,
+                    "exterior": wall.exterior,
+                    "load_bearing": wall.load_bearing,
+                    "openings": [
+                        {
+                            "kind": opening.kind,
+                            "width_m": opening.width,
+                            "height_m": opening.height_m,
+                            "position_m": opening.offset,
+                        }
+                        for opening in wall.openings
+                    ],
+                }
+                item["placement"] = {
+                    "x1_m": wall.segment.start.x,
+                    "y1_m": wall.segment.start.y,
+                    "x2_m": wall.segment.end.x,
+                    "y2_m": wall.segment.end.y,
+                }
+                walls.append(item)
 
             levels.append(
                 {
