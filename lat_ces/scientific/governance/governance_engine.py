@@ -23,6 +23,11 @@ class ScientificKnowledgeGovernanceEngine:
         self._authority_grants: dict[str, Authority] = {}
         self._verification_records: dict[str, VerificationRecord] = {}
 
+    @property
+    def canonical_root_authority(self) -> Authority:
+        """Return the root authority from this engine's canonical registry context."""
+        return self.authority_registry.root
+
     def register_rule(self, rule: GovernanceRule) -> None:
         if any(item.rule_id == rule.rule_id and item != rule for item in self.rules):
             raise ValueError(f"Duplicate governance rule: {rule.rule_id}")
