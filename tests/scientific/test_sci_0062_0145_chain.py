@@ -14,22 +14,13 @@ from lat_ces.scientific.core.knowledge_validation_sci0062_0145 import (
     ScientificKnowledgeValidator,
     ScientificMethod,
 )
-from lat_ces.scientific.governance.authority import Authority
 from lat_ces.scientific.governance.governance_engine import ScientificKnowledgeGovernanceEngine
 
 
 def _verified_evidence(evidence_id: str = "E-1") -> ScientificEvidence:
     engine = ScientificKnowledgeGovernanceEngine()
-    grantor = Authority(
-        identity="CONSTITUTION",
-        level=3,
-        scope="*",
-        action="GRANT_VERIFICATION_AUTHORITY",
-        grant_id="ROOT-GRANT",
-        grantor="LAT-CONSTITUTION",
-    )
     authority = engine.grant_verification_authority(
-        grantor=grantor,
+        grantor=engine.canonical_root_authority,
         verifier_identity="VERIFIER-1",
         scope="scientific",
         evidence_type="ScientificEvidence",
