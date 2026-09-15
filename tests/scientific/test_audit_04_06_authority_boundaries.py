@@ -164,6 +164,7 @@ def test_unauthorized_verifier_must_fail():
         action=authority.action,
         grant_id=authority.grant_id,
         grantor=authority.grantor,
+        parent_grant_id=authority.parent_grant_id,
     )
 
     with pytest.raises(PermissionError, match="registered grant"):
