@@ -253,7 +253,8 @@ def test_approval_requires_explicit_approval_authority():
         scope="proposal",
         action="APPROVE",
         grant_id="APPROVAL-GRANT-1",
-        grantor="CONSTITUTION",
+        grantor="LAT-CONSTITUTION-ROOT",
+        parent_grant_id="ROOT-GRANT",
     )
     result = workflow.approve("proposal", approval_authority)
     assert result["status"] == "APPROVED"
