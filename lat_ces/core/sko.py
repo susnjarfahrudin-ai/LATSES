@@ -117,7 +117,7 @@ class ScientificKnowledgeObject:
         self._locked = False
 
     def approve(self, approved_by: str) -> None:
-        """Promotes the SKO status to Approved with verification signature."""
+        """Record governance approval attribution; this is not scientific verification."""
         if self._locked:
             raise AttributeError("Released ScientificKnowledgeObject is immutable")
         if not approved_by:
