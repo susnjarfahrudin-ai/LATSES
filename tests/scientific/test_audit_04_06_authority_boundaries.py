@@ -198,9 +198,40 @@ def test_wrong_scope_cannot_promote_evidence():
 def test_revoked_authority_cannot_promote():
     engine, authority = _engine_and_verifier()
     engine.revoke_authority(authority.grant_id, actor=_grantor(engine))
+
+    assert engine.authority_registry.get(authority.grant_id) is authority
+    assert engine.authority_registry.is_revoked(authority.grant_id)
+
     with pytest.raises(PermissionError, match="expired or revoked"):
         engine.verify_evidence(
             _candidate("MEAS-7"),
+            authority=authority,
+            method="sensor-check-v1",
+            criteria="criteria",
+            reference="REF",
+            integrity="HASH",
+            limitations="none",
+            domain="thermal",
+        )
+
+
+def test_expired_registered_authority_cannot_promote():
+    engine = ScientificKnowledgeGovernanceEngine()
+    authority = engine.grant_verification_authority(
+        grantor=_grantor(engine),
+        verifier_identity="VERIFIER-EXPIRED",
+        scope="measurement",
+        evidence_type="MeasurementEvidence",
+        domain="thermal",
+        method="sensor-check-v1",
+        valid_until="2000-01-01T00:00:00+00:00",
+    )
+
+    assert engine.authority_registry.get(authority.grant_id) is authority
+
+    with pytest.raises(PermissionError, match="expired or revoked"):
+        engine.verify_evidence(
+            _candidate("MEAS-8"),
             authority=authority,
             method="sensor-check-v1",
             criteria="criteria",
