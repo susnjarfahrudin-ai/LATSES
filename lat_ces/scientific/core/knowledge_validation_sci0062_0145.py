@@ -7,6 +7,8 @@ from hashlib import sha256
 import json
 from typing import Any, Mapping, Tuple
 
+from lat_ces.scientific.governance.governance_engine import ScientificKnowledgeGovernanceEngine
+
 
 class KnowledgeState(str, Enum):
     UNKNOWN = "UNKNOWN"
@@ -110,6 +112,9 @@ class ScientificKnowledgeValidationRecord:
 class ScientificKnowledgeValidator:
     """Validates evidence chains; it does not manufacture scientific truth."""
 
+    def __init__(self, governance_engine: ScientificKnowledgeGovernanceEngine | None = None) -> None:
+        self.governance_engine = governance_engine
+
     def validate(
         self,
         claim: ScientificClaim,
@@ -120,6 +125,19 @@ class ScientificKnowledgeValidator:
         if not claim.claim_id or not claim.statement.strip() or not claim.domain.strip():
             return False
         if not evidence or any(item.integrity_status != "VERIFIED" for item in evidence):
+            return False
+        if self.governance_engine is None:
+            return False
+        if any(
+            self.governance_engine.resolve_verification_record(
+                item.verification_record_id,
+                evidence_id=item.evidence_id,
+                evidence_revision=item.revision,
+                evidence_type=type(item).__name__,
+            )
+            is None
+            for item in evidence
+        ):
             return False
         if any(not item.source or not item.provenance_id or not item.verification_record_id for item in evidence):
             return False

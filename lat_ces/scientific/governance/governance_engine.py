@@ -182,6 +182,9 @@ class ScientificKnowledgeGovernanceEngine:
             integrity=integrity,
             limitations=limitations,
             verified_at=datetime.now(timezone.utc).isoformat(),
+            evidence_type=evidence_type,
+            domain=domain,
+            purpose=purpose,
         )
         self._verification_records[record.record_id] = record
         self.audit.append(record.audit_record())
@@ -206,20 +209,65 @@ class ScientificKnowledgeGovernanceEngine:
         except KeyError as exc:
             raise KeyError(f"Unknown verification record: {record_id}") from exc
 
-    def is_verified_by_record(self, evidence: object) -> bool:
-        record_id = getattr(evidence, "verification_record_id", "")
-        if not record_id:
-            return False
+    def resolve_verification_record(
+        self,
+        record_id: str,
+        *,
+        evidence_id: str,
+        evidence_revision: int,
+        evidence_type: str = "",
+        domain: str = "",
+        purpose: str = "verification",
+    ) -> VerificationRecord | None:
+        """Resolve one canonical verification record for downstream admission.
+
+        Resolution is fail-closed. The record must be registered in this
+        governance context, bind to the exact evidence identity/revision,
+        and remain backed by a valid canonical authority chain.
+        """
+        if not record_id.strip() or not evidence_id.strip() or evidence_revision < 1:
+            return None
         record = self._verification_records.get(record_id)
         if record is None:
-            return False
+            return None
+        if record.evidence_id != evidence_id or record.evidence_revision != evidence_revision:
+            return None
         try:
             self.authority_registry.validate_chain(record.authority_grant_id)
         except PermissionError:
-            return False
+            return None
         authority = self._authority_grants.get(record.authority_grant_id)
         if authority is None or record.verifier != authority.identity:
-            return False
+            return None
+        if not authority.is_valid_now() or self.authority_registry.is_revoked(authority.grant_id):
+            return None
+        if evidence_type and record.evidence_type and record.evidence_type != evidence_type:
+            return None
+        if domain and record.domain and record.domain != domain:
+            return None
+        if record.purpose != purpose:
+            return None
+        if not authority.permits(
+            action=self.VERIFY_ACTION,
+            evidence_type=record.evidence_type or evidence_type,
+            domain=record.domain or domain,
+            method=record.method,
+            purpose=record.purpose,
+        ):
+            return None
+        return record
+
+    def is_verified_by_record(self, evidence: object) -> bool:
+        record_id = getattr(evidence, "verification_record_id", "")
         evidence_id = getattr(evidence, "measurement_id", getattr(evidence, "evidence_id", ""))
         revision = int(getattr(evidence, "revision", 1))
-        return record.evidence_id == evidence_id and record.evidence_revision == revision
+        evidence_type = type(evidence).__name__
+        return (
+            self.resolve_verification_record(
+                record_id,
+                evidence_id=evidence_id,
+                evidence_revision=revision,
+                evidence_type=evidence_type,
+            )
+            is not None
+        )
