@@ -84,6 +84,7 @@ class CanonicalAuthorityRegistry:
 
     def __init__(self) -> None:
         self._authorities: dict[str, Authority] = {}
+        self._revoked_grants: set[str] = set()
         root = Authority(
             identity=self.ROOT_ID,
             level=3,
@@ -105,6 +106,18 @@ class CanonicalAuthorityRegistry:
         registered = self._authorities.get(authority.grant_id)
         return registered is authority
 
+    def revoke(self, grant_id: str) -> Authority:
+        authority = self._authorities.get(grant_id)
+        if authority is None:
+            raise KeyError(grant_id)
+        if grant_id == self.ROOT_GRANT_ID:
+            raise PermissionError("Canonical root authority cannot be revoked")
+        self._revoked_grants.add(grant_id)
+        return authority
+
+    def is_revoked(self, grant_id: str) -> bool:
+        return grant_id in self._revoked_grants
+
     def register(self, authority: Authority) -> Authority:
         if authority.grant_id == self.ROOT_GRANT_ID:
             raise PermissionError("Canonical root authority cannot be replaced")
@@ -113,6 +126,8 @@ class CanonicalAuthorityRegistry:
         parent = self._authorities.get(authority.parent_grant_id)
         if parent is None:
             raise PermissionError("Authority parent grant is not registered")
+        if self.is_revoked(parent.grant_id):
+            raise PermissionError("Authority parent cannot issue grants")
         if authority.grantor != parent.identity:
             raise PermissionError("Authority grantor does not match its parent authority")
         if parent.action != self.GRANT_ACTION or not parent.is_valid_now():
@@ -131,7 +146,7 @@ class CanonicalAuthorityRegistry:
             current = self._authorities.get(current_id)
             if current is None:
                 raise PermissionError("Authority chain contains an unknown grant")
-            if not current.is_valid_now():
+            if self.is_revoked(current.grant_id) or not current.is_valid_now():
                 raise PermissionError("Authority chain contains an expired or revoked grant")
             chain.append(current)
             if current.grant_id == self.ROOT_GRANT_ID:
