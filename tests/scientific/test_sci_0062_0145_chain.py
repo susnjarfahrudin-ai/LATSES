@@ -17,7 +17,7 @@ from lat_ces.scientific.core.knowledge_validation_sci0062_0145 import (
 from lat_ces.scientific.governance.governance_engine import ScientificKnowledgeGovernanceEngine
 
 
-def _verified_evidence(evidence_id: str = "E-1") -> ScientificEvidence:
+def _verified_evidence(evidence_id: str = "E-1") -> tuple[ScientificKnowledgeGovernanceEngine, ScientificEvidence]:
     engine = ScientificKnowledgeGovernanceEngine()
     authority = engine.grant_verification_authority(
         grantor=engine.canonical_root_authority,
@@ -28,7 +28,7 @@ def _verified_evidence(evidence_id: str = "E-1") -> ScientificEvidence:
         method="sensor-verification-v1",
     )
     candidate = ScientificEvidence(evidence_id, "Experimental", "Sensor campaign", "P-1", "UNKNOWN")
-    return engine.verify_evidence(
+    verified = engine.verify_evidence(
         candidate,
         authority=authority,
         method="sensor-verification-v1",
@@ -38,6 +38,7 @@ def _verified_evidence(evidence_id: str = "E-1") -> ScientificEvidence:
         limitations="sensor uncertainty remains explicit",
         domain="Thermodynamics",
     )
+    return engine, verified
 
 
 def test_ontology_to_reasoning_chain_is_explicit():
@@ -53,9 +54,10 @@ def test_ontology_to_reasoning_chain_is_explicit():
 
 def test_validation_requires_evidence_method_and_provenance():
     claim = ScientificClaim("C-0062", "Heat transfer depends on temperature difference", "Thermodynamics")
-    evidence = (_verified_evidence(),)
+    engine, evidence_item = _verified_evidence()
+    evidence = (evidence_item,)
     method = ScientificMethod("M-1", "Calibrated temperature measurement", (("accuracy", "±0.2°C"),), "Limited by sensor uncertainty")
-    validator = ScientificKnowledgeValidator()
+    validator = ScientificKnowledgeValidator(engine)
     assert validator.validate(claim, evidence, method, ("P-1",))
     assert not validator.validate(claim, evidence, method, ())
     assert not validator.validate(claim, (), method, ("P-1",))
@@ -81,7 +83,8 @@ def test_confidence_rejects_out_of_range_components():
 
 def test_sko_validation_record_is_deterministic():
     claim = ScientificClaim("C-1", "x", "Physics")
-    evidence = (_verified_evidence(),)
+    engine, evidence_item = _verified_evidence()
+    evidence = (evidence_item,)
     method = ScientificMethod("M-1", "procedure", (), "limitation")
     record = ScientificKnowledgeValidationRecord(claim, evidence, method, ("P-1",), state=KnowledgeState.VALIDATED, confidence=ConfidenceScore(1, 1, 1, 1))
     assert record.canonical_hash() == record.canonical_hash()

@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Mapping
 
+from lat_ces.scientific.governance.governance_engine import ScientificKnowledgeGovernanceEngine
+
 from .reason_codes import ApplicabilityReason
 from .registry import ModelRegistry, ModelStatus
 
@@ -46,8 +48,13 @@ class ApplicabilityResult:
 class ApplicabilityEvaluator:
     """Evaluate model applicability without executing the model."""
 
-    def __init__(self, registry: ModelRegistry) -> None:
+    def __init__(
+        self,
+        registry: ModelRegistry,
+        governance_engine: ScientificKnowledgeGovernanceEngine | None = None,
+    ) -> None:
         self.registry = registry
+        self.governance_engine = governance_engine
 
     def evaluate(self, request: ApplicabilityRequest) -> ApplicabilityResult:
         if not request.model_id.strip():
@@ -100,28 +107,16 @@ class ApplicabilityEvaluator:
                     entry.version,
                     ApplicabilityStatus.INSUFFICIENT_EVIDENCE,
                     ApplicabilityReason.INSUFFICIENT_EVIDENCE,
-                    "Supporting evidence is present but its constitutional verification lineage is incomplete.",
+                    "Supporting evidence is present but its canonical verification record could not be resolved for the exact evidence identity and revision.",
                     violations=unverified,
                 )
 
         return self._result(request, entry.version, ApplicabilityStatus.APPLICABLE, ApplicabilityReason.APPLICABLE_INPUTS_VALID, "Model applicability requirements are satisfied.", validated_inputs=tuple(sorted(required_inputs)))
 
-    @staticmethod
-    def _has_verified_lineage(evidence: object) -> bool:
-        state = getattr(evidence, "evidence_state", None)
-        integrity = getattr(evidence, "integrity_status", None)
-        record_id = getattr(evidence, "verification_record_id", "")
-        if state is not None:
-            state_value = getattr(state, "value", state)
-            return state_value == "VERIFIED" and bool(record_id)
-        if integrity is not None:
-            return integrity == "VERIFIED" and bool(record_id)
-        if isinstance(evidence, Mapping):
-            state_value = evidence.get("evidence_state", evidence.get("integrity_status"))
-            if hasattr(state_value, "value"):
-                state_value = state_value.value
-            return state_value == "VERIFIED" and bool(evidence.get("verification_record_id"))
-        return False
+    def _has_verified_lineage(self, evidence: object) -> bool:
+        if self.governance_engine is None:
+            return False
+        return self.governance_engine.is_verified_by_record(evidence)
 
     @staticmethod
     def _result(request: ApplicabilityRequest, model_version: str | None, status: ApplicabilityStatus, reason_code: ApplicabilityReason, rationale: str, *, violations: tuple[str, ...] = (), validated_inputs: tuple[str, ...] = ()) -> ApplicabilityResult:
