@@ -104,8 +104,7 @@ class ScientificKnowledgeGovernanceEngine:
         self.authority_registry.validate_chain(grant_id)
         if actor.identity != grant.grantor and actor.action != self.GRANT_ACTION:
             raise PermissionError("Only the grantor or a valid authority administrator may revoke a grant")
-        revoked = replace(grant, revoked=True)
-        self._authority_grants[grant_id] = revoked
+        self.authority_registry.revoke(grant_id)
         self.audit.append(
             AuditRecord(
                 action="REVOKE_VERIFICATION_AUTHORITY",
@@ -115,7 +114,7 @@ class ScientificKnowledgeGovernanceEngine:
                 result="REVOKED",
             )
         )
-        return revoked
+        return grant
 
     def _require_verification_authority(
         self,
@@ -129,9 +128,9 @@ class ScientificKnowledgeGovernanceEngine:
         registered = self._authority_grants.get(authority.grant_id)
         if registered is None or registered is not authority:
             raise PermissionError("Verification authority is not a registered grant")
-        self.authority_registry.validate_chain(registered.grant_id)
-        if not registered.is_valid_now():
+        if self.authority_registry.is_revoked(registered.grant_id) or not registered.is_valid_now():
             raise PermissionError("Verification authority is expired or revoked")
+        self.authority_registry.validate_chain(registered.grant_id)
         if not registered.permits(
             action=self.VERIFY_ACTION,
             evidence_type=evidence_type,
