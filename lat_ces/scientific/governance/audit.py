@@ -35,6 +35,9 @@ class VerificationRecord:
     integrity: str
     limitations: str
     verified_at: str = ""
+    evidence_type: str = ""
+    domain: str = ""
+    purpose: str = ""
 
     def __post_init__(self) -> None:
         values = (

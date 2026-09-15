@@ -7,21 +7,14 @@ from lat_ces.scientific.governance.governance_engine import ScientificKnowledgeG
 from lat_ces.scientific.measurement.evidence import MeasurementEvidence
 
 
-def _grantor() -> Authority:
-    return Authority(
-        identity="CONSTITUTION",
-        level=3,
-        scope="*",
-        action="GRANT_VERIFICATION_AUTHORITY",
-        grant_id="ROOT-GRANT",
-        grantor="LAT-CONSTITUTION",
-    )
+def _grantor(engine: ScientificKnowledgeGovernanceEngine) -> Authority:
+    return engine.canonical_root_authority
 
 
 def _engine_and_verifier() -> tuple[ScientificKnowledgeGovernanceEngine, Authority]:
     engine = ScientificKnowledgeGovernanceEngine()
     verifier = engine.grant_verification_authority(
-        grantor=_grantor(),
+        grantor=_grantor(engine),
         verifier_identity="VERIFIER-1",
         scope="measurement",
         evidence_type="MeasurementEvidence",
@@ -171,6 +164,7 @@ def test_unauthorized_verifier_must_fail():
         action=authority.action,
         grant_id=authority.grant_id,
         grantor=authority.grantor,
+        parent_grant_id=authority.parent_grant_id,
     )
 
     with pytest.raises(PermissionError, match="registered grant"):
@@ -203,10 +197,41 @@ def test_wrong_scope_cannot_promote_evidence():
 
 def test_revoked_authority_cannot_promote():
     engine, authority = _engine_and_verifier()
-    engine.revoke_authority(authority.grant_id, actor=_grantor())
+    engine.revoke_authority(authority.grant_id, actor=_grantor(engine))
+
+    assert engine.authority_registry.get(authority.grant_id) is authority
+    assert engine.authority_registry.is_revoked(authority.grant_id)
+
     with pytest.raises(PermissionError, match="expired or revoked"):
         engine.verify_evidence(
             _candidate("MEAS-7"),
+            authority=authority,
+            method="sensor-check-v1",
+            criteria="criteria",
+            reference="REF",
+            integrity="HASH",
+            limitations="none",
+            domain="thermal",
+        )
+
+
+def test_expired_registered_authority_cannot_promote():
+    engine = ScientificKnowledgeGovernanceEngine()
+    authority = engine.grant_verification_authority(
+        grantor=_grantor(engine),
+        verifier_identity="VERIFIER-EXPIRED",
+        scope="measurement",
+        evidence_type="MeasurementEvidence",
+        domain="thermal",
+        method="sensor-check-v1",
+        valid_until="2000-01-01T00:00:00+00:00",
+    )
+
+    assert engine.authority_registry.get(authority.grant_id) is authority
+
+    with pytest.raises(PermissionError, match="expired or revoked"):
+        engine.verify_evidence(
+            _candidate("MEAS-8"),
             authority=authority,
             method="sensor-check-v1",
             criteria="criteria",
@@ -228,7 +253,8 @@ def test_approval_requires_explicit_approval_authority():
         scope="proposal",
         action="APPROVE",
         grant_id="APPROVAL-GRANT-1",
-        grantor="CONSTITUTION",
+        grantor="LAT-CONSTITUTION-ROOT",
+        parent_grant_id="ROOT-GRANT",
     )
     result = workflow.approve("proposal", approval_authority)
     assert result["status"] == "APPROVED"

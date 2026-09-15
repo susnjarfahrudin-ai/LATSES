@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from .audit import AuditRecord, VerificationRecord
-from .authority import Authority
+from .authority import Authority, CanonicalAuthorityRegistry
 from .rules import GovernanceRule
 from lat_ces.scientific.evidence_state import EvidenceState
 
@@ -19,8 +19,14 @@ class ScientificKnowledgeGovernanceEngine:
     def __init__(self) -> None:
         self.rules: list[GovernanceRule] = []
         self.audit: list[object] = []
+        self.authority_registry = CanonicalAuthorityRegistry()
         self._authority_grants: dict[str, Authority] = {}
         self._verification_records: dict[str, VerificationRecord] = {}
+
+    @property
+    def canonical_root_authority(self) -> Authority:
+        """Return the root authority from this engine's canonical registry context."""
+        return self.authority_registry.root
 
     def register_rule(self, rule: GovernanceRule) -> None:
         if any(item.rule_id == rule.rule_id and item != rule for item in self.rules):
@@ -50,8 +56,19 @@ class ScientificKnowledgeGovernanceEngine:
             raise ValueError("Verification authority requires verifier identity and scope")
         if grantor.action != self.GRANT_ACTION or not grantor.is_valid_now():
             raise PermissionError("Grantor does not hold valid authority to grant verification authority")
+        if not self.authority_registry.is_registered(grantor):
+            raise PermissionError("Grantor is not a canonical registered authority")
+        self.authority_registry.validate_chain(grantor.grant_id)
         if grantor.identity == verifier_identity:
             raise PermissionError("A verifier cannot grant verification authority to itself")
+        if not grantor.permits(
+            action=self.GRANT_ACTION,
+            evidence_type=evidence_type,
+            domain=domain,
+            method=method,
+            purpose=purpose,
+        ):
+            raise PermissionError("Grantor authority scope does not cover this verification grant")
         grant = Authority(
             identity=verifier_identity,
             level=grantor.level,
@@ -63,9 +80,11 @@ class ScientificKnowledgeGovernanceEngine:
             purpose=purpose,
             grantor=grantor.identity,
             grant_id=f"AUTH-{uuid4().hex.upper()}",
+            parent_grant_id=grantor.grant_id,
             valid_from=valid_from,
             valid_until=valid_until,
         )
+        self.authority_registry.register(grant)
         self._authority_grants[grant.grant_id] = grant
         self.audit.append(
             AuditRecord(
@@ -82,10 +101,10 @@ class ScientificKnowledgeGovernanceEngine:
         grant = self._authority_grants.get(grant_id)
         if grant is None:
             raise KeyError(grant_id)
+        self.authority_registry.validate_chain(grant_id)
         if actor.identity != grant.grantor and actor.action != self.GRANT_ACTION:
             raise PermissionError("Only the grantor or a valid authority administrator may revoke a grant")
-        revoked = replace(grant, revoked=True)
-        self._authority_grants[grant_id] = revoked
+        self.authority_registry.revoke(grant_id)
         self.audit.append(
             AuditRecord(
                 action="REVOKE_VERIFICATION_AUTHORITY",
@@ -95,7 +114,7 @@ class ScientificKnowledgeGovernanceEngine:
                 result="REVOKED",
             )
         )
-        return revoked
+        return grant
 
     def _require_verification_authority(
         self,
@@ -104,19 +123,20 @@ class ScientificKnowledgeGovernanceEngine:
         evidence_type: str,
         domain: str,
         method: str,
+        purpose: str = "verification",
     ) -> Authority:
         registered = self._authority_grants.get(authority.grant_id)
-        if registered is None:
+        if registered is None or registered is not authority:
             raise PermissionError("Verification authority is not a registered grant")
-        if registered.identity != authority.identity or registered.action != authority.action:
-            raise PermissionError("Verification authority is not a registered grant")
-        if not registered.is_valid_now():
+        if self.authority_registry.is_revoked(registered.grant_id) or not registered.is_valid_now():
             raise PermissionError("Verification authority is expired or revoked")
+        self.authority_registry.validate_chain(registered.grant_id)
         if not registered.permits(
             action=self.VERIFY_ACTION,
             evidence_type=evidence_type,
             domain=domain,
             method=method,
+            purpose=purpose,
         ):
             raise PermissionError("Verification authority scope does not cover this evidence")
         return registered
@@ -132,6 +152,7 @@ class ScientificKnowledgeGovernanceEngine:
         integrity: str,
         limitations: str,
         domain: str = "",
+        purpose: str = "verification",
     ) -> object:
         evidence_id = getattr(evidence, "measurement_id", getattr(evidence, "evidence_id", ""))
         revision = int(getattr(evidence, "revision", 1))
@@ -147,6 +168,7 @@ class ScientificKnowledgeGovernanceEngine:
             evidence_type=evidence_type,
             domain=domain,
             method=method,
+            purpose=purpose,
         )
         record = VerificationRecord(
             record_id=f"VER-{uuid4().hex.upper()}",
@@ -190,6 +212,13 @@ class ScientificKnowledgeGovernanceEngine:
             return False
         record = self._verification_records.get(record_id)
         if record is None:
+            return False
+        try:
+            self.authority_registry.validate_chain(record.authority_grant_id)
+        except PermissionError:
+            return False
+        authority = self._authority_grants.get(record.authority_grant_id)
+        if authority is None or record.verifier != authority.identity:
             return False
         evidence_id = getattr(evidence, "measurement_id", getattr(evidence, "evidence_id", ""))
         revision = int(getattr(evidence, "revision", 1))
