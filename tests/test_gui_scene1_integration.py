@@ -94,7 +94,6 @@ def test_scene1_show_uses_canonical_snapshot_and_does_not_write_model():
     app.workflow = workflow
     app._scene1_presentation = Scene1PresentationExtension(PresentationController())
     app.canvas = _FakeCanvas([], [], [])
-    app.active_level = level
     app.status_var = type("Status", (), {"value": "", "set": lambda self, value: setattr(self, "value", value)})()
 
     app.show_scene1()
