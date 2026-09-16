@@ -50,11 +50,11 @@ def test_external_blender_exchange_comes_from_canonical_building_model() -> None
     assert payload["source_ref"] == f"building-model:{model.model_id}"
 
     types = [item["role"] for item in payload["objects"]]
-    element_types = {item["source_element_id"].split(":", 1)[0] for item in payload["objects"]}
-    assert "wall" in element_types
-    assert "opening" in element_types
-    assert "room" in element_types
-    assert "roof" in element_types
+    element_types = {item["source_element_id"].split("-", 1)[0] for item in payload["objects"]}
+    assert "WALL" in element_types
+    assert "OPN" in element_types
+    assert "ROOM" in element_types
+    assert "ROOF" in element_types
     assert "void" in types
 
 
