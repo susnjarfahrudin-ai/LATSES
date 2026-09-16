@@ -7,7 +7,7 @@ from tkinter import ttk
 from lat_ces.building.mep import HeatingZone, VentilationOpening, ensure_mep_registry
 from lat_ces.building.model import Material
 from lat_ces.catalog.product_binding import ensure_product_binding_registry
-from lat_ces.catalog.product_catalog import all_products, categories, get_product, products_for_category
+from lat_ces.catalog.product_catalog import all_products, categories, get_product
 from lat_ces.catalog.user_store import UserProductCatalog
 from lat_ces.gui_material_input import MaterialInputDialog
 
@@ -87,6 +87,17 @@ class ProductCatalogMixin:
         self.catalog_assignment_status.grid(row=5, column=0, sticky="w", pady=(12, 0))
         self._refresh_catalog_products()
         self._refresh_catalog_targets()
+        self._remove_legacy_material_actions()
+
+    def _remove_legacy_material_actions(self) -> None:
+        """Remove the old engineering-tab material entry point from the main GUI."""
+        def walk(widget) -> None:
+            for child in widget.winfo_children():
+                if isinstance(child, ttk.Button) and child.cget("text") == "Novi materijal — proizvođačka specifikacija":
+                    child.destroy()
+                    continue
+                walk(child)
+        walk(self.complete_tabs)
 
     def _catalog_products(self):
         return all_products() + self._user_product_catalog.all_products()
@@ -138,11 +149,7 @@ class ProductCatalogMixin:
         self.catalog_detail.configure(state="disabled")
 
     def _open_catalog_material_input(self) -> None:
-        MaterialInputDialog(
-            self,
-            self._add_catalog_material,
-            category_values=categories(),
-        )
+        MaterialInputDialog(self, self._add_catalog_material, category_values=categories())
 
     def _add_catalog_material(self, material: Material) -> None:
         product = self._user_product_catalog.add_material(material)
