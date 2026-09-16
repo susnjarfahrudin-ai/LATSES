@@ -9,7 +9,7 @@ model admission/persistence.
 This module is also an input defense boundary: GUI text is treated as
 untrusted data, normalized and bounded before it can reach the canonical
 Material model. It does not execute, evaluate, interpret, or dereference
-user-supplied text.
+user-supplied text. Unknown field names are rejected rather than ignored.
 """
 from __future__ import annotations
 
@@ -35,16 +35,9 @@ _MAX_TEXT_LENGTH = 256
 _MAX_DIMENSION_COUNT = 6
 _MAX_INPUT_FIELD_COUNT = 16
 _ALLOWED_INPUT_FIELDS = {
-    "name",
-    "category",
-    "manufacturer",
-    "product_id",
-    "density",
-    "youngs_modulus",
-    "poisson_ratio",
-    "thermal_conductivity",
-    "compressive_strength_mpa",
-    "dimensions",
+    "name", "category", "manufacturer", "product_id", "density",
+    "youngs_modulus", "poisson_ratio", "thermal_conductivity",
+    "compressive_strength_mpa", "dimensions",
 }
 
 
