@@ -17,11 +17,21 @@ class Scene1GUIMixin:
         self._install_scene1_control()
 
     def _install_scene1_control(self) -> None:
-        """Expose Scene 1 and the external 3-D handoff from the model tab."""
+        """Add the existing model actions plus the canonical Scene 1 actions."""
         if not hasattr(self, "complete_tabs"):
             return
         tab_id = self.complete_tabs.tabs()[0]
         tab = self.nametowidget(tab_id)
+        ttk.Button(
+            tab,
+            text="Novi materijal",
+            command=self._open_material_input,
+        ).pack(side="left", padx=(12, 2))
+        ttk.Button(
+            tab,
+            text="3D vizualizacija objekta",
+            command=lambda: self._set_view_step(5),
+        ).pack(side="left", padx=2)
         ttk.Button(
             tab,
             text="Scene 1 — stvarni model",
