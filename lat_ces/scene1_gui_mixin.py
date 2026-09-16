@@ -23,23 +23,31 @@ class Scene1GUIMixin:
             return
         tab_id = self.complete_tabs.tabs()[0]
         tab = self.nametowidget(tab_id)
+        children = tab.winfo_children()
+        manager = children[0].winfo_manager() if children else "pack"
+        toolbar = ttk.Frame(tab)
+        if manager == "grid":
+            toolbar.grid(row=0, column=99, sticky="w", padx=8, pady=2)
+        else:
+            toolbar.pack(side="left", padx=(12, 2))
+
         ttk.Button(
-            tab,
+            toolbar,
             text="Novi materijal",
             command=self._open_material_input,
-        ).pack(side="left", padx=(12, 2))
+        ).pack(side="left", padx=2)
         ttk.Button(
-            tab,
+            toolbar,
             text="3D vizualizacija objekta",
             command=lambda: self._set_view_step(5),
         ).pack(side="left", padx=2)
         ttk.Button(
-            tab,
+            toolbar,
             text="Scene 1 — stvarni model",
             command=self.show_scene1,
         ).pack(side="left", padx=2)
         ttk.Button(
-            tab,
+            toolbar,
             text="3D → Blender JSON",
             command=self.export_scene3d_to_blender,
         ).pack(side="left", padx=2)
