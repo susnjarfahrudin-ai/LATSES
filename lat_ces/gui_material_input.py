@@ -1,9 +1,10 @@
 """Dedicated physical material input boundary for the desktop GUI.
 
-The dialog collects a complete Material record, validates user-entered values
-through the canonical Material dataclass, and returns the resulting object to
-the caller. It does not mutate BuildingModel directly; the caller remains the
-owner of model admission/persistence.
+The dialog collects a complete Material record, applies the mandatory
+Manufacturer Specification Gate, validates user-entered values through the
+canonical Material dataclass, and returns the resulting object to the caller.
+It does not mutate BuildingModel directly; the caller remains the owner of
+model admission/persistence.
 """
 from __future__ import annotations
 
@@ -12,6 +13,16 @@ from tkinter import messagebox, ttk
 from typing import Callable
 
 from lat_ces.building.model import Material
+
+
+MANUFACTURER_SPECIFICATION_REQUIRED = (
+    "Proizvođačka specifikacija je obavezna: unesite proizvođača, Product ID "
+    "(oznaku/model) i kategoriju materijala."
+)
+PHYSICAL_PROPERTY_REQUIRED = (
+    "Najmanje jedno relevantno fizičko svojstvo je obavezno: gustina, E, λ "
+    "ili pritisna čvrstoća."
+)
 
 
 def _optional_float(value: str, label: str) -> float | None:
@@ -37,33 +48,60 @@ def _dimensions(value: str) -> tuple[float, ...]:
     return result
 
 
-def material_from_fields(fields: dict[str, str]) -> Material:
-    """Build one canonical Material from physical GUI fields."""
+def validate_manufacturer_specification(fields: dict[str, str]) -> None:
+    """Apply the minimum identity/specification gate before Material creation."""
     name = fields.get("name", "").strip()
+    category = fields.get("category", "").strip()
+    manufacturer = fields.get("manufacturer", "").strip()
+    product_id = fields.get("product_id", "").strip()
+
+    missing = []
     if not name:
-        raise ValueError("Naziv materijala je obavezan.")
+        missing.append("Naziv")
+    if not category:
+        missing.append("Kategorija")
+    if not manufacturer:
+        missing.append("Proizvođač")
+    if not product_id:
+        missing.append("Product ID / oznaka proizvođača")
+    if missing:
+        raise ValueError(f"{MANUFACTURER_SPECIFICATION_REQUIRED} Nedostaje: {', '.join(missing)}.")
+
+    physical = (
+        fields.get("density", "").strip(),
+        fields.get("youngs_modulus", "").strip(),
+        fields.get("thermal_conductivity", "").strip(),
+        fields.get("compressive_strength_mpa", "").strip(),
+    )
+    if not any(physical):
+        raise ValueError(PHYSICAL_PROPERTY_REQUIRED)
+
+
+def material_from_fields(fields: dict[str, str]) -> Material:
+    """Build one canonical Material after the mandatory input gate."""
+    validate_manufacturer_specification(fields)
     return Material(
-        name=name,
+        name=fields["name"].strip(),
         density=_optional_float(fields.get("density", ""), "Gustina"),
         youngs_modulus=_optional_float(fields.get("youngs_modulus", ""), "Modul elastičnosti E"),
         poisson_ratio=_optional_float(fields.get("poisson_ratio", ""), "Poissonov koeficijent ν"),
         thermal_conductivity=_optional_float(fields.get("thermal_conductivity", ""), "Toplotna provodljivost λ"),
-        product_id=fields.get("product_id", "").strip() or None,
-        manufacturer=fields.get("manufacturer", "").strip() or None,
+        product_id=fields["product_id"].strip(),
+        manufacturer=fields["manufacturer"].strip(),
         dimensions_m=_dimensions(fields.get("dimensions", "")),
         compressive_strength_mpa=_optional_float(fields.get("compressive_strength_mpa", ""), "Pritisna čvrstoća"),
-        category=fields.get("category", "").strip() or None,
+        category=fields["category"].strip(),
     )
 
 
 class MaterialInputDialog(tk.Toplevel):
-    """Modal physical-material editor returning a Material through callback."""
+    """Modal physical-material editor with a mandatory specification gate."""
 
     _FIELDS = (
         ("name", "Naziv", True),
-        ("category", "Kategorija", False),
-        ("manufacturer", "Proizvođač", False),
-        ("product_id", "Product ID", False),
+        ("category", "Kategorija", True),
+        ("manufacturer", "Proizvođač", True),
+        ("product_id", "Product ID / oznaka proizvođača", True),
         ("density", "Gustina (kg/m³)", False),
         ("youngs_modulus", "Modul E (Pa)", False),
         ("poisson_ratio", "Poisson ν (-)", False),
@@ -87,9 +125,9 @@ class MaterialInputDialog(tk.Toplevel):
         )
         ttk.Label(
             body,
-            text="Podaci se prvo pretvaraju u jedan Material zapis; proračunski moduli ga kasnije čitaju kroz svoje ulazne granice.",
-            wraplength=520,
-            foreground="#475569",
+            text="Manufacturer Specification Gate: identitet proizvođača, oznaka proizvoda i kategorija moraju biti poznati prije unosa. Najmanje jedno fizičko svojstvo mora biti navedeno.",
+            wraplength=560,
+            foreground="#92400e",
         ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
         self._vars: dict[str, tk.StringVar] = {}
