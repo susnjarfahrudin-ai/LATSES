@@ -13,7 +13,8 @@ class Scene1GUIMixin:
     """Adds the canonical Scene 1 presentation boundary to a workspace."""
 
     def _init_scene1_gui(self) -> None:
-        self._presentation_controller = PresentationController()
+        if not hasattr(self, "_presentation_controller"):
+            self._presentation_controller = PresentationController()
         self._install_scene1_control()
 
     def _install_scene1_control(self) -> None:
