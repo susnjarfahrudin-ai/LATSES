@@ -59,10 +59,33 @@ def test_material_from_fields_rejects_invalid_physical_values():
         ("thermal_conductivity", "0"),
         ("compressive_strength_mpa", "-2"),
         ("dimensions", "0.25,-0.10"),
+        ("density", "nan"),
+        ("thermal_conductivity", "inf"),
     ):
         fields = _valid_fields(**{field: value})
         with pytest.raises(ValueError):
             material_from_fields(fields)
+
+
+def test_material_from_fields_rejects_control_characters():
+    with pytest.raises(ValueError, match="kontrolne znakove"):
+        material_from_fields(_valid_fields(manufacturer="Wiener\nberger"))
+
+
+def test_material_from_fields_rejects_oversized_text():
+    with pytest.raises(ValueError, match="predug"):
+        material_from_fields(_valid_fields(product_id="P" * 257))
+
+
+def test_material_from_fields_rejects_oversized_dimension_vector():
+    with pytest.raises(ValueError, match="najviše 6"):
+        material_from_fields(_valid_fields(dimensions="1,2,3,4,5,6,7"))
+
+
+def test_material_from_fields_rejects_extra_input_fields():
+    fields = _valid_fields(extra="unexpected")
+    with pytest.raises(ValueError, match="Nevažeća struktura ulaznih polja"):
+        material_from_fields(fields)
 
 
 def test_material_from_fields_requires_name():

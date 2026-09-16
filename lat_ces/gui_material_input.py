@@ -5,10 +5,17 @@ Manufacturer Specification Gate, validates user-entered values through the
 canonical Material dataclass, and returns the resulting object to the caller.
 It does not mutate BuildingModel directly; the caller remains the owner of
 model admission/persistence.
+
+This module is also an input defense boundary: GUI text is treated as
+untrusted data, normalized and bounded before it can reach the canonical
+Material model. It does not execute, evaluate, interpret, or dereference
+user-supplied text. Unknown field names are rejected rather than ignored.
 """
 from __future__ import annotations
 
+import math
 import tkinter as tk
+import unicodedata
 from tkinter import messagebox, ttk
 from typing import Callable
 
@@ -23,37 +30,76 @@ PHYSICAL_PROPERTY_REQUIRED = (
     "Najmanje jedno relevantno fizičko svojstvo je obavezno: gustina, E, λ "
     "ili pritisna čvrstoća."
 )
+INPUT_THREAT_REJECTED = "Ulaz je odbijen: podatak nije dozvoljen na input granici."
+_MAX_TEXT_LENGTH = 256
+_MAX_DIMENSION_COUNT = 6
+_MAX_INPUT_FIELD_COUNT = 16
+_ALLOWED_INPUT_FIELDS = {
+    "name", "category", "manufacturer", "product_id", "density",
+    "youngs_modulus", "poisson_ratio", "thermal_conductivity",
+    "compressive_strength_mpa", "dimensions",
+}
+
+
+def _safe_text(value: str, label: str) -> str:
+    """Normalize bounded user text and reject control characters."""
+    if not isinstance(value, str):
+        raise ValueError(f"{label} mora biti tekst.")
+    normalized = unicodedata.normalize("NFKC", value).strip()
+    if len(normalized) > _MAX_TEXT_LENGTH:
+        raise ValueError(f"{label} je predug (maksimalno {_MAX_TEXT_LENGTH} znakova).")
+    if any(unicodedata.category(char).startswith("C") for char in normalized):
+        raise ValueError(f"{INPUT_THREAT_REJECTED} {label} sadrži nedozvoljene kontrolne znakove.")
+    return normalized
 
 
 def _optional_float(value: str, label: str) -> float | None:
-    text = value.strip()
+    text = _safe_text(value, label)
     if not text:
         return None
     try:
-        return float(text)
+        result = float(text)
     except ValueError as exc:
         raise ValueError(f"{label} mora biti broj ili prazno.") from exc
+    if not math.isfinite(result):
+        raise ValueError(f"{label} mora biti konačan broj.")
+    return result
 
 
 def _dimensions(value: str) -> tuple[float, ...]:
-    text = value.strip()
+    text = _safe_text(value, "Dimenzije")
     if not text:
         return ()
-    try:
-        result = tuple(float(part.strip()) for part in text.split(",") if part.strip())
-    except ValueError as exc:
-        raise ValueError("Dimenzije moraju biti brojevi odvojeni zarezom.") from exc
-    if any(item <= 0 for item in result):
-        raise ValueError("Dimenzije materijala moraju biti > 0.")
-    return result
+    parts = [part.strip() for part in text.split(",") if part.strip()]
+    if len(parts) > _MAX_DIMENSION_COUNT:
+        raise ValueError(f"Dimenzije mogu sadržavati najviše {_MAX_DIMENSION_COUNT} vrijednosti.")
+    result = []
+    for part in parts:
+        try:
+            number = float(part)
+        except ValueError as exc:
+            raise ValueError("Dimenzije moraju biti konačni brojevi odvojeni zarezom.") from exc
+        if not math.isfinite(number) or number <= 0:
+            raise ValueError("Dimenzije materijala moraju biti konačni brojevi > 0.")
+        result.append(number)
+    return tuple(result)
 
 
 def validate_manufacturer_specification(fields: dict[str, str]) -> None:
     """Apply the minimum identity/specification gate before Material creation."""
-    name = fields.get("name", "").strip()
-    category = fields.get("category", "").strip()
-    manufacturer = fields.get("manufacturer", "").strip()
-    product_id = fields.get("product_id", "").strip()
+    if not isinstance(fields, dict) or len(fields) > _MAX_INPUT_FIELD_COUNT:
+        raise ValueError(f"{INPUT_THREAT_REJECTED} Nevažeća struktura ulaznih polja.")
+    unknown_fields = set(fields) - _ALLOWED_INPUT_FIELDS
+    if unknown_fields:
+        raise ValueError(
+            f"{INPUT_THREAT_REJECTED} Nevažeća struktura ulaznih polja: "
+            f"{', '.join(sorted(map(str, unknown_fields)))}."
+        )
+
+    name = _safe_text(fields.get("name", ""), "Naziv")
+    category = _safe_text(fields.get("category", ""), "Kategorija")
+    manufacturer = _safe_text(fields.get("manufacturer", ""), "Proizvođač")
+    product_id = _safe_text(fields.get("product_id", ""), "Product ID")
 
     missing = []
     if not name:
@@ -68,29 +114,29 @@ def validate_manufacturer_specification(fields: dict[str, str]) -> None:
         raise ValueError(f"{MANUFACTURER_SPECIFICATION_REQUIRED} Nedostaje: {', '.join(missing)}.")
 
     physical = (
-        fields.get("density", "").strip(),
-        fields.get("youngs_modulus", "").strip(),
-        fields.get("thermal_conductivity", "").strip(),
-        fields.get("compressive_strength_mpa", "").strip(),
+        _safe_text(fields.get("density", ""), "Gustina"),
+        _safe_text(fields.get("youngs_modulus", ""), "Modul E"),
+        _safe_text(fields.get("thermal_conductivity", ""), "Toplotna provodljivost λ"),
+        _safe_text(fields.get("compressive_strength_mpa", ""), "Pritisna čvrstoća"),
     )
     if not any(physical):
         raise ValueError(PHYSICAL_PROPERTY_REQUIRED)
 
 
 def material_from_fields(fields: dict[str, str]) -> Material:
-    """Build one canonical Material after the mandatory input gate."""
+    """Build one canonical Material after the mandatory input/security gate."""
     validate_manufacturer_specification(fields)
     return Material(
-        name=fields["name"].strip(),
+        name=_safe_text(fields["name"], "Naziv"),
         density=_optional_float(fields.get("density", ""), "Gustina"),
         youngs_modulus=_optional_float(fields.get("youngs_modulus", ""), "Modul elastičnosti E"),
         poisson_ratio=_optional_float(fields.get("poisson_ratio", ""), "Poissonov koeficijent ν"),
         thermal_conductivity=_optional_float(fields.get("thermal_conductivity", ""), "Toplotna provodljivost λ"),
-        product_id=fields["product_id"].strip(),
-        manufacturer=fields["manufacturer"].strip(),
+        product_id=_safe_text(fields["product_id"], "Product ID"),
+        manufacturer=_safe_text(fields["manufacturer"], "Proizvođač"),
         dimensions_m=_dimensions(fields.get("dimensions", "")),
         compressive_strength_mpa=_optional_float(fields.get("compressive_strength_mpa", ""), "Pritisna čvrstoća"),
-        category=fields["category"].strip(),
+        category=_safe_text(fields["category"], "Kategorija"),
     )
 
 
@@ -125,7 +171,7 @@ class MaterialInputDialog(tk.Toplevel):
         )
         ttk.Label(
             body,
-            text="Manufacturer Specification Gate: identitet proizvođača, oznaka proizvoda i kategorija moraju biti poznati prije unosa. Najmanje jedno fizičko svojstvo mora biti navedeno.",
+            text="Manufacturer Specification Gate: identitet proizvođača, oznaka proizvoda i kategorija moraju biti poznati prije unosa. Najmanje jedno fizičko svojstvo mora biti navedeno. Ulaz se tretira kao nepouzdan podatak dok ne prođe validaciju.",
             wraplength=560,
             foreground="#92400e",
         ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 10))
