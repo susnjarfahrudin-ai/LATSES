@@ -5,11 +5,6 @@ Manufacturer Specification Gate, validates user-entered values through the
 canonical Material dataclass, and returns the resulting object to the caller.
 It does not mutate BuildingModel directly; the caller remains the owner of
 model admission/persistence.
-
-This module is also an input defense boundary: GUI text is treated as
-untrusted data, normalized and bounded before it can reach the canonical
-Material model. It does not execute, evaluate, interpret, or dereference
-user-supplied text. Unknown field names are rejected rather than ignored.
 """
 from __future__ import annotations
 
@@ -17,7 +12,7 @@ import math
 import tkinter as tk
 import unicodedata
 from tkinter import messagebox, ttk
-from typing import Callable
+from typing import Callable, Sequence
 
 from lat_ces.building.model import Material
 
@@ -156,9 +151,15 @@ class MaterialInputDialog(tk.Toplevel):
         ("dimensions", "Dimenzije (m, zarez)", False),
     )
 
-    def __init__(self, parent: tk.Misc, on_material: Callable[[Material], None]) -> None:
+    def __init__(
+        self,
+        parent: tk.Misc,
+        on_material: Callable[[Material], None],
+        category_values: Sequence[str] | None = None,
+    ) -> None:
         super().__init__(parent)
         self._on_material = on_material
+        self._category_values = tuple(category_values or ())
         self.title("LAT-CES — Novi materijal")
         self.transient(parent)
         self.grab_set()
@@ -180,14 +181,25 @@ class MaterialInputDialog(tk.Toplevel):
         for row, (key, label, required) in enumerate(self._FIELDS, start=2):
             self._vars[key] = tk.StringVar()
             ttk.Label(body, text=f"{label}{' *' if required else ''}").grid(row=row, column=0, sticky="w", pady=3)
-            ttk.Entry(body, textvariable=self._vars[key], width=42).grid(
-                row=row, column=1, sticky="ew", padx=(12, 0), pady=3
-            )
+            if key == "category" and self._category_values:
+                widget = ttk.Combobox(
+                    body,
+                    textvariable=self._vars[key],
+                    state="readonly",
+                    values=self._category_values,
+                    width=40,
+                )
+                widget.grid(row=row, column=1, sticky="ew", padx=(12, 0), pady=3)
+                widget.current(0)
+            else:
+                ttk.Entry(body, textvariable=self._vars[key], width=42).grid(
+                    row=row, column=1, sticky="ew", padx=(12, 0), pady=3
+                )
 
         actions = ttk.Frame(body)
         actions.grid(row=len(self._FIELDS) + 2, column=0, columnspan=2, sticky="ew", pady=(12, 0))
         ttk.Button(actions, text="Otkaži", command=self.destroy).pack(side="right", padx=(6, 0))
-        ttk.Button(actions, text="Dodaj materijal", command=self._submit).pack(side="right")
+        ttk.Button(actions, text="Dodaj u katalog", command=self._submit).pack(side="right")
 
         self.bind("<Return>", lambda _event: self._submit())
         self.bind("<Escape>", lambda _event: self.destroy())
