@@ -11,6 +11,7 @@ from lat_ces.building.model import Material, Roof
 from lat_ces.building.structural import calculate_structural_loads
 from lat_ces.gui import FloorPlanEditor
 from lat_ces.gui_drafting import DraftingLATCESApp
+from lat_ces.gui_material_input import MaterialInputDialog
 from lat_ces.gui_mep_engineering import EngineeringMEPWorkspaceApp
 
 
@@ -30,10 +31,6 @@ class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
         self.wall_tributary_var = None
         self.level_dead_load_var = None
         self.level_live_load_var = None
-        self.material_name_var = None
-        self.material_density_var = None
-        self.material_e_var = None
-        self.material_lambda_var = None
         self.facade_direction_var = None
         self.calculation_output = None
         self.mep_output = None
@@ -116,15 +113,17 @@ class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
         ttk.Entry(tab, textvariable=self.level_live_load_var).grid(row=7, column=1, sticky="ew", padx=8)
         ttk.Button(tab, text="Primijeni opterećenje etaže", command=self._apply_level_loads).grid(row=8, column=0, columnspan=2, sticky="ew", pady=6)
         ttk.Separator(tab).grid(row=9, column=0, columnspan=2, sticky="ew", pady=6)
-        self.material_name_var = tk.StringVar(value="Armirani beton")
-        self.material_density_var = tk.StringVar(value="2500")
-        self.material_e_var = tk.StringVar(value="30000000000")
-        self.material_lambda_var = tk.StringVar(value="2.10")
-        for row, (label, var) in enumerate((("Naziv", self.material_name_var), ("Gustina kg/m³", self.material_density_var), ("E Pa", self.material_e_var), ("λ W/mK", self.material_lambda_var)), start=10):
-            ttk.Label(tab, text=label).grid(row=row, column=0, sticky="w")
-            ttk.Entry(tab, textvariable=var).grid(row=row, column=1, sticky="ew", padx=8)
-        ttk.Button(tab, text="Dodaj materijal", command=self._add_material).grid(row=14, column=0, columnspan=2, sticky="ew", pady=6)
+        ttk.Label(tab, text="Novi materijal se unosi isključivo kroz Manufacturer Specification Gate.", foreground="#92400e", wraplength=700).grid(row=10, column=0, columnspan=2, sticky="w", pady=(0, 5))
+        ttk.Button(tab, text="Novi materijal — proizvođačka specifikacija", command=self._open_material_input).grid(row=11, column=0, columnspan=2, sticky="ew", pady=6)
         tab.columnconfigure(1, weight=1)
+
+    def _open_material_input(self):
+        MaterialInputDialog(self, self._add_material_from_dialog)
+
+    def _add_material_from_dialog(self, material: Material):
+        self.workflow.model.add_material(material)
+        self._refresh_structure_materials()
+        self.status_var.set(f"Materijal dodat: {material.name} · {material.manufacturer} · {material.product_id}")
 
     def _build_calc_tab(self, tab):
         buttons = ttk.Frame(tab); buttons.pack(fill="x")
@@ -184,14 +183,6 @@ class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
         wall.material_id = next((mid for mid, mat in self.workflow.model.materials.items() if mat.name == name), None)
         wall.tributary_width_m = tributary
         self.refresh_view(); self.status_var.set(f"{wall.role_label}: {wall.name}")
-
-    def _add_material(self):
-        try:
-            material = Material(name=self.material_name_var.get().strip(), density=float(self.material_density_var.get()), youngs_modulus=float(self.material_e_var.get()), thermal_conductivity=float(self.material_lambda_var.get()))
-            self.workflow.model.add_material(material)
-        except (ValueError, TypeError) as exc:
-            messagebox.showwarning("LAT-CES — Materijal", str(exc), parent=self); return
-        self._refresh_structure_materials(); self.status_var.set(f"Materijal dodat: {material.name}")
 
     def _refresh_structure_materials(self):
         if not hasattr(self, "wall_material_combo"): return
