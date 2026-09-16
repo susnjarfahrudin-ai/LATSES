@@ -15,7 +15,7 @@ from tempfile import NamedTemporaryFile
 
 from lat_ces.building.model import Material
 
-from .product_catalog import ProductSpec, categories
+from .product_catalog import ProductSpec, categories, get_product
 
 
 DEFAULT_CATALOG_FILENAME = "product_catalog_user.json"
@@ -63,6 +63,8 @@ class UserProductCatalog:
             raise ValueError("Kategorija mora biti jedna od postojećih kategorija kataloga.")
         if not manufacturer or not product_id:
             raise ValueError("Proizvođač i Product ID su obavezni za katalog.")
+        if get_product(product_id) is not None:
+            raise ValueError(f"Product ID već postoji u osnovnom katalogu: {product_id}")
         if not any(
             value is not None
             for value in (
@@ -116,7 +118,7 @@ class UserProductCatalog:
             manufacturer = item.get("manufacturer")
             if not all(isinstance(value, str) and value.strip() for value in (product_id, name, category, manufacturer)):
                 return None
-            if category not in categories():
+            if category not in categories() or get_product(product_id) is not None:
                 return None
             numeric_fields = (
                 "density_kg_m3",
