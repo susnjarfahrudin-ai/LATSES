@@ -60,16 +60,16 @@ class MaterialInputDialog(tk.Toplevel):
     """Modal physical-material editor returning a Material through callback."""
 
     _FIELDS = (
-        ("name", "Naziv", "", True),
-        ("category", "Kategorija", "npr. beton / opeka / izolacija", False),
-        ("manufacturer", "Proizvođač", "", False),
-        ("product_id", "Product ID", "", False),
-        ("density", "Gustina (kg/m³)", "", False),
-        ("youngs_modulus", "Modul E (Pa)", "", False),
-        ("poisson_ratio", "Poisson ν (-)", "", False),
-        ("thermal_conductivity", "Toplotna provodljivost λ (W/mK)", "", False),
-        ("compressive_strength_mpa", "Pritisna čvrstoća (MPa)", "", False),
-        ("dimensions", "Dimenzije (m, zarez)", "npr. 0.25,0.20,0.50", False),
+        ("name", "Naziv", True),
+        ("category", "Kategorija", False),
+        ("manufacturer", "Proizvođač", False),
+        ("product_id", "Product ID", False),
+        ("density", "Gustina (kg/m³)", False),
+        ("youngs_modulus", "Modul E (Pa)", False),
+        ("poisson_ratio", "Poisson ν (-)", False),
+        ("thermal_conductivity", "Toplotna provodljivost λ (W/mK)", False),
+        ("compressive_strength_mpa", "Pritisna čvrstoća (MPa)", False),
+        ("dimensions", "Dimenzije (m, zarez)", False),
     )
 
     def __init__(self, parent: tk.Misc, on_material: Callable[[Material], None]) -> None:
@@ -93,14 +93,12 @@ class MaterialInputDialog(tk.Toplevel):
         ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
         self._vars: dict[str, tk.StringVar] = {}
-        for row, (key, label, hint, required) in enumerate(self._FIELDS, start=2):
+        for row, (key, label, required) in enumerate(self._FIELDS, start=2):
             self._vars[key] = tk.StringVar()
             ttk.Label(body, text=f"{label}{' *' if required else ''}").grid(row=row, column=0, sticky="w", pady=3)
-            entry = ttk.Entry(body, textvariable=self._vars[key], width=42)
-            entry.grid(row=row, column=1, sticky="ew", padx=(12, 0), pady=3)
-            if hint:
-                entry.insert(0, hint)
-                entry.bind("<FocusIn>", lambda event, e=entry, h=hint: e.delete(0, "end") if e.get() == h else None)
+            ttk.Entry(body, textvariable=self._vars[key], width=42).grid(
+                row=row, column=1, sticky="ew", padx=(12, 0), pady=3
+            )
 
         actions = ttk.Frame(body)
         actions.grid(row=len(self._FIELDS) + 2, column=0, columnspan=2, sticky="ew", pady=(12, 0))
