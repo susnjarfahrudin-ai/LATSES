@@ -34,6 +34,18 @@ INPUT_THREAT_REJECTED = "Ulaz je odbijen: podatak nije dozvoljen na input granic
 _MAX_TEXT_LENGTH = 256
 _MAX_DIMENSION_COUNT = 6
 _MAX_INPUT_FIELD_COUNT = 16
+_ALLOWED_INPUT_FIELDS = {
+    "name",
+    "category",
+    "manufacturer",
+    "product_id",
+    "density",
+    "youngs_modulus",
+    "poisson_ratio",
+    "thermal_conductivity",
+    "compressive_strength_mpa",
+    "dimensions",
+}
 
 
 def _safe_text(value: str, label: str) -> str:
@@ -84,6 +96,12 @@ def validate_manufacturer_specification(fields: dict[str, str]) -> None:
     """Apply the minimum identity/specification gate before Material creation."""
     if not isinstance(fields, dict) or len(fields) > _MAX_INPUT_FIELD_COUNT:
         raise ValueError(f"{INPUT_THREAT_REJECTED} Nevažeća struktura ulaznih polja.")
+    unknown_fields = set(fields) - _ALLOWED_INPUT_FIELDS
+    if unknown_fields:
+        raise ValueError(
+            f"{INPUT_THREAT_REJECTED} Nevažeća struktura ulaznih polja: "
+            f"{', '.join(sorted(map(str, unknown_fields)))}."
+        )
 
     name = _safe_text(fields.get("name", ""), "Naziv")
     category = _safe_text(fields.get("category", ""), "Kategorija")
