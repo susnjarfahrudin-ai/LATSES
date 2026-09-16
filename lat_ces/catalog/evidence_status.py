@@ -1,10 +1,10 @@
 """Neutral evidence-state vocabulary for catalog/presentation surfaces."""
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import Enum
 
 
-class EvidenceState(StrEnum):
+class EvidenceState(str, Enum):
     DECLARED = "DECLARED"
     ACCEPTED_FOR_CALCULATION = "ACCEPTED_FOR_CALCULATION"
     VERIFIED = "VERIFIED"
