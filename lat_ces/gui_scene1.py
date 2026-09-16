@@ -13,6 +13,7 @@ from tkinter import filedialog, ttk
 
 from lat_ces.adapters.building_visualization import BuildingVisualizationAdapter
 from lat_ces.gui_complete import CompleteBuildingWorkspaceApp
+from lat_ces.gui_material_input import MaterialInputDialog
 from lat_ces.presentation_controller import PresentationController
 from lat_ces.visualization_3d_external import write_blender_exchange
 
@@ -26,17 +27,31 @@ class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
         self._install_scene1_control()
 
     def _install_scene1_control(self) -> None:
-        """Add Scene 1 and external 3-D handoff actions to the model tab."""
+        """Add primary material, 3-D and Scene 1 actions to the model tab."""
         if not hasattr(self, "complete_tabs"):
             return
         tab_id = self.complete_tabs.tabs()[0]
         tab = self.nametowidget(tab_id)
-        ttk.Button(tab, text="Scene 1 — stvarni model", command=self.show_scene1).pack(
-            side="left", padx=(12, 2)
-        )
-        ttk.Button(tab, text="3D → Blender JSON", command=self.export_scene3d_to_blender).pack(
-            side="left", padx=2
-        )
+        ttk.Button(
+            tab,
+            text="Novi materijal",
+            command=self._open_material_input,
+        ).pack(side="left", padx=(12, 2))
+        ttk.Button(
+            tab,
+            text="3D vizualizacija objekta",
+            command=lambda: self._set_view_step(5),
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            tab,
+            text="Scene 1 — stvarni model",
+            command=self.show_scene1,
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            tab,
+            text="3D → Blender JSON",
+            command=self.export_scene3d_to_blender,
+        ).pack(side="left", padx=2)
 
     def show_scene1(self) -> None:
         """Render the current canonical scene snapshot on the existing canvas."""
