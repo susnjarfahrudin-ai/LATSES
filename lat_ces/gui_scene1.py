@@ -18,7 +18,7 @@ from lat_ces.presentation_controller import PresentationController
 from lat_ces.visualization_3d_external import write_blender_exchange
 
 
-class Scene1CompleteBuildingWorkspaceApp(ProductCatalogMixin, CompleteBuildingWorkspaceApp):
+class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp, ProductCatalogMixin):
     """Existing LAT-CES workspace with the real Scene 1 and product catalog hooks."""
 
     def __init__(self) -> None:
