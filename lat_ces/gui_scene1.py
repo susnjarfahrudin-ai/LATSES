@@ -3,16 +3,18 @@
 This module reuses the existing Tkinter workspace; it does not create a
 second GUI architecture. The GUI asks the presentation controller to route a
 canonical scene snapshot, then renders the returned 2D presentation payload
-onto the existing canvas.
+onto the existing canvas. It can also export the canonical 3-D scene through
+the existing immutable Blender handoff boundary.
 """
 
 from __future__ import annotations
 
-from tkinter import ttk
+from tkinter import filedialog, ttk
 
 from lat_ces.adapters.building_visualization import BuildingVisualizationAdapter
 from lat_ces.gui_complete import CompleteBuildingWorkspaceApp
 from lat_ces.presentation_controller import PresentationController
+from lat_ces.visualization_3d_external import write_blender_exchange
 
 
 class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
@@ -24,13 +26,16 @@ class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
         self._install_scene1_control()
 
     def _install_scene1_control(self) -> None:
-        """Add one Scene 1 action to the existing Model / Pogledi tab."""
+        """Add Scene 1 and external 3-D handoff actions to the model tab."""
         if not hasattr(self, "complete_tabs"):
             return
         tab_id = self.complete_tabs.tabs()[0]
         tab = self.nametowidget(tab_id)
         ttk.Button(tab, text="Scene 1 — stvarni model", command=self.show_scene1).pack(
             side="left", padx=(12, 2)
+        )
+        ttk.Button(tab, text="3D → Blender JSON", command=self.export_scene3d_to_blender).pack(
+            side="left", padx=2
         )
 
     def show_scene1(self) -> None:
@@ -91,6 +96,20 @@ class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
             tags="scene1",
         )
         self.status_var.set("Scene 1: BuildingModel → scene.v1 → controller → 2D")
+
+    def export_scene3d_to_blender(self) -> None:
+        """Export the current canonical 3-D scene to the Blender handoff file."""
+        target = filedialog.asksaveasfilename(
+            parent=self,
+            title="Izvezi LAT-CES 3D za Blender",
+            defaultextension=".json",
+            filetypes=(("LAT-CES Blender scene", "*.json"), ("JSON", "*.json"), ("All files", "*.*")),
+            initialfile="latces_scene3d_blender.json",
+        )
+        if not target:
+            return
+        write_blender_exchange(self.workflow.model, target)
+        self.status_var.set(f"3D handoff izvezen: {target}")
 
 
 def main() -> None:
