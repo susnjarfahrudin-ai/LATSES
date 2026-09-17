@@ -13,30 +13,26 @@ from tkinter import filedialog, ttk
 
 from lat_ces.adapters.building_visualization import BuildingVisualizationAdapter
 from lat_ces.gui_complete import CompleteBuildingWorkspaceApp
-from lat_ces.gui_material_input import MaterialInputDialog
+from lat_ces.gui_product_catalog import ProductCatalogMixin
 from lat_ces.presentation_controller import PresentationController
 from lat_ces.visualization_3d_external import write_blender_exchange
 
 
-class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp):
-    """Existing LAT-CES workspace with the real Scene 1 canvas hook."""
+class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp, ProductCatalogMixin):
+    """Existing LAT-CES workspace with the real Scene 1 and product catalog hooks."""
 
     def __init__(self) -> None:
         super().__init__()
         self._presentation_controller = PresentationController()
         self._install_scene1_control()
+        self._install_product_catalog_tab()
 
     def _install_scene1_control(self) -> None:
-        """Add primary material, 3-D and Scene 1 actions to the model tab."""
+        """Add primary 3-D and Scene 1 actions to the model tab."""
         if not hasattr(self, "complete_tabs"):
             return
         tab_id = self.complete_tabs.tabs()[0]
         tab = self.nametowidget(tab_id)
-        ttk.Button(
-            tab,
-            text="Novi materijal",
-            command=self._open_material_input,
-        ).pack(side="left", padx=(12, 2))
         ttk.Button(
             tab,
             text="3D vizualizacija objekta",
