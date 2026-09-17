@@ -191,3 +191,71 @@ is **NOT PROVEN** by #276.
 ## Continuation
 
 The forensic sequence through #276 is now recorded. Any subsequent PR analysis must preserve this chronology and distinguish test evidence from production causality.
+
+
+## PR #277 — forensic record
+
+**Title:** Feature/rci ad layer  
+**Base SHA:** f9db4179cab2122323e9450cf10eda3d122cfbc9  
+**Head SHA:** 4273c7b1a510bda1202f9ddf160c5d5f33fb86fb  
+**Merge SHA:** c1ec30f9cdf47ec4fe850cc998fbaeafe9ab11a4  
+**Merged:** 2026-09-05 04:14:55 UTC  
+**Commits:** 3; changed files: 3; +248/-0.
+
+#277 introduces the RCI-AD telemetry foundation: `HostTelemetry` plus `collect_host_telemetry()`. The module explicitly says it only observes and does not make security decisions, throttle work, or modify the existing limiter. It gathers platform-neutral host data, with Linux `/proc` paths and Windows API paths, and represents unavailable metrics explicitly as `None` rather than fabricating them. Tests verify the telemetry object and explicit unavailable metrics.
+
+**PROVEN:** observation-only host telemetry foundation; platform-specific collection paths; explicit unavailable-metric semantics; CI: Verification Pipeline #1550 SUCCESS and Windows Installer #1333 SUCCESS.
+
+**NOT PROVEN:** telemetry-driven policy; telemetry-driven throttling; telemetry-driven takeover/recovery; causal connection to AdaptiveDefense or FlowGuard.
+
+## PR #278 — forensic record
+
+**Title:** Revert "Agent/security runtime instrumentation"  
+**Base SHA:** ce220509385537a01628310088889663d8ca0309  
+**Head SHA:** 6b39d1193954b44c38810bc17ab845fd0117dd30  
+**Merge SHA:** 0ffd4af1ef6e655e70a0b668a192592fab199abc  
+**Merged:** 2026-09-05 08:08:23 UTC  
+**Commits:** 1; changed files: 10; +15/-1088.
+
+PR #278 body explicitly says it reverts #276. The patch removes the runtime instrumentation test file and the #276-carrying security/test changes. The observed effect is a rollback of #276 from the mainline state at its base. It does **not** revert #277: #277 is a separate merge into main and is not among #278's changed files.
+
+**PROVEN:** #276 is reverted by #278; #277 telemetry foundation is not reverted by #278; merge completed with CI: Verification Pipeline #1555 SUCCESS and Windows Installer #1338 SUCCESS.
+
+**NOT PROVEN:** that #276 instrumentation was unsafe or architecturally wrong merely because it was reverted. The reason for the revert is not established by the PR metadata/patch alone.
+
+## PR #279 — forensic record
+
+**Title:** RCI-AD Runtime Observation Boundary  
+**Base SHA:** 7873ea9515b396cce79f23cffa6de1f9973c7ece  
+**Head/Merge SHA:** e54031c5ba325fd277feead50205f3021ce87264  
+**Merged:** 2026-09-05 18:08:20 UTC  
+**Commits:** 9; changed files: 6; +72/-4. Draft at metadata time.
+
+PR #279 body states: add one observation-only runtime seam for existing HostTelemetry; collect one snapshot and forward it to an optional observer; keep limiter/policy/throttling out of this layer; preserve application behavior when no observer is supplied; add targeted regression tests; include the minimal ReplayGuard bounded-cache fix required by the first concrete security failure. It also explicitly says it does not modify #277 telemetry implementation or revive #276.
+
+Production changes in the patch:
+- `lat_ces/rci_ad/observation.py`: `observe_host_telemetry()` collects one immutable `HostTelemetry` snapshot, forwards that exact snapshot to an optional observer callback, and returns it.
+- `lat_ces/application/service.py`: `analyze_config()` accepts an optional `telemetry_observer`; if supplied, it calls `observe_host_telemetry()` before canonical analysis. Without an observer, existing behavior remains unchanged.
+- `lat_ces/security/secure_ipc.py`: removes capacity-based eviction of active replay nonces, preserving the same security fix already seen in #274.
+- `pytest.ini`: adds `pythonpath = .`.
+- tests verify exact snapshot forwarding and absence of limiter/throttle behavior.
+
+**PROVEN:** an application-level observation seam exists; one immutable host snapshot can be forwarded to an observer; explicit no-policy/no-throttle boundary is tested; ReplayGuard bounded-cache fix is present; CI: Verification Pipeline #1582 SUCCESS and Windows Installer #1366 SUCCESS.
+
+**NOT PROVEN:** observer implementation that makes security decisions; telemetry-to-policy causality; telemetry-driven throttling; telemetry-driven A/B takeover/recovery; PID handover; recovery controller.
+
+### Critical chronology/architecture point
+
+#279 is not a revival of #276. Its body explicitly says it does not revive #276, and its implementation is a narrower observation seam around the #277 `HostTelemetry` foundation. It therefore represents a new path:
+
+`HostTelemetry -> observation seam -> optional observer`
+
+The observer is an extension point, not itself a proven policy authority.
+
+## Consolidated #274 -> #279 status
+
+**PROVEN:** #274 adaptive-defense foundation; #275 adversarial/load measurement; #276 read-only runtime instrumentation; #277 RCI-AD host telemetry foundation; #278 explicit revert of #276; #279 observation seam around HostTelemetry.
+
+**OPEN:** direct #275 -> #276 ancestry (PR base/head mismatch); exact reason #278 reverted #276; exact downstream identity/role of any #279 observer.
+
+**NOT PROVEN:** a production causal chain from host telemetry to enforcement, A/B takeover, PID handover, or recovery.
