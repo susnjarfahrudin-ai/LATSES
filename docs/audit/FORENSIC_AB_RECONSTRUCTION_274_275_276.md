@@ -126,3 +126,68 @@ Do not jump to PR #276.
 Next required forensic target: PR #275.
 
 All later findings must be appended to this document in chronological order.
+
+
+## PR #275 — forensic record
+
+**Title:** Security: one-dimensional limiter load analysis  
+**Head SHA:** 0ec96c8a0d9ecb50642687893f7c6a9cc4bfd9be  
+**Merged:** 2026-09-05 08:05:49 UTC  
+**Commits:** 37  
+**Changed files:** 9  
+**Diff:** +851 / -15
+
+PR #275 is measurement-only adversarial testing. It adds 5-minute sustained frequency profiles at +24.9%, +19.9%, +14.9%, +12.9%; mathematical throttle verification; baseline immutability; and a 500-thread malformed-payload concurrency test through the real CyberFortress.receive() boundary. No new production security architecture is introduced.
+
+**PROVEN:** deterministic FlowGuard load-profile test; sustained one-dimensional measurements; 500-thread malformed-input concurrency test; CI at #275 head: Verification Pipeline #1548 SUCCESS and Windows Installer #1331 SUCCESS.
+
+**NOT PROVEN:** universal production ingress enforcement; automatic A/B takeover; PID handover; recovery lifecycle.
+
+## PR #276 — forensic record
+
+**Title:** Agent/security runtime instrumentation  
+**Base SHA:** c1ec30f9cdf47ec4fe850cc998fbaeafe9ab11a4  
+**Head SHA:** efc44786cbb7e079349da05ff1d3e5aabaa6aef7  
+**Merge SHA:** ce220509385537a01628310088889663d8ca0309  
+**Merged:** 2026-09-05 08:05:47 UTC  
+**Commits:** 40  
+**Changed files:** 10  
+**Diff:** +1088 / -15
+
+### Critical chronology observation
+
+PR #276 base SHA is c1ec30f9..., while PR #275 head SHA is 0ec96c8a.... Therefore PR metadata does **not** prove direct #275-head -> #276-base ancestry. This remains **OPEN** and is not silently reconciled.
+
+### What #276 adds
+
+The material new test file is `tests/test_security_runtime_instrumentation.py`. Its module description explicitly identifies it as read-only runtime instrumentation for security load experiments and states that it does not alter production security logic, limiter parameters, baselines, payloads, or decision rules.
+
+It measures Python/OS/kernel identity, CPU, logical CPUs, total and available memory, load average, RSS where supported, process CPU time, normalized CPU percentage, elapsed time, memory before/after, load and security-error counts. It repeats the earlier 5-minute FlowGuard profiles and 500-thread malformed-payload stress boundary.
+
+**PROVEN:** read-only host/process runtime instrumentation test; host/process measurements around adversarial experiments; explicit separation from production security logic; final head Windows-compatible measurement path; final-head CI: Verification Pipeline #1553 SUCCESS and Windows Installer #1336 SUCCESS.
+
+**NOT PROVEN:** runtime telemetry making security decisions; telemetry causing throttling; telemetry causing takeover/recovery; PID handover; A/B authority transfer; production failover; instrumentation feeding AdaptiveDefense.
+
+### Architectural distinction
+
+Evidence proven at #276 is:
+
+`Adversarial workload -> FlowGuard/CyberFortress test -> runtime measurement -> CI evidence`
+
+The causal production chain:
+
+`Runtime measurement -> Defense Controller -> enforcement -> takeover/recovery`
+
+is **NOT PROVEN** by #276.
+
+### Current #274 -> #276 status
+
+- #274 adaptive-defense/B-primary foundation — **PROVEN**
+- #275 measurement/load analysis — **PROVEN**
+- #276 read-only runtime instrumentation — **PROVEN**
+- direct #275 -> #276 ancestry — **OPEN**
+- automatic runtime A/B takeover/recovery across these three PRs — **NOT PROVEN**
+
+## Continuation
+
+The forensic sequence through #276 is now recorded. Any subsequent PR analysis must preserve this chronology and distinguish test evidence from production causality.
