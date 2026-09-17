@@ -4,21 +4,21 @@ from __future__ import annotations
 
 from tkinter import filedialog, ttk
 
-from lat_ces.adapters.building_visualization import BuildingVisualizationAdapter
-from lat_ces.presentation_controller import PresentationController
-from lat_ces.visualization_3d_external import write_blender_exchange
+from lat_ces.gui_architecture.adapters import Scene1Adapter, ThreeDHandoffAdapter
 
 
 class Scene1GUIMixin:
-    """Adds the canonical Scene 1 presentation boundary to a workspace."""
+    """Expose GUI actions while keeping Scene 1 communication behind adapters."""
 
     def _init_scene1_gui(self) -> None:
-        if not hasattr(self, "_presentation_controller"):
-            self._presentation_controller = PresentationController()
+        if not hasattr(self, "_scene1_adapter"):
+            self._scene1_adapter = Scene1Adapter()
+        if not hasattr(self, "_three_d_handoff_adapter"):
+            self._three_d_handoff_adapter = ThreeDHandoffAdapter()
         self._install_scene1_control()
 
     def _install_scene1_control(self) -> None:
-        """Add the existing model actions plus the canonical Scene 1 actions."""
+        """Add user-facing actions without exposing core/presentation APIs."""
         if not hasattr(self, "complete_tabs"):
             return
         tab_id = self.complete_tabs.tabs()[0]
@@ -31,31 +31,14 @@ class Scene1GUIMixin:
         else:
             toolbar.pack(side="left", padx=(12, 2))
 
-        ttk.Button(
-            toolbar,
-            text="Novi materijal",
-            command=self._open_material_input,
-        ).pack(side="left", padx=2)
-        ttk.Button(
-            toolbar,
-            text="3D vizualizacija objekta",
-            command=lambda: self._set_view_step(5),
-        ).pack(side="left", padx=2)
-        ttk.Button(
-            toolbar,
-            text="Scene 1 — stvarni model",
-            command=self.show_scene1,
-        ).pack(side="left", padx=2)
-        ttk.Button(
-            toolbar,
-            text="3D → Blender JSON",
-            command=self.export_scene3d_to_blender,
-        ).pack(side="left", padx=2)
+        ttk.Button(toolbar, text="Novi materijal", command=self._open_material_input).pack(side="left", padx=2)
+        ttk.Button(toolbar, text="3D vizualizacija objekta", command=lambda: self._set_view_step(5)).pack(side="left", padx=2)
+        ttk.Button(toolbar, text="Scene 1 — stvarni model", command=self.show_scene1).pack(side="left", padx=2)
+        ttk.Button(toolbar, text="3D → Blender JSON", command=self.export_scene3d_to_blender).pack(side="left", padx=2)
 
     def show_scene1(self) -> None:
-        """Render the current canonical BuildingModel snapshot through Scene 1."""
-        scene = BuildingVisualizationAdapter().adapt(self.workflow.model)
-        scene_2d = self._presentation_controller.present_scene_1(scene)
+        """Request the approved Scene 1 presentation of the canonical model."""
+        scene_2d = self._scene1_adapter.present_model(self.workflow.model)
 
         self.canvas.delete("scene1")
         width = max(self.canvas.winfo_width(), 400)
@@ -67,10 +50,7 @@ class Scene1GUIMixin:
             self.status_var.set("Scene 1: nema etaža za prikaz")
             return
 
-        level = next(
-            (item for item in levels if item["id"] == self.active_level.level_id),
-            levels[0],
-        )
+        level = next((item for item in levels if item["id"] == self.active_level.level_id), levels[0])
         walls = level.get("walls", [])
         if not walls:
             self.status_var.set("Scene 1: nema geometrije zida za prikaz")
@@ -85,34 +65,21 @@ class Scene1GUIMixin:
         scale = min((width - 2 * margin) / span_x, (height - 2 * margin) / span_y)
 
         def point(x_m: float, y_m: float) -> tuple[float, float]:
-            return (
-                margin + (x_m - min_x) * scale,
-                height - margin - (y_m - min_y) * scale,
-            )
+            return (margin + (x_m - min_x) * scale, height - margin - (y_m - min_y) * scale)
 
         for wall in walls:
             x1, y1 = point(wall["x1_m"], wall["y1_m"])
             x2, y2 = point(wall["x2_m"], wall["y2_m"])
-            self.canvas.create_line(
-                x1,
-                y1,
-                x2,
-                y2,
-                width=max(1, wall["thickness_m"] * scale),
-                tags="scene1",
-            )
+            self.canvas.create_line(x1, y1, x2, y2, width=max(1, wall["thickness_m"] * scale), tags="scene1")
 
         self.canvas.create_text(
-            margin,
-            margin / 2,
-            anchor="w",
-            text=f"Scene 1 · {level['name']} · BuildingModel snapshot",
-            tags="scene1",
+            margin, margin / 2, anchor="w",
+            text=f"Scene 1 · {level['name']} · BuildingModel snapshot", tags="scene1"
         )
-        self.status_var.set("Scene 1: BuildingModel → scene.v1 → controller → 2D")
+        self.status_var.set("Scene 1: BuildingModel → Scene1Adapter → 2D presentation")
 
     def export_scene3d_to_blender(self) -> None:
-        """Export the canonical 3-D scene through the existing Blender boundary."""
+        """Request the approved external handoff without knowing its implementation."""
         target = filedialog.asksaveasfilename(
             parent=self,
             title="Izvezi LAT-CES 3D za Blender",
@@ -122,5 +89,5 @@ class Scene1GUIMixin:
         )
         if not target:
             return
-        write_blender_exchange(self.workflow.model, target)
-        self.status_var.set(f"3D handoff izvezen: {target}")
+        result = self._three_d_handoff_adapter.export(self.workflow.model, target)
+        self.status_var.set(f"3D handoff: {result.status} · {target}")
