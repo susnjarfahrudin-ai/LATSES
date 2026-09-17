@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from lat_ces.gui_complete import CompleteBuildingWorkspaceApp
-from lat_ces.presentation_controller import PresentationController
 from lat_ces.scene1_gui_mixin import Scene1GUIMixin
 
 
@@ -12,7 +11,6 @@ class Scene1CompleteBuildingWorkspaceApp(CompleteBuildingWorkspaceApp, Scene1GUI
 
     def __init__(self) -> None:
         super().__init__()
-        self._presentation_controller = PresentationController()
         self._init_scene1_gui()
 
 
