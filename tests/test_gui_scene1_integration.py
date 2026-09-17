@@ -88,10 +88,8 @@ def test_scene1_show_uses_canonical_snapshot_and_does_not_write_model():
 
 def test_scene1_information_direction_is_canonical_scene_to_2d_only():
     model = _make_model()
-    scene = BuildingVisualizationAdapter().adapt(model)
-    payload = Scene1Adapter()._presentation.present_scene_1(scene)
+    payload = Scene1Adapter().present_model(model)
 
-    assert scene["schema"] == "latces.visualization.scene.v1"
     assert payload["schema"] == "latces.visualization.2d.v1"
-    assert payload["source_schema"] == scene["schema"]
-    assert payload["source"] == scene["source"]
+    assert payload["source_schema"] == "latces.visualization.scene.v1"
+    assert payload["source"] == "building-model:Testni objekat"
