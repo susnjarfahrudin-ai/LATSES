@@ -32,7 +32,7 @@ def test_attack_02_replay_is_rejected_after_first_acceptance():
         fortress.receive(ATTACKER, packet)
 
 def test_attack_03_rate_pressure_eventually_blocks_without_flowguard():
-    limiter = TokenBucketRateLimiter(capacity=2.0, refill_rate=0.0)
+    limiter = TokenBucketRateLimiter(capacity=2.0, refill_per_second=1.0)
     fortress = CyberFortress(SignedIPCChannel(SECRET), rate_limiter=limiter)
     packet = fortress.ipc.pack({"op": "pressure"}, sender_id=ATTACKER)
     assert fortress.receive(ATTACKER, packet)["op"] == "pressure"
