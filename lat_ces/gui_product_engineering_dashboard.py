@@ -12,13 +12,15 @@ from lat_ces.catalog.product_engineering import build_product_engineering_report
 from lat_ces.catalog.product_catalog import get_product, products_for_category
 from lat_ces.catalog.product_binding import ensure_product_binding_registry
 from lat_ces.gui_product_dashboard import ProductBuildingWorkspaceApp
+from lat_ces.scene1_gui_mixin import Scene1GUIMixin
 
 
-class ProductEngineeringWorkspaceApp(ProductBuildingWorkspaceApp):
-    """Canonical Product workspace plus visible statics/thermal projection."""
+class ProductEngineeringWorkspaceApp(Scene1GUIMixin, ProductBuildingWorkspaceApp):
+    """Canonical Product workspace with integrated Scene 1 presentation."""
 
     def __init__(self) -> None:
         super().__init__()
+        self._init_scene1_gui()
         self._install_product_engineering_summary()
 
     def _install_product_engineering_summary(self) -> None:
