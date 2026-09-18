@@ -54,10 +54,7 @@ class FlowGuard:
 
         deviations = {}
         for name in FLOW_DIMENSIONS:
-            raw_value = observed[name]
-            if type(raw_value) not in (int, float):
-                raise ValueError("observed flow values must be numeric int or float")
-            value = float(raw_value)
+            value = float(observed[name])
             if not math.isfinite(value) or value < 0.0:
                 raise ValueError("observed flow values must be finite and non-negative")
             deviations[name] = abs(value / self._baseline[name] - 1.0)
@@ -69,6 +66,7 @@ class FlowGuard:
         if max_deviation <= self.START_THROTTLE:
             return FlowDecision(True, 1.0, max_deviation, None)
 
+        # Quadratic falloff: the closer to 20%, the more aggressively the pipe closes.
         progress = (max_deviation - self.START_THROTTLE) / (self.HARD_STOP - self.START_THROTTLE)
         throttle = max(0.0, 1.0 - progress * progress)
         return FlowDecision(True, throttle, max_deviation, limiting_dimension)
