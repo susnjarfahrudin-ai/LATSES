@@ -54,10 +54,7 @@ class FlowGuard:
 
         deviations = {}
         for name in FLOW_DIMENSIONS:
-            raw_value = observed[name]
-            if type(raw_value) not in (int, float):
-                raise ValueError("observed flow values must be numeric int or float")
-            value = float(raw_value)
+            value = float(observed[name])
             if not math.isfinite(value) or value < 0.0:
                 raise ValueError("observed flow values must be finite and non-negative")
             deviations[name] = abs(value / self._baseline[name] - 1.0)
