@@ -40,7 +40,7 @@ jobs:
           Set force_fail=true only when the session must deliberately stop and require review of the history.
           EOF
       - name: Intentional fail-safe stop
-        if: \${{ inputs.force_fail }}
+        if: ${{ inputs.force_fail }}
         run: |
           echo "FAIL-SAFE: security baseline/history review intentionally stopped here."
           exit 1
