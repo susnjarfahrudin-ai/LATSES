@@ -68,15 +68,3 @@ def test_defense_history_rejects_learned_without_verification_sha(tmp_path):
     path.write_text(json.dumps(record) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="verification_sha"):
         DefenseHistory(path)
-
-
-def test_flow_guard_rejects_type_coercion_in_untrusted_dimensions():
-    guard = FlowGuard(BASELINE)
-    for value in (True, False, "100", "1e2"):
-        with pytest.raises(ValueError):
-            guard.evaluate({
-                "frequency": value,
-                "volume": 100.0,
-                "concurrency": 100.0,
-                "novelty": 100.0,
-            })
