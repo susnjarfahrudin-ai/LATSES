@@ -43,7 +43,7 @@ def test_ipc_rejects_boolean_envelope_version_even_when_mac_is_valid() -> None:
         channel.unpack(forged)
 
 
-def test_ipc_rejects_non_string_nonce_even when mac is valid() -> None:
+def test_ipc_rejects_non_string_nonce_even_when_mac_is_valid() -> None:
     channel = SignedIPCChannel(b"shared-secret")
     packet = channel.pack({"attack": "nonce-type"}, sender_id="attacker-probe")
     forged = _resign(packet, lambda envelope: envelope.__setitem__("nonce", None))
