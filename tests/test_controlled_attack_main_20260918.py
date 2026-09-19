@@ -40,7 +40,7 @@ def test_attack_03_rate_pressure_eventually_blocks_without_flowguard():
     assert fortress.receive(ATTACKER, packet2)["op"] == "pressure-2"
     with pytest.raises(SecurityError, match="rate-limited"):
         fortress.receive(ATTACKER, fortress.ipc.pack({"op": "pressure-3"}, sender_id=ATTACKER))
-    assert fortress.threat.score(ATTACKER) >= 10.0
+    assert fortress.threat.score(ATTACKER) == pytest.approx(10.0, abs=1e-3)
 
 def test_attack_04_flowguard_hard_stop_is_real_but_not_called_by_fortress():
     guard = FlowGuard({name: 100.0 for name in ("frequency", "volume", "concurrency", "novelty")})
