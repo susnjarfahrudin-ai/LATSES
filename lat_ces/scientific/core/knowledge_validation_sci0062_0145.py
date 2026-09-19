@@ -1,10 +1,4 @@
-"""LAT-CES SCI 0062-0145 canonical Scientific Core integration.
-
-This module provides the minimal reference contracts for the dependency chain
-from Knowledge Ontology through Adaptive Security Governance. It intentionally
-keeps the contracts deterministic, provenance-aware, immutable at the record
-boundary, and explicit about human/AI responsibility.
-"""
+"""LAT-CES SCI 0062-0145 canonical Scientific Core integration."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -12,6 +6,8 @@ from enum import Enum
 from hashlib import sha256
 import json
 from typing import Any, Mapping, Tuple
+
+from lat_ces.scientific.governance.governance_engine import ScientificKnowledgeGovernanceEngine
 
 
 class KnowledgeState(str, Enum):
@@ -36,6 +32,17 @@ class ScientificEvidence:
     source: str
     provenance_id: str
     integrity_status: str
+    revision: int = 1
+    verification_record_id: str = ""
+
+    def __post_init__(self) -> None:
+        for name in ("evidence_id", "evidence_type", "source", "provenance_id"):
+            if not getattr(self, name).strip():
+                raise ValueError(f"scientific evidence {name} must be non-empty")
+        if self.revision < 1:
+            raise ValueError("scientific evidence revision must be >= 1")
+        if self.integrity_status == "VERIFIED" and not self.verification_record_id.strip():
+            raise ValueError("VERIFIED scientific evidence requires a verification record")
 
 
 @dataclass(frozen=True)
@@ -105,6 +112,9 @@ class ScientificKnowledgeValidationRecord:
 class ScientificKnowledgeValidator:
     """Validates evidence chains; it does not manufacture scientific truth."""
 
+    def __init__(self, governance_engine: ScientificKnowledgeGovernanceEngine | None = None) -> None:
+        self.governance_engine = governance_engine
+
     def validate(
         self,
         claim: ScientificClaim,
@@ -116,7 +126,20 @@ class ScientificKnowledgeValidator:
             return False
         if not evidence or any(item.integrity_status != "VERIFIED" for item in evidence):
             return False
-        if any(not item.source or not item.provenance_id for item in evidence):
+        if self.governance_engine is None:
+            return False
+        if any(
+            self.governance_engine.resolve_verification_record(
+                item.verification_record_id,
+                evidence_id=item.evidence_id,
+                evidence_revision=item.revision,
+                evidence_type=type(item).__name__,
+            )
+            is None
+            for item in evidence
+        ):
+            return False
+        if any(not item.source or not item.provenance_id or not item.verification_record_id for item in evidence):
             return False
         if method is None or not method.procedure.strip() or not method.limitations.strip():
             return False

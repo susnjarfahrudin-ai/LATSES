@@ -1,8 +1,8 @@
 """Bounded multi-dimensional flow control for the security boundary.
 
 The guard keeps a fixed trusted baseline and never learns a new baseline from
-untrusted traffic. It starts proportional throttling at 12% deviation and
-reaches an admission stop at 20%. The four dimensions are evaluated in
+untrusted traffic.  It starts proportional throttling at 12% deviation and
+reaches an admission stop at 20%.  The four dimensions are evaluated in
 parallel and the strictest dimension controls the resulting allowance.
 """
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 from typing import Mapping
+
 
 FLOW_DIMENSIONS = ("frequency", "volume", "concurrency", "novelty")
 
