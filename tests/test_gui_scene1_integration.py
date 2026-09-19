@@ -5,14 +5,15 @@ from lat_ces.adapters.building_visualization import BuildingVisualizationAdapter
 from lat_ces.building.floor_plan import FloorPlan, Point2D, Segment2D, Wall
 from lat_ces.building.model import BuildingModel, Level
 from lat_ces.building.workflow import BuildingWorkflow
+from lat_ces.gui_presentation import Scene1PresentationExtension
 from lat_ces.gui_scene1 import Scene1CompleteBuildingWorkspaceApp
 from lat_ces.presentation_controller import PresentationController
 
 
-def test_scene1_gui_reuses_existing_workspace_and_controller():
+def test_scene1_gui_reuses_existing_workspace_and_presentation_extension():
     assert Scene1CompleteBuildingWorkspaceApp.__mro__[1].__name__ == "CompleteBuildingWorkspaceApp"
-    assert "_presentation_controller" in Scene1CompleteBuildingWorkspaceApp.__init__.__code__.co_names
-    assert "present_scene_1" in Scene1CompleteBuildingWorkspaceApp.show_scene1.__code__.co_names
+    assert "_scene1_presentation" in Scene1CompleteBuildingWorkspaceApp.__init__.__code__.co_names
+    assert "render" in Scene1CompleteBuildingWorkspaceApp.show_scene1.__code__.co_names
 
 
 def test_default_gui_entry_points_to_scene1_wrapper():
@@ -91,7 +92,7 @@ def test_scene1_show_uses_canonical_snapshot_and_does_not_write_model():
     workflow = BuildingWorkflow(model=model)
     workflow.set_active_level(level.level_id)
     app.workflow = workflow
-    app._presentation_controller = PresentationController()
+    app._scene1_presentation = Scene1PresentationExtension(PresentationController())
     app.canvas = _FakeCanvas([], [], [])
     app.status_var = type("Status", (), {"value": "", "set": lambda self, value: setattr(self, "value", value)})()
 
@@ -100,7 +101,7 @@ def test_scene1_show_uses_canonical_snapshot_and_does_not_write_model():
     assert app.canvas.lines
     assert app.canvas.texts
     assert app.canvas.deleted == ["scene1"]
-    assert app.status_var.value == "Scene 1: BuildingModel → scene.v1 → controller → 2D"
+    assert app.status_var.value == "Scene 1: BuildingModel → presentation extension → 2D"
     assert (
         model.name,
         tuple(model.levels),
