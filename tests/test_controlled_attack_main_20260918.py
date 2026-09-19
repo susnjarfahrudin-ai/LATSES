@@ -21,7 +21,7 @@ def test_attack_01_bad_mac_is_rejected_and_recorded():
     records = fortress.adaptive_defense.records()
     assert len(records) == 1
     assert records[0].attack_class == "ipc-rejection"
-    assert fortress.threat.score(ATTACKER) >= 25.0
+    assert fortress.threat.score(ATTACKER) == pytest.approx(25.0, abs=1e-3)
 
 def test_attack_02_replay_is_rejected_after_first_acceptance():
     channel = SignedIPCChannel(SECRET)
