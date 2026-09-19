@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from lat_ces.structural.canonical_result import CanonicalStructuralResult
+from .spatial import WallPlacement
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,7 @@ class Wall:
     openings: List[Opening] = field(default_factory=list)
     exterior: bool = False
     load_bearing: bool = False
+    placement: Optional[WallPlacement] = None
 
     @property
     def partition(self) -> bool:
@@ -56,6 +58,8 @@ class Wall:
     def __post_init__(self):
         if min(self.length_m, self.thickness_m, self.height_m) <= 0:
             raise ValueError("wall dimensions must be positive")
+        if self.placement is not None:
+            self.placement.validate_length(self.length_m)
 
     def add_opening(self, opening: Opening) -> None:
         if opening.position_m < 0 or opening.position_m + opening.width_m > self.length_m:

@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Mapping
 
+from lat_ces.scientific.governance.governance_engine import ScientificKnowledgeGovernanceEngine
+
 from .reason_codes import ApplicabilityReason
 from .registry import ModelRegistry, ModelStatus
 
@@ -46,8 +48,13 @@ class ApplicabilityResult:
 class ApplicabilityEvaluator:
     """Evaluate model applicability without executing the model."""
 
-    def __init__(self, registry: ModelRegistry) -> None:
+    def __init__(
+        self,
+        registry: ModelRegistry,
+        governance_engine: ScientificKnowledgeGovernanceEngine | None = None,
+    ) -> None:
         self.registry = registry
+        self.governance_engine = governance_engine
 
     def evaluate(self, request: ApplicabilityRequest) -> ApplicabilityResult:
         if not request.model_id.strip():
@@ -90,7 +97,26 @@ class ApplicabilityEvaluator:
         if entry.metadata.references and not request.evidence:
             return self._result(request, entry.version, ApplicabilityStatus.INSUFFICIENT_EVIDENCE, ApplicabilityReason.INSUFFICIENT_EVIDENCE, "The model declares references requiring supporting evidence.")
 
+        if entry.metadata.references and request.evidence:
+            unverified = tuple(
+                key for key, evidence in request.evidence.items() if not self._has_verified_lineage(evidence)
+            )
+            if unverified:
+                return self._result(
+                    request,
+                    entry.version,
+                    ApplicabilityStatus.INSUFFICIENT_EVIDENCE,
+                    ApplicabilityReason.INSUFFICIENT_EVIDENCE,
+                    "Supporting evidence is present but its canonical verification record could not be resolved for the exact evidence identity and revision.",
+                    violations=unverified,
+                )
+
         return self._result(request, entry.version, ApplicabilityStatus.APPLICABLE, ApplicabilityReason.APPLICABLE_INPUTS_VALID, "Model applicability requirements are satisfied.", validated_inputs=tuple(sorted(required_inputs)))
+
+    def _has_verified_lineage(self, evidence: object) -> bool:
+        if self.governance_engine is None:
+            return False
+        return self.governance_engine.is_verified_by_record(evidence)
 
     @staticmethod
     def _result(request: ApplicabilityRequest, model_version: str | None, status: ApplicabilityStatus, reason_code: ApplicabilityReason, rationale: str, *, violations: tuple[str, ...] = (), validated_inputs: tuple[str, ...] = ()) -> ApplicabilityResult:

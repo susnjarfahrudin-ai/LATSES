@@ -13,6 +13,12 @@ from typing import Any
 
 from lat_ces.catalog.product_binding import ensure_product_binding_registry
 from lat_ces.catalog.product_catalog import get_product
+from lat_ces.scientific.ciac.thermal_production_input import (
+    ThermalPropertyAdmission,
+    admit_wall_thermal_conductivity,
+    material_thermal_conductivity_instance,
+    product_thermal_conductivity_instance,
+)
 
 
 DEFAULT_R_SI_M2K_W = 0.13
@@ -39,17 +45,29 @@ def _material_for_wall(model: Any, wall: Any):
     return model.materials.get(wall.material_id) if wall.material_id else None
 
 
-def _conductivity_for_wall(model: Any, wall: Any) -> float | None:
+def _thermal_conductivity_admission_for_wall(
+    model: Any,
+    wall: Any,
+) -> ThermalPropertyAdmission | None:
+    """Resolve one real lambda source and require CIAC admission before use.
+
+    Material lambda has priority exactly as in the previous production path.
+    If Material carries a lambda, a rejected value is not silently replaced by
+    a catalog value. Product Catalog is used only when Material lambda is absent.
+    """
     material = _material_for_wall(model, wall)
     if material is not None and material.thermal_conductivity is not None:
-        return material.thermal_conductivity
+        instance = material_thermal_conductivity_instance(wall, material)
+        return admit_wall_thermal_conductivity(wall, instance)
 
     registry = ensure_product_binding_registry(model)
     binding = registry.get(wall.wall_id)
     if binding is not None:
         product = get_product(binding.product_id)
-        if product is not None and product.thermal_conductivity_w_mk is not None:
-            return product.thermal_conductivity_w_mk
+        if product is not None:
+            instance = product_thermal_conductivity_instance(wall, product)
+            if instance is not None:
+                return admit_wall_thermal_conductivity(wall, instance)
     return None
 
 
@@ -91,8 +109,8 @@ def calculate_room_heat_losses(
     """Calculate opaque exterior-wall transmission heat loss per room.
 
     ``Q_wall = U * A_wall * DeltaT`` and ``W/m²`` is reported against the
-    room's canonical floor area. Missing lambda or invalid design temperatures
-    remain explicit ``INPUT_REQUIRED`` instead of being replaced with guesses.
+    room's canonical floor area. Missing or non-admitted lambda remains
+    explicit ``INPUT_REQUIRED`` instead of being replaced with guesses.
     """
     if not isfinite(design_indoor_c) or not isfinite(design_outdoor_c):
         raise ValueError("Design temperatures must be finite")
@@ -111,6 +129,7 @@ def calculate_room_heat_losses(
         for room in level.rooms.values():
             area_m2 = 0.0
             conductivities: list[float] = []
+            admissions: list[ThermalPropertyAdmission] = []
             findings: list[str] = []
 
             for wall in exterior_walls:
@@ -118,11 +137,15 @@ def calculate_room_heat_losses(
                 if overlap_m <= _TOL:
                     continue
                 area_m2 += overlap_m * level.height
-                conductivity = _conductivity_for_wall(model, wall)
-                if conductivity is None:
+                resolved = _thermal_conductivity_admission_for_wall(model, wall)
+                if resolved is None:
                     findings.append(f"nedostaje λ za zid {wall.name}")
-                else:
-                    conductivities.append(conductivity)
+                    continue
+                if resolved.admission.status != "ACCEPTED_FOR_CALCULATION":
+                    findings.append(f"λ za zid {wall.name} nije prihvaćena za ovaj proračun")
+                    continue
+                admissions.append(resolved)
+                conductivities.append(float(resolved.admission.property_instance.value))
 
             if area_m2 <= _TOL:
                 results.append(
@@ -181,7 +204,9 @@ def calculate_room_heat_losses(
                 )
                 continue
 
-            conductivity = conductivities[0]
+            # CAP: the existing production formula consumes the value from the
+            # CIAC-admitted PropertyInstance; no second thermal calculation is introduced.
+            conductivity = float(admissions[0].admission.property_instance.value)
             thickness = wall_thickness_for_room(model, level, room)
             resistance = r_si_m2k_w + thickness / conductivity + r_se_m2k_w
             u_value = 1.0 / resistance
