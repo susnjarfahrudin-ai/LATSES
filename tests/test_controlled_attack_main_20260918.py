@@ -47,7 +47,7 @@ def test_attack_04_flowguard_hard_stop_is_real_but_not_called_by_fortress():
     decision = guard.evaluate({"frequency": 120.0, "volume": 100.0, "concurrency": 100.0, "novelty": 100.0})
     assert decision.allowed is False
     assert decision.limiting_dimension == "frequency"
-    assert decision.max_deviation == pytest.approx(0.20)
+    assert decision.max_deviation == 0.19999999999999996
 
 def test_attack_05_untrusted_bool_and_string_flow_values_are_rejected():
     guard = FlowGuard({name: 100.0 for name in ("frequency", "volume", "concurrency", "novelty")})
