@@ -57,7 +57,10 @@ class FlowGuard:
             value = float(observed[name])
             if not math.isfinite(value) or value < 0.0:
                 raise ValueError("observed flow values must be finite and non-negative")
-            deviations[name] = abs(value / self._baseline[name] - 1.0)
+            deviations[name] = round(
+                abs(value / self._baseline[name] - 1.0),
+                12,
+            )
 
         limiting_dimension = max(deviations, key=deviations.get)
         max_deviation = deviations[limiting_dimension]
