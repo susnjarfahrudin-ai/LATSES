@@ -44,6 +44,33 @@ def test_controlled_attack_matrix_existing_defenses() -> None:
     assert stopped.throttle == 0.0
     assert stopped.max_deviation >= 0.20
 
+    # Stronger controlled attack: hit every FlowGuard dimension independently
+    # above the hard-stop boundary, then hit all four dimensions together.
+    strong_attacks = (
+        ("frequency", 125.0),
+        ("volume", 125.0),
+        ("concurrency", 12.5),
+        ("novelty", 1.25),
+    )
+    for dimension, value in strong_attacks:
+        decision = guard.evaluate({**BASELINE, dimension: value})
+        assert decision.allowed is False, dimension
+        assert decision.throttle == 0.0, dimension
+        assert decision.limiting_dimension == dimension
+        assert decision.max_deviation >= 0.20, dimension
+
+    combined_attack = {
+        "frequency": 125.0,
+        "volume": 125.0,
+        "concurrency": 12.5,
+        "novelty": 1.25,
+    }
+    combined = guard.evaluate(combined_attack)
+    assert combined.allowed is False
+    assert combined.throttle == 0.0
+    assert combined.max_deviation >= 0.20
+    assert combined.limiting_dimension in set(BASELINE)
+
     channel = SignedIPCChannel(b"controlled-attack-secret")
     limiter = TokenBucketRateLimiter(capacity=2.0, refill_per_second=1.0)
     threat = ThreatScoreEngine(ThreatScorePolicy(block_threshold=50.0))
