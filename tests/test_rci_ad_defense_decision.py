@@ -45,14 +45,15 @@ def test_defense_decision_is_immutable():
     ],
 )
 def test_invalid_decision_identity_and_sequence_are_rejected(field, value):
+    kwargs = {
+        "action": DefenseAction.OBSERVE,
+        "reason": "reason",
+        "source_id": "flowguard",
+        "sequence": 1,
+    }
+    kwargs[field] = value
     with pytest.raises(ValueError):
-        DefenseDecision(
-            action=DefenseAction.OBSERVE,
-            reason="reason",
-            source_id="flowguard",
-            sequence=1,
-            **{field: value},
-        )
+        DefenseDecision(**kwargs)
 
 
 def test_invalid_action_is_rejected():
