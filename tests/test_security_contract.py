@@ -6,6 +6,7 @@ from lat_ces.security.security_contract import (
     SecurityRequest,
 )
 
+import pytest
 
 DIMS = ("frequency", "volume", "concurrency", "novelty")
 
@@ -43,6 +44,20 @@ def test_contract_denies_hard_stop():
     assert result.decision is SecurityAction.DENY
     assert result.flow.allowed is False
     assert result.limiting_dimension == "frequency"
+
+
+def test_contract_preserves_below_hard_stop_boundary():
+    guard = FlowGuard({name: 100.0 for name in DIMS})
+    contract = LatcesSecurityContract(guard, lambda _: None)
+
+    result = contract.evaluate(
+        SecurityRequest("req-2b", "kemo.tool.write", make_flow(frequency=119.9))
+    )
+
+    assert result.decision is SecurityAction.ALLOW
+    assert result.flow.allowed is True
+    assert result.limiting_dimension == "frequency"
+    assert result.flow.max_deviation == pytest.approx(0.199)
 
 
 def test_defense_can_request_review_without_mutating_flowguard():
