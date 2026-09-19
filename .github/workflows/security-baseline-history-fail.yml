@@ -1,0 +1,46 @@
+name: Security Baseline — FAIL-SAFE HISTORY
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_fail:
+        description: "Set true only to intentionally stop the workflow after publishing the baseline/history reminder"
+        required: true
+        default: "false"
+        type: boolean
+
+permissions: {}
+
+jobs:
+  security-history:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish baseline and history
+        run: |
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          # LAT-CES security baseline / history
+
+          Selected forensic baseline: PR #276
+          Exact baseline HEAD: efc44786cbb7e079349da05ff1d3e5aabaa6aef7
+
+          Main restoration target:
+          - restore the security/runtime state represented by #276
+          - preserve post-#276 work as historical evidence
+          - analyze later changes only after the baseline is stable
+          - never treat historical GREEN as proof of current production wiring
+
+          Historical checkpoints preserved in:
+          docs/audit/POST_276_SECURITY_HISTORY_LEDGER.md
+
+          Current restoration sequence:
+          #276 baseline -> verify -> restore #276 security/runtime -> verify -> later selective re-application.
+
+          Fail-safe rule:
+          This workflow is manual. It does not alter production code and does not replace Verification.
+          Set force_fail=true only when the session must deliberately stop and require review of the history.
+          EOF
+      - name: Intentional fail-safe stop
+        if: ${{ inputs.force_fail }}
+        run: |
+          echo "FAIL-SAFE: security baseline/history review intentionally stopped here."
+          exit 1
