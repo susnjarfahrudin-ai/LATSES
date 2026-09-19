@@ -1,8 +1,8 @@
 """Bounded multi-dimensional flow control for the security boundary.
 
 The guard keeps a fixed trusted baseline and never learns a new baseline from
-untrusted traffic. It starts proportional throttling at 12% deviation and
-reaches an admission stop at 20%. The four dimensions are evaluated in
+untrusted traffic.  It starts proportional throttling at 12% deviation and
+reaches an admission stop at 20%.  The four dimensions are evaluated in
 parallel and the strictest dimension controls the resulting allowance.
 """
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 from typing import Mapping
+
 
 FLOW_DIMENSIONS = ("frequency", "volume", "concurrency", "novelty")
 
@@ -54,16 +55,10 @@ class FlowGuard:
 
         deviations = {}
         for name in FLOW_DIMENSIONS:
-            raw_value = observed[name]
-            if isinstance(raw_value, bool) or not isinstance(raw_value, (int, float)):
-                raise ValueError("observed flow values must be numeric int or float")
-            value = float(raw_value)
+            value = float(observed[name])
             if not math.isfinite(value) or value < 0.0:
                 raise ValueError("observed flow values must be finite and non-negative")
-            deviations[name] = round(
-                abs(value / self._baseline[name] - 1.0),
-                12,
-            )
+            deviations[name] = abs(value / self._baseline[name] - 1.0)
 
         limiting_dimension = max(deviations, key=deviations.get)
         max_deviation = deviations[limiting_dimension]
