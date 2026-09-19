@@ -8,6 +8,8 @@ from enum import Enum
 
 
 class AuthorityLevel(Enum):
+    """Structural constitutional ordering, not epistemic evidence authority."""
+
     PHYSICAL_REALITY = 1
     MATHEMATICAL_MODEL = 2
     SOFTWARE_ENGINE = 3
@@ -26,7 +28,9 @@ class ConstitutionalAxiom:
     """Core constitutional axiom helpers and authority rules."""
 
     AXIOM_1_REALITY_SUPREMACY = (
-        "Fizička realnost i mjerenja imaju apsolutni autoritet nad modelima."
+        "Fizička realnost je krajnji referent. Mjerenja su dokazni podaci o realnosti "
+        "i podliježu provjeri; nijedno mjerenje, model, softver ili AI rezultat "
+        "nema samostalni autoritet da proglasi naučnu istinu."
     )
     AXIOM_7_TRACEABILITY = (
         "Svaka inženjerska odluka i objekt mora imati potpuni kriptografski dokaz porijekla."
@@ -34,7 +38,11 @@ class ConstitutionalAxiom:
 
     @staticmethod
     def validate_authority(higher: AuthorityLevel, lower: AuthorityLevel) -> bool:
-        """Ensure a lower authority cannot override a higher one."""
+        """Ensure structural constitutional precedence is not reversed.
+
+        This is not an epistemic verification mechanism and does not promote
+        data or measurements to VERIFIED evidence.
+        """
         return higher.value < lower.value
 
 

@@ -11,7 +11,7 @@ from tkinter import ttk
 
 from lat_ces.building.mep import ensure_mep_registry
 from lat_ces.building_model.quantities import to_quantity_view
-from lat_ces.gui_launcher import CompleteBuildingWorkspaceApp
+from lat_ces.gui_complete import CompleteBuildingWorkspaceApp
 
 
 class ProjectOverviewApp(CompleteBuildingWorkspaceApp):
