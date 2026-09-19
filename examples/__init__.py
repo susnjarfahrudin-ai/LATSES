@@ -1,1 +1,1 @@
-"""Executable example fixtures used by repository smoke tests."""
+"""Executable example and reference-model fixtures."""

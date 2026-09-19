@@ -13,19 +13,6 @@ from lat_ces.building.mep import (
     VentilationOpening,
     ensure_mep_registry,
 )
-from lat_ces.building.model import (
-    BuildingModel as CanonicalBuildingModel,
-    Level as CanonicalLevel,
-    Material as CanonicalMaterial,
-    Room as CanonicalRoom,
-)
-from lat_ces.building.floor_plan import (
-    FloorPlan as CanonicalFloorPlan,
-    Point2D,
-    Segment2D,
-    Wall as CanonicalWall,
-)
-from lat_ces.building.geometry import Box3D, Point3D
 from lat_ces.building_model.concept import (
     BuildingConcept,
     RoofCover,
@@ -63,8 +50,16 @@ def _level(level_id: str, name: str) -> Level:
     return level
 
 
-def _add_mep(model: object) -> None:
+def build_test_house() -> tuple[BuildingModel, BuildingConcept]:
+    model = BuildingModel(name="Reference House 11.5 x 8 m")
+    model.materials["masonry"] = Material("masonry envelope", density_kg_m3=1800.0, conductivity_w_mk=0.70)
+    model.add_level(_level("ground", "Prizemlje"))
+    model.add_level(_level("floor1", "Sprat"))
+
     mep = ensure_mep_registry(model)
+
+    # Visualization fixture: 100 mm branches at 1 m/s. This is deliberately
+    # explicit so CFD/flow adapters can consume real opening identities.
     for level_id in ("ground", "floor1"):
         room_id = f"{level_id}-open-zone"
         for index in range(8):
@@ -121,15 +116,9 @@ def _add_mep(model: object) -> None:
             )
         )
 
-
-def build_test_house() -> tuple[BuildingModel, BuildingConcept]:
-    model = BuildingModel(name="Reference House 11.5 x 8 m")
-    model.materials["masonry"] = Material("masonry envelope", density_kg_m3=1800.0, conductivity_w_mk=0.70)
-    model.add_level(_level("ground", "Prizemlje"))
-    model.add_level(_level("floor1", "Sprat"))
-
-    _add_mep(model)
-
+    # The current canonical BuildingModel -> Concept adapter preserves the
+    # building identity. Roof metadata is attached at the concept boundary,
+    # where RoofModel is already a first-class canonical concept type.
     concept = to_concept(model)
     concept.roof = RoofModel(
         length_m=HOUSE_LENGTH_M,
@@ -143,70 +132,6 @@ def build_test_house() -> tuple[BuildingModel, BuildingConcept]:
         overhang_m=0.25,
     )
     return model, concept
-
-
-def build_test_workflow_house() -> CanonicalBuildingModel:
-    """Build the same reference house on the production GUI BuildingModel.
-
-    The engineering-report path consumes this model, whose geometry contract
-    is Level.floor_plan -> FloorPlan.walls.
-    """
-    model = CanonicalBuildingModel(name="Reference House 11.5 x 8 m")
-    model.add_material(
-        CanonicalMaterial(
-            name="masonry envelope",
-            density=1800.0,
-            thermal_conductivity=0.70,
-            material_id="masonry",
-        )
-    )
-
-    for level_id, name, elevation in (
-        ("ground", "Prizemlje", 0.0),
-        ("floor1", "Sprat", LEVEL_HEIGHT_M),
-    ):
-        level = CanonicalLevel(
-            name=name,
-            elevation=elevation,
-            height=LEVEL_HEIGHT_M,
-            level_id=level_id,
-            length_m=HOUSE_LENGTH_M,
-            width_m=HOUSE_WIDTH_M,
-        )
-        room_id = f"{level_id}-open-zone"
-        level.add_room(
-            CanonicalRoom(
-                name=f"{name} open zone",
-                footprint=Box3D(Point3D(0.0, 0.0, 0.0), HOUSE_LENGTH_M, HOUSE_WIDTH_M, LEVEL_HEIGHT_M),
-                room_id=room_id,
-            )
-        )
-
-        plan = CanonicalFloorPlan(name=f"{name} floor plan")
-        walls = (
-            ("north", Point2D(0.0, 0.0), Point2D(HOUSE_LENGTH_M, 0.0), 4.0),
-            ("south", Point2D(0.0, HOUSE_WIDTH_M), Point2D(HOUSE_LENGTH_M, HOUSE_WIDTH_M), 4.0),
-            ("east", Point2D(HOUSE_LENGTH_M, 0.0), Point2D(HOUSE_LENGTH_M, HOUSE_WIDTH_M), 2.0),
-            ("west", Point2D(0.0, 0.0), Point2D(0.0, HOUSE_WIDTH_M), 2.0),
-        )
-        for wall_name, start, end, tributary_width in walls:
-            plan.add_wall(
-                CanonicalWall(
-                    name=f"{level_id}-{wall_name}",
-                    segment=Segment2D(start, end),
-                    thickness=0.25,
-                    load_bearing=True,
-                    material_id="masonry",
-                    tributary_width_m=tributary_width,
-                    exterior=True,
-                    room_ids=(room_id,),
-                )
-            )
-        level.set_floor_plan(plan)
-        model.add_level(level)
-
-    _add_mep(model)
-    return model
 
 
 def fixture_summary() -> dict[str, object]:

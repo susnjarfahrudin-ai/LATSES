@@ -4,7 +4,7 @@ Secure Gateway Interface Reference Implementation (LAT-COM-CORE-0012)
 """
 from typing import Any, Dict
 
-from lat_ces.gov.axiom import ConstitutionalEngine
+from lat_ces.gov.axiom import AxiomViolationError, ConstitutionalEngine
 
 
 class SecureGateway:
@@ -17,12 +17,13 @@ class SecureGateway:
         self.governance = governance
 
     def process_request(self, payload: Dict[str, Any]) -> bool:
-        """Processes external request after constitutional validation."""
-        # Validate against system axioms
+        """Process an external request with fail-closed constitutional validation."""
         try:
-            self.governance.verify_state(payload)
-            # Proceed with processing...
+            violations = self.governance.verify_state(payload)
+            if violations:
+                raise AxiomViolationError(
+                    "Constitutional validation failed: " + ", ".join(map(str, violations))
+                )
             return True
         except Exception as e:
-            # Log violation and deny
-            raise Exception(f"Gateway Access Denied: {str(e)}")
+            raise Exception(f"Gateway Access Denied: {str(e)}") from e

@@ -11,6 +11,7 @@ from lat_ces.building.model import Material, Roof
 from lat_ces.building.structural import calculate_structural_loads
 from lat_ces.gui import FloorPlanEditor
 from lat_ces.gui_drafting import DraftingLATCESApp
+from lat_ces.gui_material_input import MaterialInputDialog
 from lat_ces.gui_mep_engineering import EngineeringMEPWorkspaceApp
 
 
@@ -30,16 +31,13 @@ class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
         self.wall_tributary_var = None
         self.level_dead_load_var = None
         self.level_live_load_var = None
-        self.material_name_var = None
-        self.material_density_var = None
-        self.material_e_var = None
-        self.material_lambda_var = None
         self.facade_direction_var = None
         self.calculation_output = None
         self.mep_output = None
         super().__init__()
         self._install_complete_tabs()
         self._refresh_complete_tabs()
+        self._install_engineering_summary()
 
     def _install_complete_tabs(self) -> None:
         children = list(self.winfo_children())
@@ -116,15 +114,17 @@ class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
         ttk.Entry(tab, textvariable=self.level_live_load_var).grid(row=7, column=1, sticky="ew", padx=8)
         ttk.Button(tab, text="Primijeni opterećenje etaže", command=self._apply_level_loads).grid(row=8, column=0, columnspan=2, sticky="ew", pady=6)
         ttk.Separator(tab).grid(row=9, column=0, columnspan=2, sticky="ew", pady=6)
-        self.material_name_var = tk.StringVar(value="Armirani beton")
-        self.material_density_var = tk.StringVar(value="2500")
-        self.material_e_var = tk.StringVar(value="30000000000")
-        self.material_lambda_var = tk.StringVar(value="2.10")
-        for row, (label, var) in enumerate((("Naziv", self.material_name_var), ("Gustina kg/m³", self.material_density_var), ("E Pa", self.material_e_var), ("λ W/mK", self.material_lambda_var)), start=10):
-            ttk.Label(tab, text=label).grid(row=row, column=0, sticky="w")
-            ttk.Entry(tab, textvariable=var).grid(row=row, column=1, sticky="ew", padx=8)
-        ttk.Button(tab, text="Dodaj materijal", command=self._add_material).grid(row=14, column=0, columnspan=2, sticky="ew", pady=6)
+        ttk.Label(tab, text="Novi materijal se unosi isključivo kroz Manufacturer Specification Gate.", foreground="#92400e", wraplength=700).grid(row=10, column=0, columnspan=2, sticky="w", pady=(0, 5))
+        ttk.Button(tab, text="Novi materijal — proizvođačka specifikacija", command=self._open_material_input).grid(row=11, column=0, columnspan=2, sticky="ew", pady=6)
         tab.columnconfigure(1, weight=1)
+
+    def _open_material_input(self):
+        MaterialInputDialog(self, self._add_material_from_dialog)
+
+    def _add_material_from_dialog(self, material: Material):
+        self.workflow.model.add_material(material)
+        self._refresh_structure_materials()
+        self.status_var.set(f"Materijal dodat: {material.name} · {material.manufacturer} · {material.product_id}")
 
     def _build_calc_tab(self, tab):
         buttons = ttk.Frame(tab); buttons.pack(fill="x")
@@ -184,14 +184,6 @@ class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
         wall.material_id = next((mid for mid, mat in self.workflow.model.materials.items() if mat.name == name), None)
         wall.tributary_width_m = tributary
         self.refresh_view(); self.status_var.set(f"{wall.role_label}: {wall.name}")
-
-    def _add_material(self):
-        try:
-            material = Material(name=self.material_name_var.get().strip(), density=float(self.material_density_var.get()), youngs_modulus=float(self.material_e_var.get()), thermal_conductivity=float(self.material_lambda_var.get()))
-            self.workflow.model.add_material(material)
-        except (ValueError, TypeError) as exc:
-            messagebox.showwarning("LAT-CES — Materijal", str(exc), parent=self); return
-        self._refresh_structure_materials(); self.status_var.set(f"Materijal dodat: {material.name}")
 
     def _refresh_structure_materials(self):
         if not hasattr(self, "wall_material_combo"): return
@@ -278,6 +270,74 @@ class CompleteBuildingWorkspaceApp(DraftingLATCESApp):
         self.canvas.create_text(20, 20, text=f"FASADA — {direction}", anchor="nw", font=("Segoe UI", 14, "bold"), fill="#1f2937")
         if self.workflow.model.roof: self.canvas.create_text(20, 45, text=f"Krov: {self.workflow.model.roof.length_m:.2f} × {self.workflow.model.roof.width_m:.2f} m", anchor="nw", fill="#475569")
         self.draw_compass()
+
+    @staticmethod
+    def _add_record(tree: ttk.Treeview, kind: str, object_id: str, details: str) -> None:
+        tree.insert("", "end", values=(kind, object_id, details))
+
+    def show_canonical_model_inspector(self):
+        window = tk.Toplevel(self)
+        window.title("LAT-CES — Canonical Building Model")
+        window.geometry("1050x620")
+        window.transient(self)
+        ttk.Label(window, text="Canonical BuildingModel — jedan fizički model / mnogo stručnih pogleda", font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=12, pady=(10, 6))
+        tree = ttk.Treeview(window, columns=("kind", "id", "details"), show="headings")
+        tree.heading("kind", text="Objekat"); tree.heading("id", text="ID"); tree.heading("details", text="Podaci")
+        tree.column("kind", width=130, anchor="w"); tree.column("id", width=330, anchor="w"); tree.column("details", width=550, anchor="w")
+        tree.pack(fill="both", expand=True, padx=12, pady=6)
+        model = self.workflow.model
+        for level in model.levels.values():
+            self._add_record(tree, "Level", level.level_id, f"{level.name} · {level.length_m:.2f} × {level.width_m:.2f} m · h={level.height:.2f} m")
+            for room in level.rooms.values():
+                self._add_record(tree, "Room", room.room_id, f"{room.name} · {room.floor_area:.2f} m² · V={room.volume:.2f} m³ · h={room.footprint.height:.2f} m")
+            for stair in level.stairs.values():
+                self._add_record(tree, "Stair", stair.id, f"{stair.name} · {stair.length_m:.2f} × {stair.width_m:.2f} m · {stair.riser_count or 'N/A'} stepenika · h={stair.riser_height_m or 'N/A'} m · gazište={stair.tread_width_m or 'N/A'} m · podest={'DA' if stair.landing else 'NE'} · ograda={'DA' if stair.railing else 'NE'} · otvor={'DA' if stair.floor_opening else 'NE'}")
+            for terrace in level.terraces.values():
+                self._add_record(tree, "Terrace", terrace.id, f"{terrace.name} · {terrace.length_m:.2f} × {terrace.width_m:.2f} m · {terrace.construction_type}")
+            if level.floor_plan:
+                for wall in level.floor_plan.walls.values():
+                    product = model.materials.get(wall.material_id) if wall.material_id else None
+                    self._add_record(tree, "Wall", wall.wall_id, f"{wall.name} · {'vanjski' if wall.exterior else 'unutrašnji'} · {'nosivi' if wall.load_bearing else 'pregradni'} · Product={(product.resolved_product_id if product else 'N/A')}")
+                    for opening in wall.openings:
+                        self._add_record(tree, "Opening", opening.opening_id, f"{opening.kind} · {opening.width:.2f} × {opening.height_m:.2f} m · wall={wall.wall_id}")
+        for material in model.materials.values():
+            self._add_record(tree, "Material/Product", material.material_id, f"{material.name} · Product={material.resolved_product_id} · λ={material.thermal_conductivity if material.thermal_conductivity is not None else 'N/A'} · ρ={material.density if material.density is not None else 'N/A'} · proizvođač={getattr(material, 'manufacturer', None) or 'N/A'}")
+
+    def _install_engineering_summary(self) -> None:
+        if not hasattr(self, "complete_tabs"):
+            return
+        frame = ttk.Frame(self.complete_tabs, padding=10)
+        self.complete_tabs.add(frame, text="Engineering Summary")
+        ttk.Button(frame, text="Osvježi sve", command=self.refresh_engineering_summary).pack(anchor="w")
+        self.engineering_summary = tk.Text(frame, height=22, wrap="word")
+        self.engineering_summary.pack(fill="both", expand=True, pady=(8, 0)); self.engineering_summary.configure(state="disabled")
+        self.refresh_engineering_summary()
+
+    def refresh_engineering_summary(self) -> None:
+        widget = getattr(self, "engineering_summary", None)
+        if widget is None or not getattr(self, "workflow", None):
+            return
+        model = self.workflow.model
+        q = __import__("lat_ces.building_model.quantities", fromlist=["to_quantity_view"]).to_quantity_view(model)
+        registry = ensure_mep_registry(model)
+        lines = ["CANONICAL BUILDING MODEL — ENGINEERING SUMMARY", "", "STATIKA"]
+        try:
+            structural = calculate_structural_loads(model)
+            lines += [f"Status: {structural.status}", f"Vertikalno linijsko opterećenje: {structural.total_vertical_line_load_kn_m:.3f} kN/m", f"Zidovi: {len(structural.walls)}", ""]
+        except Exception as exc:
+            lines += [f"Nije dostupno: {exc}", ""]
+        lines += ["TERMIKA"]
+        try:
+            from lat_ces.thermal.building_model_adapter import to_thermal_input
+            thermal = to_thermal_input(model)
+            known = sum(1 for wall in thermal.walls if wall.thermal_conductivity_w_mk and wall.thermal_conductivity_w_mk > 0)
+            lines += [f"Zidovi: {len(thermal.walls)}", f"Verificirana λ svojstva: {known}/{len(thermal.walls)}", ""]
+        except Exception as exc:
+            lines += [f"Nije dostupno: {exc}", ""]
+        lines += ["KOLIČINE", f"Prostorije: {len(q.rooms)}", f"Zidovi: {len(q.walls)}", f"Otvori: {len(q.openings)}", f"Stepeništa: {len(q.stairs)}", f"Terase: {len(q.terraces)}", f"Površina prostorija: {sum(r.floor_area_m2 for r in q.rooms):.2f} m²", f"Volumen prostorija: {sum(r.volume_m3 for r in q.rooms):.2f} m³", ""]
+        lines += ["MEP", f"Ventilacija: {len(registry.all_ventilation_openings)}", f"Voda: {len(registry.all_water_branches)}", f"Grijanje: {len(registry.all_heating_zones)}", ""]
+        lines += ["MODEL INTEGRITET", f"Leveli: {len(model.levels)}", f"Materijali/Proizvodi: {len(model.materials)}", "Jedan BuildingModel je source of truth za sve navedene prikaze."]
+        widget.configure(state="normal"); widget.delete("1.0", "end"); widget.insert("1.0", "\n".join(lines)); widget.configure(state="disabled")
 
 
 def main() -> None:
