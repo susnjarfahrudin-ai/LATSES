@@ -81,7 +81,7 @@ class SignedIPCChannel:
         mac = hmac.new(self._secret, _canonical(envelope), hashlib.sha256).hexdigest()
         return _canonical({"envelope": envelope, "mac": mac})
 
-    def unpack(self, packet: bytes) -> dict[str, Any]:
+    def unpack(self, packet: bytes, *, expected_sender_id: str | None = None) -> dict[str, Any]:
         try:
             outer = json.loads(packet.decode("utf-8"))
             envelope = outer["envelope"]
@@ -91,6 +91,8 @@ class SignedIPCChannel:
             expected = hmac.new(self._secret, _canonical(envelope), hashlib.sha256).hexdigest()
             if not hmac.compare_digest(received, expected):
                 raise SecurityError("IPC authentication failed")
+            if expected_sender_id is not None and envelope["sender_id"] != expected_sender_id:
+                raise SecurityError("IPC sender identity mismatch")
             now = time.time()
             timestamp = float(envelope["timestamp"])
             if not math.isfinite(timestamp):
