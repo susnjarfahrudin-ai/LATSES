@@ -35,10 +35,12 @@ class CyberFortress:
             return SecurityAdmission(False, "rate-limited", score)
         return SecurityAdmission(True, "allowed", self.threat.score(address, now=now))
     def receive(self, address: str, packet: bytes, *, cost: float = 1.0, now: float | None = None) -> dict[str, Any]:
-        admission = self.admit(address, cost=cost, now=now)
-        if not admission.allowed: raise SecurityError(admission.reason)
         try:
-            return self.ipc.unpack(packet)
+            payload = self.ipc.unpack(packet, expected_sender_id=address)
+            admission = self.admit(address, cost=cost, now=now)
+            if not admission.allowed:
+                raise SecurityError(admission.reason)
+            return payload
         except SecurityError as exc:
             self.threat.record(address, 25.0, now=now)
             self.adaptive_defense.observe_failure(f"ipc:{str(exc)}", "ipc-rejection", str(exc), source="A")
