@@ -72,7 +72,6 @@ class FlowGuard:
         if max_deviation <= self.START_THROTTLE:
             return FlowDecision(True, 1.0, max_deviation, None)
 
-        # Quadratic falloff: the closer to 20%, the more aggressively the pipe closes.
         progress = (max_deviation - self.START_THROTTLE) / (self.HARD_STOP - self.START_THROTTLE)
         throttle = max(0.0, 1.0 - progress * progress)
         return FlowDecision(True, throttle, max_deviation, limiting_dimension)
