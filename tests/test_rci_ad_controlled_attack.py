@@ -55,17 +55,17 @@ def test_controlled_attack_matrix_existing_defenses() -> None:
         adaptive_defense=defense,
     )
 
-    packet = channel.pack({"operation": "probe"}, sender_id="controlled-test")
+    packet = channel.pack({"operation": "probe"}, sender_id="10.10.10.10")
     assert fortress.receive("10.10.10.10", packet, now=100.0) == {"operation": "probe"}
 
     with pytest.raises(SecurityError, match="replay"):
         fortress.receive("10.10.10.10", packet, now=100.0)
 
     rate_packet_1 = channel.pack(
-        {"operation": "rate-probe-1"}, sender_id="controlled-test"
+        {"operation": "rate-probe-1"}, sender_id="10.10.10.11"
     )
     rate_packet_2 = channel.pack(
-        {"operation": "rate-probe-2"}, sender_id="controlled-test"
+        {"operation": "rate-probe-2"}, sender_id="10.10.10.11"
     )
     assert fortress.receive("10.10.10.11", rate_packet_1, now=100.0) == {
         "operation": "rate-probe-1"
@@ -75,13 +75,13 @@ def test_controlled_attack_matrix_existing_defenses() -> None:
     }
 
     rate_packet_3 = channel.pack(
-        {"operation": "rate-probe-3"}, sender_id="controlled-test"
+        {"operation": "rate-probe-3"}, sender_id="10.10.10.11"
     )
     with pytest.raises(SecurityError, match="rate-limited"):
         fortress.receive("10.10.10.11", rate_packet_3, now=100.0)
 
     forged = json.loads(
-        channel.pack({"operation": "tamper"}, sender_id="controlled-test").decode()
+        channel.pack({"operation": "tamper"}, sender_id="10.10.10.12").decode()
     )
     forged["mac"] = "0" * 64
     forged_packet = json.dumps(forged, separators=(",", ":")).encode()
@@ -96,7 +96,7 @@ def test_controlled_attack_matrix_existing_defenses() -> None:
     with pytest.raises(SecurityError, match="threat-blocked"):
         fortress.receive(
             "10.10.10.13",
-            channel.pack({"operation": "blocked"}, sender_id="controlled-test"),
+            channel.pack({"operation": "blocked"}, sender_id="10.10.10.13"),
             now=100.0,
         )
 
