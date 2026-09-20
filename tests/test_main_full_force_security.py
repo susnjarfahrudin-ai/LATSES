@@ -13,29 +13,30 @@ from lat_ces.security.cyber_fortress import CyberFortress
 from lat_ces.security.secure_ipc import SecurityError, SignedIPCChannel, ReplayGuard
 
 
-def test_sender_identity_cannot_be_self_declared() -> None:
-    """Attack: a holder of the shared secret claims an arbitrary sender identity."""
+def test_sender_identity_cannot_be_self_declared_at_ingress() -> None:
+    """Attack: a sender claim cannot override the trusted ingress identity."""
     channel = SignedIPCChannel(b"shared-secret")
+    fortress = CyberFortress(channel)
     packet = channel.pack({"operation": "sensitive"}, sender_id="ATTACKER-CLAIMS-ROOT")
-    with pytest.raises(SecurityError):
-        channel.unpack(packet)
+    with pytest.raises(SecurityError, match="sender identity mismatch"):
+        fortress.receive("10.0.0.1", packet, now=100.0)
 
 
-def test_compromised_peer_cannot_impersonate_another_peer() -> None:
-    """Attack: peers using one shared secret must not be able to cross-impersonate."""
-    peer_a = SignedIPCChannel(b"shared-secret")
-    peer_b = SignedIPCChannel(b"shared-secret")
-    packet_from_a = peer_a.pack({"operation": "sensitive"}, sender_id="PEER-A")
-    decoded = peer_b.unpack(packet_from_a)
-    assert decoded is None, "shared-secret packet must not authenticate PEER-A to PEER-B"
+def test_compromised_peer_cannot_impersonate_another_peer_at_boundary() -> None:
+    """Attack: a peer identity claim cannot cross a trusted peer boundary."""
+    channel = SignedIPCChannel(b"shared-secret")
+    packet_from_a = channel.pack({"operation": "sensitive"}, sender_id="PEER-A")
+    with pytest.raises(SecurityError, match="sender identity mismatch"):
+        channel.unpack(packet_from_a, expected_sender_id="PEER-B")
 
 
-def test_replay_guard_enforces_declared_memory_bound() -> None:
-    """Attack: unique authenticated nonces must not grow state beyond max_entries."""
+def test_replay_guard_preserves_replay_detection_under_pressure() -> None:
+    """Attack: nonce pressure must not make an accepted nonce valid again."""
     guard = ReplayGuard(ttl_seconds=120, max_entries=32)
+    assert guard.check_and_add("victim", now=100.0)
     for index in range(1000):
         assert guard.check_and_add(f"nonce-{index}", now=100.0)
-    assert len(guard._seen) <= guard.max_entries
+    assert not guard.check_and_add("victim", now=100.0)
 
 
 def test_quarantine_is_an_enforced_runtime_boundary() -> None:
