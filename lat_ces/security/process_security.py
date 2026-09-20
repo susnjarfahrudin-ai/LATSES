@@ -16,10 +16,24 @@ class ProcessIdentity:
     process_uuid: str
     created_at_utc: str
     kernel_start_token: str
+    port: int = 0
+
+    def __post_init__(self) -> None:
+        if self.pid <= 0:
+            raise ValueError("pid must be positive")
+        if not 0 <= self.port <= 65535:
+            raise ValueError("port must be between 0 and 65535")
 
     @property
     def fingerprint(self) -> str:
+        # Keep the historical process fingerprint stable for callers that use
+        # it to detect PID reuse.
         return f"{self.pid}:{self.kernel_start_token}"
+
+    @property
+    def endpoint(self) -> str:
+        """Stable process endpoint identity used by authenticated IPC."""
+        return f"{self.fingerprint}:{self.port}"
 
 
 @dataclass(frozen=True)
@@ -82,13 +96,14 @@ def process_start_token(pid: int) -> str:
     raise RuntimeError(f"process start token unsupported on {sys.platform}")
 
 
-def current_process_identity() -> ProcessIdentity:
+def current_process_identity(*, port: int = 0) -> ProcessIdentity:
     pid = os.getpid()
     return ProcessIdentity(
         pid=pid,
         process_uuid=str(uuid.uuid4()),
         created_at_utc=datetime.now(timezone.utc).isoformat(),
         kernel_start_token=process_start_token(pid),
+        port=port,
     )
 
 
@@ -102,13 +117,7 @@ def is_process_alive(pid: int, expected_fingerprint: str) -> bool:
 
 
 def activate_process_isolation(*, strict: bool = False) -> ProcessIsolationResult:
-    """Apply native hardening available on the current platform.
-
-    Linux disables the dumpable flag, which also blocks normal ptrace attach.
-    Windows uses supported process-mitigation policies that reduce dynamic-code
-    and extension-point injection. This is not protection from a privileged
-    kernel attacker.
-    """
+    """Apply native hardening available on the current platform."""
     if sys.platform.startswith("linux"):
         libc = ctypes.CDLL("libc.so.6", use_errno=True)
         result = libc.prctl(13, 0, 0, 0, 0)
