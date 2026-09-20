@@ -37,14 +37,14 @@ class CyberFortress:
     def receive(self, address: str, packet: bytes, *, cost: float = 1.0, now: float | None = None) -> dict[str, Any]:
         try:
             payload = self.ipc.unpack(packet, expected_sender_id=address)
-            admission = self.admit(address, cost=cost, now=now)
-            if not admission.allowed:
-                raise SecurityError(admission.reason)
-            return payload
         except SecurityError as exc:
             self.threat.record(address, 25.0, now=now)
             self.adaptive_defense.observe_failure(f"ipc:{str(exc)}", "ipc-rejection", str(exc), source="A")
             raise
+        admission = self.admit(address, cost=cost, now=now)
+        if not admission.allowed:
+            raise SecurityError(admission.reason)
+        return payload
     def handoff_verified_defense(self, standby: "CyberFortress") -> int:
         records = self.adaptive_defense.export_verified()
         for record in records: standby.adaptive_defense.import_verified(record)
