@@ -19,6 +19,38 @@ jobs:
     - name: Preuzimanje koda (Checkout)
       uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26
 
+    - name: Forensic Git object vs worktree byte-identity probe
+      shell: bash
+      run: |
+        set -euo pipefail
+        for path in \
+          lat_ces/security/process_security.py \
+          lat_ces/security/secure_ipc.py \
+          lat_ces/audit_log.py
+        do
+          echo "=== FORENSIC_GIT_WORKTREE|PATH=$path ==="
+          blob_id="$(git rev-parse "HEAD:$path")"
+          object_sha256="$(git cat-file blob "$blob_id" | sha256sum | cut -d' ' -f1)"
+          worktree_sha256="$(sha256sum "$path" | cut -d' ' -f1)"
+          worktree_blob_id="$(git hash-object "$path")"
+          echo "BLOB_ID=$blob_id"
+          echo "GIT_OBJECT_SHA256=$object_sha256"
+          echo "WORKTREE_SHA256=$worktree_sha256"
+          echo "WORKTREE_BLOB_ID=$worktree_blob_id"
+          echo "GIT_ATTRS_BEGIN"
+          git check-attr -a -- "$path" || true
+          echo "GIT_ATTRS_END"
+          if [[ "$blob_id" != "$worktree_blob_id" ]]; then
+            echo "FORENSIC_FAIL|GIT_OBJECT_WORKTREE_MISMATCH|PATH=$path"
+            exit 1
+          fi
+          if [[ "$object_sha256" != "$worktree_sha256" ]]; then
+            echo "FORENSIC_FAIL|CONTENT_HASH_MISMATCH|PATH=$path"
+            exit 1
+          fi
+        done
+        echo "FORENSIC_PASS|GIT_OBJECT_WORKTREE_IDENTICAL"
+
     - name: Podešavanje Python okruženja
       uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c
       with:
