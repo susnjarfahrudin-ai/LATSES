@@ -54,3 +54,25 @@ def test_quarantine_is_an_enforced_runtime_boundary() -> None:
     packet = fortress.ipc.pack({"operation": "sensitive"}, sender_id="trusted")
     with pytest.raises(SecurityError):
         fortress.receive("10.0.0.1", packet, now=100.0)
+
+
+def test_quarantine_control_pair_is_not_masked_by_ipc_identity_failure() -> None:
+    """Attack: the same valid packet must pass normally and fail only if quarantine is enforced."""
+    channel = SignedIPCChannel(b"shared-secret")
+    address = "10.0.0.1"
+    packet = channel.pack({"operation": "sensitive"}, sender_id=address)
+
+    baseline = CyberFortress(channel)
+    assert baseline.receive(address, packet, now=100.0) == {"operation": "sensitive"}
+
+    defense = AdaptiveDefense()
+    record = defense.observe_failure(
+        "ipc:authentication-failed",
+        "ipc-rejection",
+        "forensic attack",
+    )
+    defense.quarantine(record)
+
+    quarantined = CyberFortress(channel, adaptive_defense=defense)
+    with pytest.raises(SecurityError, match="quarantined"):
+        quarantined.receive(address, packet, now=100.0)
