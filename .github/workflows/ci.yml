@@ -110,41 +110,94 @@ jobs:
       run: |
         python - <<'PY'
         import hashlib
+        import importlib
+        import importlib._bootstrap_external as be
         import importlib.machinery
         import sys
         from pathlib import Path
 
-        target = "lat_ces.security.process_security"
-        security_dir = Path("lat_ces/security").resolve()
-        origin = security_dir / "process_security.py"
-        print(f"DIRECT-PATH|{origin}")
-        data = origin.read_bytes()
-        print(f"ORIGIN-BYTES|PATH={origin}|SIZE={len(data)}|SHA256={hashlib.sha256(data).hexdigest()}|NULL_OFFSETS={[i for i,b in enumerate(data) if b == 0]}")
-        compile(data, str(origin), "exec")
-        print("ORIGIN-COMPILE-OK")
+        def report(label, path, raw):
+            offsets = []
+            start = 0
+            while True:
+                pos = raw.find(b"\x00", start)
+                if pos < 0:
+                    break
+                offsets.append(pos)
+                start = pos + 1
+            print(
+                f"{label}|PATH={path}|SIZE={len(raw)}|"
+                f"SHA256={hashlib.sha256(raw).hexdigest()}|NULL_OFFSETS={offsets}"
+            )
+            return offsets
 
-        spec = importlib.machinery.PathFinder.find_spec(target, [str(security_dir)])
-        print(f"PATHFINDER-SPEC|origin={getattr(spec, 'origin', None)}|loader={type(getattr(spec, 'loader', None)).__name__}")
-        if spec and spec.loader and hasattr(spec.loader, "get_source"):
-            source = spec.loader.get_source(target)
-            raw = source.encode("utf-8") if isinstance(source, str) else source
-            print(f"PATHFINDER-SOURCE|TYPE={type(source).__name__}|SIZE={len(raw)}|SHA256={hashlib.sha256(raw).hexdigest()}|NULL_OFFSETS={[i for i,b in enumerate(raw) if b == 0]}")
-            compile(source, str(origin), "exec")
-            print("PATHFINDER-COMPILE-OK")
+        print(f"PYTHON|VERSION={sys.version}")
+        print(f"PYTHON|EXECUTABLE={sys.executable}")
+        print(f"PYTHON|CWD={Path.cwd()}")
+        print("PYTHON|SYS_PATH")
+        for item in sys.path:
+            print(f"  {item}")
+
+        origin = Path("lat_ces/security/process_security.py").resolve()
+        raw = origin.read_bytes()
+        report("ORIGIN-BYTES", origin, raw)
+        compile(raw, str(origin), "exec")
+        print("ORIGIN-COMPILE-OK")
 
         pycache = origin.parent / "__pycache__"
         if pycache.exists():
             for path in sorted(pycache.glob("process_security*.pyc")):
-                raw = path.read_bytes()
-null_count = raw.count(b"\\x00")
-                print(f"PYC|PATH={path}|SIZE={len(raw)}|SHA256={hashlib.sha256(raw).hexdigest()}|NULL_COUNT={null_count}")
-        print("PARENT-IMPORT-CONTROL")
+                raw_pyc = path.read_bytes()
+                null_count = raw_pyc.count(b"\x00")
+                print(
+                    f"PYC|PATH={path}|SIZE={len(raw_pyc)}|"
+                    f"SHA256={hashlib.sha256(raw_pyc).hexdigest()}|NULL_COUNT={null_count}"
+                )
+
+        security_dir = str(origin.parent)
+        spec = importlib.machinery.PathFinder.find_spec("process_security", [security_dir])
+        print(
+            f"PATHFINDER-SPEC|ORIGIN={getattr(spec, 'origin', None)}|"
+            f"LOADER={type(getattr(spec, 'loader', None)).__name__}"
+        )
+        if spec and spec.loader and hasattr(spec.loader, "get_source"):
+            source = spec.loader.get_source("process_security")
+            if source is not None:
+                source_bytes = source.encode("utf-8")
+                report("LOADER-SOURCE", getattr(spec, "origin", None), source_bytes)
+                compile(source, getattr(spec, "origin", str(origin)), "exec")
+                print("LOADER-SOURCE-COMPILE-OK")
+
+        original_get_data = be.SourceFileLoader.get_data
+
+        def traced_get_data(self, path):
+            data = original_get_data(self, path)
+            if str(path).endswith(".py"):
+                report("LOADER-GET-DATA", path, data)
+                try:
+                    compile(data, str(path), "exec")
+                    print(f"LOADER-DIRECT-COMPILE-OK|PATH={path}")
+                except Exception as exc:
+                    print(
+                        f"LOADER-DIRECT-COMPILE-FAIL|PATH={path}|"
+                        f"TYPE={type(exc).__name__}|MESSAGE={exc}"
+                    )
+                    raise
+            return data
+
+        be.SourceFileLoader.get_data = traced_get_data
+
+        print("ACTUAL-IMPORT-BEGIN")
         try:
-            import lat_ces.security.process_security as ps
+            ps = importlib.import_module("lat_ces.security.process_security")
             print(f"IMPORT-OK|FILE={ps.__file__}")
         except Exception as exc:
-            print(f"IMPORT-FAIL|TYPE={type(exc).__name__}|MESSAGE={exc}")
+            print(
+                f"IMPORT-FAIL|TYPE={type(exc).__name__}|MESSAGE={exc}"
+            )
             raise
+        finally:
+            be.SourceFileLoader.get_data = original_get_data
         PY
 
     - name: Pokretanje LAT-CES Verifikacijskih Testova (0001 - 0009)
