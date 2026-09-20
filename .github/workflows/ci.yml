@@ -136,8 +136,8 @@ jobs:
         if pycache.exists():
             for path in sorted(pycache.glob("process_security*.pyc")):
                 raw = path.read_bytes()
-                print(f"PYC|PATH={path}|SIZE={len(raw)}|SHA256={hashlib.sha256(raw).hexdigest()}|NULL_COUNT={raw.count(b'\\x00')}")
-
+null_count = raw.count(b"\\x00")
+                print(f"PYC|PATH={path}|SIZE={len(raw)}|SHA256={hashlib.sha256(raw).hexdigest()}|NULL_COUNT={null_count}")
         print("PARENT-IMPORT-CONTROL")
         try:
             import lat_ces.security.process_security as ps
