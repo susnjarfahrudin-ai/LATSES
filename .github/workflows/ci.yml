@@ -58,6 +58,45 @@ jobs:
         print(f"Wheel package discovery OK: {wheel.name}")
         PY
 
+    - name: Forensic raw-byte scan (source / build-lib / wheel)
+      run: |
+        python - <<'PY'
+        from hashlib import sha256
+        from pathlib import Path
+        from zipfile import ZipFile
+
+        def scan_bytes(label, path, data):
+            offsets=[]
+            start=0
+            while True:
+                pos=data.find(b"\\x00", start)
+                if pos < 0:
+                    break
+                offsets.append(pos)
+                start=pos+1
+            if offsets:
+                print(f"NULL-HIT|{label}|PATH={path}|SIZE={len(data)}|OFFSETS={offsets}|SHA256={sha256(data).hexdigest()}")
+            return bool(offsets)
+
+        hits=False
+        roots=[Path("lat_ces"), Path("build/lib/lat_ces")]
+        for root in roots:
+            if root.exists():
+                for path in sorted(root.rglob("*.py")):
+                    data=path.read_bytes()
+                    hits |= scan_bytes("source" if root.parts[0]=="lat_ces" else "build/lib", path, data)
+
+        for wheel in sorted(Path("wheel-dist").glob("*.whl")):
+            with ZipFile(wheel) as archive:
+                for name in sorted(archive.namelist()):
+                    if name.endswith(".py"):
+                        data=archive.read(name)
+                        hits |= scan_bytes("wheel", f"{wheel}!/{name}", data)
+
+        if not hits:
+            print("NULL-SCAN-CLEAN|No NUL bytes found in source, build/lib, or wheel Python payloads")
+        PY
+
     - name: SCI 1-145 structural acceptance audit
       run: |
         python tools/validate_sci_acceptance.py
