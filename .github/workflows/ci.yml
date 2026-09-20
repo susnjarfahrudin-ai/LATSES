@@ -58,6 +58,43 @@ jobs:
         print(f"Wheel package discovery OK: {wheel.name}")
         PY
 
+    - name: Forensic exact NUL-byte source/build/wheel scan
+      run: |
+        python - <<'PY'
+        import hashlib
+        from pathlib import Path
+        from zipfile import ZipFile
+
+        def inspect(label, path, raw):
+            offsets = [i for i, b in enumerate(raw) if b == 0]
+            print(
+                f"{label}|PATH={path}|SIZE={len(raw)}|"
+                f"SHA256={hashlib.sha256(raw).hexdigest()}|"
+                f"NULL_COUNT={len(offsets)}|NULL_OFFSETS={offsets[:256]}"
+            )
+            return offsets
+
+        hits = []
+        for root in (Path("lat_ces"), Path("build/lib/lat_ces")):
+            if root.exists():
+                for path in sorted(root.rglob("*.py")):
+                    raw = path.read_bytes()
+                    if inspect("SOURCE_SCAN", path, raw):
+                        hits.append(str(path))
+
+        for wheel in sorted(Path("wheel-dist").glob("*.whl")):
+            with ZipFile(wheel) as archive:
+                for name in sorted(archive.namelist()):
+                    if name.endswith(".py"):
+                        raw = archive.read(name)
+                        if inspect("WHEEL_SCAN", f"{wheel}!{name}", raw):
+                            hits.append(f"{wheel}!{name}")
+
+        if hits:
+            raise SystemExit("FORENSIC_FAIL|NUL_BYTES_FOUND")
+        print("NULL-SCAN-CLEAN|No NUL bytes found in source, build/lib, or wheel Python payloads")
+        PY
+
     - name: SCI 1-145 structural acceptance audit
       run: |
         python tools/validate_sci_acceptance.py
