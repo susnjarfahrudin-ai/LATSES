@@ -165,13 +165,32 @@ def test_recovery_record_rejects_nested_payload_mutation() -> None:
 
 
 def test_adaptive_flow_rejects_slow_drip_baseline_poisoning() -> None:
-    guard = FlowGuard({"frequency": 100.0, "volume": 100.0, "concurrency": 100.0, "novelty": 100.0})
+    """Attack contract: gradual +2% steps cannot redefine the trusted baseline."""
+    guard = FlowGuard(
+        {
+            "frequency": 100.0,
+            "volume": 100.0,
+            "concurrency": 100.0,
+            "novelty": 100.0,
+        }
+    )
     baseline = guard.baseline
     samples = [100.0 * (1.02**step) for step in range(13)]
     assert samples[-1] > 125.0
+
     decisions = []
     for sample in samples:
-        decisions.append(guard.evaluate({"frequency": sample, "volume": 100.0, "concurrency": 100.0, "novelty": 100.0}))
+        decisions.append(
+            guard.evaluate(
+                {
+                    "frequency": sample,
+                    "volume": 100.0,
+                    "concurrency": 100.0,
+                    "novelty": 100.0,
+                }
+            )
+        )
+
     assert decisions[-1].allowed is False
     assert decisions[-1].throttle == 0.0
     assert decisions[-1].max_deviation > 0.20
