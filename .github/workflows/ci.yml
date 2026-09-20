@@ -109,34 +109,42 @@ jobs:
     - name: Forensic import-source diagnosis
       run: |
         python - <<'PY'
-        import hashlib, importlib.util, sys
+        import hashlib
+        import importlib.machinery
+        import sys
         from pathlib import Path
 
         target = "lat_ces.security.process_security"
-        spec = importlib.util.find_spec(target)
-        print(f"IMPORT-SPEC|name={target}|origin={getattr(spec, 'origin', None)}|loader={type(getattr(spec, 'loader', None)).__name__}")
-        print("SYS-PATH")
-        for p in sys.path:
-            print(f"  {p}")
+        security_dir = Path("lat_ces/security").resolve()
+        origin = security_dir / "process_security.py"
+        print(f"DIRECT-PATH|{origin}")
+        data = origin.read_bytes()
+        print(f"ORIGIN-BYTES|PATH={origin}|SIZE={len(data)}|SHA256={hashlib.sha256(data).hexdigest()}|NULL_OFFSETS={[i for i,b in enumerate(data) if b == 0]}")
+        compile(data, str(origin), "exec")
+        print("ORIGIN-COMPILE-OK")
 
-        origin = Path(spec.origin) if spec and spec.origin else None
-        if origin and origin.exists():
-            data = origin.read_bytes()
-            print(f"ORIGIN-BYTES|PATH={origin}|SIZE={len(data)}|SHA256={hashlib.sha256(data).hexdigest()}|NULL_OFFSETS={[i for i,b in enumerate(data) if b == 0]}")
-            compile(data, str(origin), "exec")
-            print("ORIGIN-COMPILE-OK")
-
+        spec = importlib.machinery.PathFinder.find_spec(target, [str(security_dir)])
+        print(f"PATHFINDER-SPEC|origin={getattr(spec, 'origin', None)}|loader={type(getattr(spec, 'loader', None)).__name__}")
         if spec and spec.loader and hasattr(spec.loader, "get_source"):
             source = spec.loader.get_source(target)
             raw = source.encode("utf-8") if isinstance(source, str) else source
-            print(f"LOADER-SOURCE|TYPE={type(source).__name__}|SIZE={len(raw)}|SHA256={hashlib.sha256(raw).hexdigest()}|NULL_OFFSETS={[i for i,b in enumerate(raw) if b == 0]}")
+            print(f"PATHFINDER-SOURCE|TYPE={type(source).__name__}|SIZE={len(raw)}|SHA256={hashlib.sha256(raw).hexdigest()}|NULL_OFFSETS={[i for i,b in enumerate(raw) if b == 0]}")
             compile(source, str(origin), "exec")
-            print("LOADER-COMPILE-OK")
+            print("PATHFINDER-COMPILE-OK")
 
-        print("FORENSIC-IMPORT-TEST")
-        import lat_ces.security.process_security as ps
-        print(f"IMPORTED|FILE={ps.__file__}|SHA256={hashlib.sha256(Path(ps.__file__).read_bytes()).hexdigest()}")
-        print("FORENSIC-IMPORT-OK")
+        pycache = origin.parent / "__pycache__"
+        if pycache.exists():
+            for path in sorted(pycache.glob("process_security*.pyc")):
+                raw = path.read_bytes()
+                print(f"PYC|PATH={path}|SIZE={len(raw)}|SHA256={hashlib.sha256(raw).hexdigest()}|NULL_COUNT={raw.count(b'\\x00')}")
+
+        print("PARENT-IMPORT-CONTROL")
+        try:
+            import lat_ces.security.process_security as ps
+            print(f"IMPORT-OK|FILE={ps.__file__}")
+        except Exception as exc:
+            print(f"IMPORT-FAIL|TYPE={type(exc).__name__}|MESSAGE={exc}")
+            raise
         PY
 
     - name: Pokretanje LAT-CES Verifikacijskih Testova (0001 - 0009)
