@@ -38,10 +38,6 @@ class ReplayGuard:
                 self._seen.pop(key, None)
             if nonce in self._seen:
                 return False
-            # Active nonces must never be evicted merely to admit a new nonce:
-            # eviction would turn an accepted nonce back into an acceptable one
-            # while it is still inside the replay TTL. Capacity is therefore a
-            # monitoring/pressure threshold, not a security eviction policy.
             self._seen[nonce] = current
             return True
 
@@ -81,7 +77,7 @@ class SignedIPCChannel:
         mac = hmac.new(self._secret, _canonical(envelope), hashlib.sha256).hexdigest()
         return _canonical({"envelope": envelope, "mac": mac})
 
-    def unpack(self, packet: bytes) -> dict[str, Any]:
+    def unpack(self, packet: bytes, *, expected_sender_id: str | None = None) -> dict[str, Any]:
         try:
             outer = json.loads(packet.decode("utf-8"))
             envelope = outer["envelope"]
@@ -91,6 +87,8 @@ class SignedIPCChannel:
             expected = hmac.new(self._secret, _canonical(envelope), hashlib.sha256).hexdigest()
             if not hmac.compare_digest(received, expected):
                 raise SecurityError("IPC authentication failed")
+            if expected_sender_id is not None and envelope["sender_id"] != expected_sender_id:
+                raise SecurityError("IPC sender identity mismatch")
             now = time.time()
             timestamp = float(envelope["timestamp"])
             if not math.isfinite(timestamp):
