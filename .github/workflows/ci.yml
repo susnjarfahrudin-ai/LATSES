@@ -62,6 +62,35 @@ jobs:
         pip install -e .
         pip install pytest build
 
+    - name: Forensic post-install and post-build byte-identity probes
+      shell: bash
+      run: |
+        set -euo pipefail
+        check_source() {
+          local path="$1"
+          local stage="$2"
+          local blob_id object_sha256 worktree_sha256 worktree_blob_id
+          blob_id="$(git rev-parse "HEAD:$path")"
+          object_sha256="$(git cat-file blob "$blob_id" | sha256sum | cut -d' ' -f1)"
+          worktree_sha256="$(sha256sum "$path" | cut -d' ' -f1)"
+          worktree_blob_id="$(git hash-object "$path")"
+          echo "FORENSIC_STAGE=$stage|PATH=$path|BLOB_ID=$blob_id|GIT_OBJECT_SHA256=$object_sha256|WORKTREE_SHA256=$worktree_sha256|WORKTREE_BLOB_ID=$worktree_blob_id"
+          if [[ "$blob_id" != "$worktree_blob_id" || "$object_sha256" != "$worktree_sha256" ]]; then
+            echo "FORENSIC_FAIL|POST_STEP_WORKTREE_MISMATCH|STAGE=$stage|PATH=$path"
+            python - <<PY
+from pathlib import Path
+p=Path("$path")
+b=p.read_bytes()
+o=[i for i,x in enumerate(b) if x==0]
+print(f"NULL_COUNT={len(o)}|NULL_OFFSETS={o[:64]}|SIZE={len(b)}")
+PY
+            exit 1
+          fi
+        }
+        check_source lat_ces/security/process_security.py AFTER_PIP_INSTALL
+        check_source lat_ces/security/secure_ipc.py AFTER_PIP_INSTALL
+        check_source lat_ces/audit_log.py AFTER_PIP_INSTALL
+
     - name: Provjera wheel package discovery
       run: |
         python -m build --wheel --outdir wheel-dist
@@ -88,6 +117,29 @@ jobs:
         if missing:
             raise SystemExit(f"Wheel is missing expected LAT-CES modules: {missing}")
         print(f"Wheel package discovery OK: {wheel.name}")
+        PY
+
+    - name: Forensic post-wheel source and payload byte-identity probe
+      shell: bash
+      run: |
+        set -euo pipefail
+        for path in lat_ces/security/process_security.py lat_ces/security/secure_ipc.py lat_ces/audit_log.py; do
+          blob_id="$(git rev-parse "HEAD:$path")"
+          worktree_blob_id="$(git hash-object "$path")"
+          worktree_sha256="$(sha256sum "$path" | cut -d' ' -f1)"
+          object_sha256="$(git cat-file blob "$blob_id" | sha256sum | cut -d' ' -f1)"
+          echo "FORENSIC_STAGE=AFTER_WHEEL|PATH=$path|BLOB_ID=$blob_id|GIT_OBJECT_SHA256=$object_sha256|WORKTREE_SHA256=$worktree_sha256|WORKTREE_BLOB_ID=$worktree_blob_id"
+          if [[ "$blob_id" != "$worktree_blob_id" || "$object_sha256" != "$worktree_sha256" ]]; then
+            echo "FORENSIC_FAIL|POST_WHEEL_WORKTREE_MISMATCH|PATH=$path"
+            python - <<PY
+from pathlib import Path
+p=Path("$path"); b=p.read_bytes(); o=[i for i,x in enumerate(b) if x==0]
+print(f"NULL_COUNT={len(o)}|NULL_OFFSETS={o[:64]}|SIZE={len(b)}")
+PY
+            exit 1
+          fi
+        done
+        echo "FORENSIC_PASS|POST_WHEEL_SOURCE_STILL_IDENTICAL"
         PY
 
     - name: SCI 1-145 structural acceptance audit
