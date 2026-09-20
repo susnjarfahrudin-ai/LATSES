@@ -26,45 +26,49 @@ class MemorySecretStore:
 def test_fortress_routes_authenticated_request_through_boundary() -> None:
     channel = SignedIPCChannel(b"shared-secret")
     fortress = CyberFortress(channel)
-    packet = channel.pack({"operation": "read"}, sender_id="trusted")
+    sender = "10.0.0.8:5000"
+    packet = channel.pack({"operation": "read"}, sender_id=sender)
 
-    assert fortress.admit("10.0.0.8", now=100.0).allowed
-    assert fortress.receive("10.0.0.8", packet, now=100.0) == {"operation": "read"}
+    assert fortress.admit(sender, now=100.0).allowed
+    assert fortress.receive(sender, packet, now=100.0) == {"operation": "read"}
 
 
 def test_fortress_rejects_unauthenticated_ipc_and_records_threat() -> None:
     channel = SignedIPCChannel(b"shared-secret")
     fortress = CyberFortress(channel)
-    packet = channel.pack({"operation": "read"}, sender_id="trusted")
+    sender = "10.0.0.9:5000"
+    packet = channel.pack({"operation": "read"}, sender_id=sender)
     forged = json.loads(packet.decode("utf-8"))
     forged["mac"] = "0" * 64
     forged_packet = json.dumps(forged, separators=(",", ":")).encode("utf-8")
 
     with pytest.raises(SecurityError):
-        fortress.receive("10.0.0.9", forged_packet, now=100.0)
-    assert fortress.threat.score("10.0.0.9", now=100.0) >= 25.0
+        fortress.receive(sender, forged_packet, now=100.0)
+    assert fortress.threat.score(sender, now=100.0) >= 25.0
 
 
 def test_fortress_rate_limit_is_before_ipc() -> None:
     channel = SignedIPCChannel(b"shared-secret")
     limiter = TokenBucketRateLimiter(capacity=1.0, refill_per_second=1.0)
     fortress = CyberFortress(channel, rate_limiter=limiter)
-    packet = channel.pack({"operation": "read"}, sender_id="trusted")
+    sender = "10.0.0.10:5000"
+    packet = channel.pack({"operation": "read"}, sender_id=sender)
 
-    assert fortress.receive("10.0.0.10", packet, now=100.0) == {"operation": "read"}
+    assert fortress.receive(sender, packet, now=100.0) == {"operation": "read"}
     with pytest.raises(SecurityError, match="rate-limited"):
-        fortress.receive("10.0.0.10", packet, now=100.0)
+        fortress.receive(sender, packet, now=100.0)
 
 
 def test_threat_policy_blocks_before_ipc() -> None:
     channel = SignedIPCChannel(b"shared-secret")
     engine = ThreatScoreEngine(ThreatScorePolicy(block_threshold=20.0))
     fortress = CyberFortress(channel, threat_engine=engine)
-    engine.record("10.0.0.11", 20.0, now=100.0)
-    packet = channel.pack({"operation": "read"}, sender_id="trusted")
+    sender = "10.0.0.11:5000"
+    engine.record(sender, 20.0, now=100.0)
+    packet = channel.pack({"operation": "read"}, sender_id=sender)
 
     with pytest.raises(SecurityError, match="threat-blocked"):
-        fortress.receive("10.0.0.11", packet, now=100.0)
+        fortress.receive(sender, packet, now=100.0)
 
 
 def test_replay_guard_capacity_attack_is_caught_by_unified_suite() -> None:
@@ -111,7 +115,9 @@ def test_keyring_initialization_and_rotation_keep_versioned_keys() -> None:
 
 
 def test_process_identity_has_stable_pid_and_start_fingerprint() -> None:
-    identity = current_process_identity()
+    identity = current_process_identity(port=5000)
     assert identity.pid > 0
     assert identity.kernel_start_token
+    assert identity.port == 5000
+    assert identity.endpoint.endswith(":5000")
     assert identity.fingerprint.startswith(f"{identity.pid}:")
