@@ -24,8 +24,41 @@ class ThreatScorePolicy:
         normalized = tuple(str(ipaddress.ip_network(item, strict=False)) for item in self.whitelist)
         object.__setattr__(self, "whitelist", normalized)
 
+    @staticmethod
+    def _extract_ip(address: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+        """Return the IP component of an ingress identity, when it is one.
+
+        Security state is keyed by the original identity string, but the
+        network whitelist is an IP-only policy. Accepted forms are bare IPv4,
+        bare IPv6, IPv4:port, and [IPv6]:port. Non-IP identities are simply
+        not whitelistable rather than being treated as malformed requests.
+        """
+        if not isinstance(address, str) or not address:
+            return None
+
+        candidate = address
+        if address.startswith("["):
+            close = address.find("]")
+            if close <= 1:
+                return None
+            candidate = address[1:close]
+            suffix = address[close + 1 :]
+            if suffix and (not suffix.startswith(":") or not suffix[1:].isdigit()):
+                return None
+        elif address.count(":") == 1:
+            host, port = address.rsplit(":", 1)
+            if host and port.isdigit():
+                candidate = host
+
+        try:
+            return ipaddress.ip_address(candidate)
+        except ValueError:
+            return None
+
     def is_whitelisted(self, address: str) -> bool:
-        ip = ipaddress.ip_address(address)
+        ip = self._extract_ip(address)
+        if ip is None:
+            return False
         return any(ip in ipaddress.ip_network(network) for network in self.whitelist)
 
 
