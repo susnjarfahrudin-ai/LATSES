@@ -140,7 +140,6 @@ PY
           fi
         done
         echo "FORENSIC_PASS|POST_WHEEL_SOURCE_STILL_IDENTICAL"
-        PY
 
     - name: SCI 1-145 structural acceptance audit
       run: |
