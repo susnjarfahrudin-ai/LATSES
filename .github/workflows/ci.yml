@@ -78,12 +78,12 @@ jobs:
           if [[ "$blob_id" != "$worktree_blob_id" || "$object_sha256" != "$worktree_sha256" ]]; then
             echo "FORENSIC_FAIL|POST_STEP_WORKTREE_MISMATCH|STAGE=$stage|PATH=$path"
             python - <<PY
-from pathlib import Path
-p=Path("$path")
-b=p.read_bytes()
-o=[i for i,x in enumerate(b) if x==0]
-print(f"NULL_COUNT={len(o)}|NULL_OFFSETS={o[:64]}|SIZE={len(b)}")
-PY
+        from pathlib import Path
+        p=Path("$path")
+        b=p.read_bytes()
+        o=[i for i,x in enumerate(b) if x==0]
+        print(f"NULL_COUNT={len(o)}|NULL_OFFSETS={o[:64]}|SIZE={len(b)}")
+        PY
             exit 1
           fi
         }
@@ -132,10 +132,10 @@ PY
           if [[ "$blob_id" != "$worktree_blob_id" || "$object_sha256" != "$worktree_sha256" ]]; then
             echo "FORENSIC_FAIL|POST_WHEEL_WORKTREE_MISMATCH|PATH=$path"
             python - <<PY
-from pathlib import Path
-p=Path("$path"); b=p.read_bytes(); o=[i for i,x in enumerate(b) if x==0]
-print(f"NULL_COUNT={len(o)}|NULL_OFFSETS={o[:64]}|SIZE={len(b)}")
-PY
+        from pathlib import Path
+        p=Path("$path"); b=p.read_bytes(); o=[i for i,x in enumerate(b) if x==0]
+        print(f"NULL_COUNT={len(o)}|NULL_OFFSETS={o[:64]}|SIZE={len(b)}")
+        PY
             exit 1
           fi
         done
