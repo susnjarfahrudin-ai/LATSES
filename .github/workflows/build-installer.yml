@@ -44,6 +44,52 @@ jobs:
           python -c "from lat_ces.gui_dashboard import ProjectOverviewApp; print('LAT-CES project overview import OK')"
           python -c "from lat_ces.gui_product_dashboard import ProductBuildingWorkspaceApp; print('LAT-CES product binding workspace import OK')"
           python -c "from lat_ces.gui_product_engineering_dashboard import ProductEngineeringWorkspaceApp; print('LAT-CES product engineering workspace import OK')"
+
+      - name: FORENSIC Windows raw-byte check before pytest
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          import hashlib
+          import subprocess
+
+          path = Path("tests/test_fuzz_ipc.py")
+          working = path.read_bytes()
+          blob = subprocess.check_output(
+              ["git", "cat-file", "blob", "HEAD:tests/test_fuzz_ipc.py"]
+          )
+          tree_sha = subprocess.check_output(
+              ["git", "rev-parse", "HEAD:tests/test_fuzz_ipc.py"], text=True
+          ).strip()
+          worktree_sha = subprocess.check_output(
+              ["git", "hash-object", "tests/test_fuzz_ipc.py"], text=True
+          ).strip()
+
+          print(f"FORENSIC|TREE_BLOB_SHA={tree_sha}")
+          print(f"FORENSIC|WORKTREE_GIT_SHA={worktree_sha}")
+          print(f"FORENSIC|WORKTREE_SIZE={len(working)}")
+          print(f"FORENSIC|BLOB_SIZE={len(blob)}")
+          print(f"FORENSIC|WORKTREE_SHA256={hashlib.sha256(working).hexdigest()}")
+          print(f"FORENSIC|BLOB_SHA256={hashlib.sha256(blob).hexdigest()}")
+          print(f"FORENSIC|WORKTREE_NUL={working.count(bytes([0]))}")
+          print(f"FORENSIC|BLOB_NUL={blob.count(bytes([0]))}")
+          print(f"FORENSIC|WORKTREE_FF={working.count(bytes([255]))}")
+          print(f"FORENSIC|BLOB_FF={blob.count(bytes([255]))}")
+          print(f"FORENSIC|WORKTREE_FE={working.count(bytes([254]))}")
+          print(f"FORENSIC|BLOB_FE={blob.count(bytes([254]))}")
+          print(f"FORENSIC|BYTE_EQUAL={working == blob}")
+          print(f"FORENSIC|WORKTREE_FIRST64={working[:64].hex(' ')}")
+          print(f"FORENSIC|BLOB_FIRST64={blob[:64].hex(' ')}")
+          '@ | python -
+
+          Write-Host '--- GIT EOL / ATTRIBUTE STATE ---'
+          git ls-files --eol -- tests/test_fuzz_ipc.py
+          git config --show-origin --get-regexp 'core.(autocrlf|eol)' || $true
+          Write-Host '--- END GIT EOL / ATTRIBUTE STATE ---'
+
+      - name: Run pytest
+        shell: pwsh
+        run: |
           pytest -q
 
       - name: Build GUI executable
@@ -59,13 +105,13 @@ jobs:
             'lat_ces/gui_product_engineering_dashboard.py'
           )
           & pyinstaller @pyinstallerArgs
-          if (!(Test-Path '.\dist\LATSES.exe')) { throw 'LATSES.exe was not created' }
-          if ((Get-Item '.\dist\LATSES.exe').Length -lt 1000000) { throw 'LATSES.exe is unexpectedly small' }
+          if (!(Test-Path '.\\dist\\LATSES.exe')) { throw 'LATSES.exe was not created' }
+          if ((Get-Item '.\\dist\\LATSES.exe').Length -lt 1000000) { throw 'LATSES.exe is unexpectedly small' }
 
       - name: Smoke test packaged executable
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath '.\dist\LATSES.exe' -PassThru -WindowStyle Hidden
+          $p = Start-Process -FilePath '.\\dist\\LATSES.exe' -PassThru -WindowStyle Hidden
           Start-Sleep -Seconds 3
           if ($p.HasExited -and $p.ExitCode -ne 0) { throw "LATSES.exe exited with code $($p.ExitCode)" }
           if (!$p.HasExited) { Stop-Process -Id $p.Id -Force }
@@ -83,7 +129,7 @@ jobs:
             'lat_ces/gui_product_engineering_dashboard.py'
           )
           & pyinstaller @pyinstallerArgs
-          if (!(Test-Path '.\dist\LATCES-Acceptance-Diagnostic.exe')) { throw 'LATCES-Acceptance-Diagnostic.exe was not created' }
+          if (!(Test-Path '.\\dist\\LATCES-Acceptance-Diagnostic.exe')) { throw 'LATCES-Acceptance-Diagnostic.exe was not created' }
 
       - name: GUI visual acceptance sequence
         shell: pwsh
@@ -92,7 +138,7 @@ jobs:
           $log = Join-Path $env:GITHUB_WORKSPACE 'acceptance.log'
           $err = Join-Path $env:GITHUB_WORKSPACE 'acceptance-error.log'
           Remove-Item $log,$err -ErrorAction SilentlyContinue
-          $p = Start-Process -FilePath '.\dist\LATCES-Acceptance-Diagnostic.exe' -PassThru -WindowStyle Hidden -RedirectStandardOutput $log -RedirectStandardError $err
+          $p = Start-Process -FilePath '.\\dist\\LATCES-Acceptance-Diagnostic.exe' -PassThru -WindowStyle Hidden -RedirectStandardOutput $log -RedirectStandardError $err
           $deadline = (Get-Date).AddSeconds(90)
           while (-not $p.HasExited -and (Get-Date) -lt $deadline) {
             Start-Sleep -Milliseconds 500
@@ -131,32 +177,32 @@ jobs:
           if ($iscc) { $isccPath = $iscc.Source }
           if (-not $isccPath) {
             $candidates = @(
-              "$env:ChocolateyToolsLocation\innosetup\tools\ISCC.exe",
-              "$env:ChocolateyInstall\bin\ISCC.exe",
-              "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
-              "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+              "$env:ChocolateyToolsLocation\\innosetup\\tools\\ISCC.exe",
+              "$env:ChocolateyInstall\\bin\\ISCC.exe",
+              "$env:ProgramFiles\\Inno Setup 6\\ISCC.exe",
+              "${env:ProgramFiles(x86)}\\Inno Setup 6\\ISCC.exe"
             )
             $isccPath = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
           }
           if (-not $isccPath) {
-            $isccPath = Get-ChildItem 'C:\ProgramData\chocolatey\lib\innosetup' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
+            $isccPath = Get-ChildItem 'C:\\ProgramData\\chocolatey\\lib\\innosetup' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
           }
           if (-not $isccPath) { throw 'Inno Setup compiler ISCC.exe not found' }
-          & $isccPath 'installer\LATSES.iss'
+          & $isccPath 'installer\\LATSES.iss'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (!(Test-Path '.\installer-output\LAT-CES-Setup.exe')) {
-            if (Test-Path '.\installer\installer-output\LAT-CES-Setup.exe') {
+          if (!(Test-Path '.\\installer-output\\LAT-CES-Setup.exe')) {
+            if (Test-Path '.\\installer\\installer-output\\LAT-CES-Setup.exe') {
               New-Item -ItemType Directory -Force -Path 'installer-output' | Out-Null
-              Copy-Item '.\installer\installer-output\LAT-CES-Setup.exe' '.\installer-output\LAT-CES-Setup.exe'
+              Copy-Item '.\\installer\\installer-output\\LAT-CES-Setup.exe' '.\\installer-output\\LAT-CES-Setup.exe'
             } else { throw 'LAT-CES-Setup.exe was not created' }
           }
 
       - name: Smoke test installer artifact
         shell: pwsh
         run: |
-          $size = (Get-Item '.\installer-output\LAT-CES-Setup.exe').Length
+          $size = (Get-Item '.\\installer-output\\LAT-CES-Setup.exe').Length
           if ($size -lt 1000000) { throw "Installer unexpectedly small: $size bytes" }
-          Get-FileHash '.\installer-output\LAT-CES-Setup.exe' -Algorithm SHA256 | Format-List
+          Get-FileHash '.\\installer-output\\LAT-CES-Setup.exe' -Algorithm SHA256 | Format-List
 
       - name: Upload standard installer
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
