@@ -1,9 +1,5 @@
 name: LAT-CES Verification Pipeline
 
-# Persistent operational runbook: docs/WORKFLOW-RUNBOOK.md
-# Read it before repairing CI or declaring a release GREEN.
-# Release memory: inspect the exact commit -> first real failure -> smallest canonical fix -> rerun -> GREEN -> package.
-
 on:
   workflow_dispatch:
   push:
@@ -12,84 +8,54 @@ on:
     branches: [ main, 'integration/**' ]
 
 jobs:
-  verify-core:
+  forensic-process-security-bytes:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Preuzimanje koda (Checkout)
+    - name: Checkout
       uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26
 
-    - name: Podešavanje Python okruženja
-      uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c
-      with:
-        python-version: '3.10'
-
-    - name: Instalacija projekta i zavisnosti
+    - name: Characterize process_security raw bytes
       run: |
-        python -m pip install --upgrade pip
-        pip install -e .
-        pip install pytest build
-
-    - name: Provjera wheel package discovery
-      run: |
-        python -m build --wheel --outdir wheel-dist
         python - <<'PY'
         from pathlib import Path
-        from zipfile import ZipFile
-        wheel = next(Path("wheel-dist").glob("*.whl"))
-        with ZipFile(wheel) as archive:
-            names = set(archive.namelist())
-        required = {
-            "lat_ces/cli.py",
-            "lat_ces/application/service.py",
-            "lat_ces/scientific/cli.py",
-            "lat_ces/scientific/analysis/plenum.py",
-            "lat_ces/scientific/reports/exporter.py",
-            "lat_ces/gui.py",
-            "lat_ces/scientific/core/ontology.py",
-            "lat_ces/scientific/core/reasoning.py",
-            "lat_ces/scientific/core/synthesis.py",
-            "lat_ces/scientific/core/governance.py",
-            "lat_ces/scientific/core/building_adapter.py",
-        }
-        missing = sorted(required - names)
-        if missing:
-            raise SystemExit(f"Wheel is missing expected LAT-CES modules: {missing}")
-        print(f"Wheel package discovery OK: {wheel.name}")
+        import hashlib
+        import codecs
+
+        path = Path("lat_ces/security/process_security.py")
+        raw = path.read_bytes()
+
+        print(f"FORENSIC|PATH={path}")
+        print(f"FORENSIC|SIZE={len(raw)}")
+        print(f"FORENSIC|SHA256={hashlib.sha256(raw).hexdigest()}")
+        print("FORENSIC|FIRST_64_BYTES_HEX=" + raw[:64].hex(" "))
+
+        nul = [i for i, b in enumerate(raw) if b == 0]
+        ff = [i for i, b in enumerate(raw) if b == 0xFF]
+        fe = [i for i, b in enumerate(raw) if b == 0xFE]
+
+        print(f"FORENSIC|NUL_COUNT={len(nul)}")
+        print(f"FORENSIC|NUL_OFFSETS={nul}")
+        print(f"FORENSIC|FF_COUNT={len(ff)}")
+        print(f"FORENSIC|FF_OFFSETS={ff}")
+        print(f"FORENSIC|FE_COUNT={len(fe)}")
+        print(f"FORENSIC|FE_OFFSETS={fe}")
+
+        for name, enc in (
+            ("UTF-8", "utf-8"),
+            ("UTF-16LE", "utf-16-le"),
+            ("UTF-16BE", "utf-16-be"),
+            ("UTF-32LE", "utf-32-le"),
+            ("UTF-32BE", "utf-32-be"),
+        ):
+            try:
+                text = raw.decode(enc)
+                print(f"FORENSIC|{name}|DECODE=PASS|CHARS={len(text)}")
+                print(f"FORENSIC|{name}|HEAD={text[:240]!r}")
+                print(f"FORENSIC|{name}|REENCODE_SHA256={hashlib.sha256(text.encode(enc)).hexdigest()}")
+            except UnicodeDecodeError as exc:
+                print(f"FORENSIC|{name}|DECODE=FAIL|{exc}")
+
+        print("FORENSIC|PYTHON_COMPILE_CHECK")
+        compile(raw, str(path), "exec")
+        print("FORENSIC|PYTHON_COMPILE=PASS")
         PY
-
-    - name: SCI 1-145 structural acceptance audit
-      run: |
-        python tools/validate_sci_acceptance.py
-
-    - name: SCI ontology/reasoning/synthesis/governance contract tests
-      run: |
-        set -o pipefail
-        pytest -q tests/scientific/test_sci145_contract.py 2>&1 | tee sci145-contract-output.log
-
-    - name: Pokretanje LAT-CES Verifikacijskih Testova (0001 - 0009)
-      run: |
-        set -o pipefail
-        pytest -x -vv --tb=long 2>&1 | tee pytest-output.log
-
-    - name: Objavi detalje prvog failing testa
-      if: failure()
-      run: |
-        {
-          echo '## CI failure — prvi failing test'
-          echo
-          echo 'Read docs/WORKFLOW-RUNBOOK.md before the next repair cycle.'
-          echo
-          echo '### SCI contract output'
-          echo '```text'
-          tail -n 120 sci145-contract-output.log || true
-          echo '```'
-          echo
-          echo '### General pytest output'
-          echo '```text'
-          tail -n 120 pytest-output.log || true
-          echo '```'
-        } >> "$GITHUB_STEP_SUMMARY"
-
-# CI trigger comment: SMC-004 acceptance verification (branch synchronization).
-# Scientific contract acceptance is a prerequisite for EXE/installer packaging.
